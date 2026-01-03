@@ -172,18 +172,10 @@ public class AuthController : ControllerBase
             else
             {
                 // New user - register with Google
-                // Require tenant info for new registrations
-                if (string.IsNullOrEmpty(request.TenantName))
-                {
-                    return BadRequest(new ApiResponse<GoogleAuthResponse>(
-                        false, null, "Organization name is required for new registrations"
-                    ));
-                }
-
-                // Create tenant
+                // Create a placeholder tenant (will be completed in onboarding)
                 var tenant = new Tenant
                 {
-                    Name = request.TenantName,
+                    Name = request.TenantName ?? $"{payload.Name ?? "My"}'s Organization",
                     Country = request.Country ?? "SA",
                     Currency = request.Currency ?? "SAR",
                     Language = Language.En

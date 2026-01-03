@@ -240,9 +240,8 @@ declare const google: any;
               />
             </div>
 
-            <!-- Password Field (hidden for Google signup) -->
-            @if (!googleCredential()) {
-              <div class="form-group">
+            <!-- Password Field -->
+            <div class="form-group">
                 <div class="label-row">
                   <label for="password" class="form-label">Password</label>
                   @if (isLogin()) {
@@ -315,7 +314,6 @@ declare const google: any;
                   </div>
                 }
               </div>
-            }
 
             <!-- Registration: Country & Currency -->
             @if (!isLogin()) {
@@ -967,7 +965,6 @@ export class AuthComponent implements OnInit, OnDestroy {
    */
   readonly isPasswordValid = computed(() => {
     if (this.isLogin()) return this.password().length > 0;
-    if (this.googleCredential()) return true; // Google signup doesn't need password
     const checks = this.passwordChecks();
     return checks.minLength && checks.hasUppercase && checks.hasLowercase && checks.hasNumber;
   });
@@ -980,18 +977,7 @@ export class AuthComponent implements OnInit, OnDestroy {
       return !!(this.email() && this.password());
     }
     
-    // For Google signup, password is not required
-    if (this.googleCredential()) {
-      return !!(
-        this.name() && 
-        this.email() && 
-        this.pharmacyName() && 
-        this.country() && 
-        this.currency()
-      );
-    }
-    
-    // Regular signup requires password
+    // Signup requires all fields including valid password
     return !!(
       this.name() && 
       this.email() && 
@@ -1091,17 +1077,14 @@ export class AuthComponent implements OnInit, OnDestroy {
 
   /**
    * Handle Google credential callback (One Tap / popup credential response)
+   * Goes directly to backend - new users go to onboarding, existing users go to dashboard
    */
   private handleGoogleCallback(response: any): void {
     if (response.credential) {
       this.ngZone.run(() => {
-        // For login mode, authenticate directly with backend
-        if (this.isLogin()) {
-          this.authenticateWithGoogle(response.credential, null, null, null);
-        } else {
-          // For signup mode, also try directly - backend will tell us if we need org details
-          this.authenticateWithGoogle(response.credential, null, null, null);
-        }
+        // Always authenticate directly with backend
+        // Backend creates user/tenant automatically, frontend handles navigation
+        this.authenticateWithGoogle(response.credential);
       });
     } else {
       this.ngZone.run(() => {
@@ -1143,43 +1126,19 @@ export class AuthComponent implements OnInit, OnDestroy {
 
   /**
    * Authenticate with Google via backend
+   * New users are automatically created and go to onboarding
+   * Existing users go directly to dashboard
    */
-  private authenticateWithGoogle(
-    credential: string, 
-    tenantName: string | null, 
-    country: string | null, 
-    currency: string | null
-  ): void {
-    this.auth.googleAuth({
-      credential,
-      tenantName: tenantName || undefined,
-      country: country || undefined,
-      currency: currency || undefined
-    }).subscribe({
+  private authenticateWithGoogle(credential: string): void {
+    this.auth.googleAuth({ credential }).subscribe({
       next: () => {
         this.googleLoading.set(false);
         this.googleCredential.set(null);
-        // Navigate based on whether user is new
+        // Navigate based on whether user is new (handled by auth service)
         this.auth.navigateAfterAuth();
       },
-      error: (err) => {
+      error: () => {
         this.googleLoading.set(false);
-        
-        // If error is about missing tenant, switch to signup mode and show form
-        if (err.message?.includes('Organization name') || err.message?.includes('required')) {
-          // Decode credential to get user info
-          try {
-            const payload = JSON.parse(atob(credential.split('.')[1]));
-            this.email.set(payload.email || '');
-            this.name.set(payload.name || '');
-            this.googleCredential.set(credential);
-            this.isLogin.set(false);
-            this.successMessage.set('Please complete your organization details to create your account.');
-            setTimeout(() => this.successMessage.set(null), 5000);
-          } catch {
-            // Ignore decode errors
-          }
-        }
       }
     });
   }
@@ -1229,22 +1188,6 @@ export class AuthComponent implements OnInit, OnDestroy {
   }
 
   private register(): void {
-    // If we have a Google credential, use Google auth
-    if (this.googleCredential()) {
-      this.auth.googleAuth({
-        credential: this.googleCredential()!,
-        tenantName: this.pharmacyName().trim(),
-        country: this.country(),
-        currency: this.currency()
-      }).subscribe({
-        next: () => {
-          this.googleCredential.set(null);
-          this.auth.navigateAfterAuth();
-        }
-      });
-      return;
-    }
-
     // Regular email/password registration
     this.auth.register({
       name: this.name().trim(),
