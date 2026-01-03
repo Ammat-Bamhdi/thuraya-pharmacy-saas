@@ -8,6 +8,7 @@
 import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { StoreService, ViewState } from '@core/services/store.service';
+import { AuthService } from '@core/services/auth.service';
 import { IconComponent } from '@shared/components/icons/icons.component';
 
 /**
@@ -63,7 +64,8 @@ import { IconComponent } from '@shared/components/icons/icons.component';
   `]
 })
 export class SidebarComponent {
-  store = inject(StoreService);
+  readonly store = inject(StoreService);
+  private readonly auth = inject(AuthService);
   
   // Track open state locally
   expandedGroups = signal<Record<string, boolean>>({
@@ -104,5 +106,9 @@ export class SidebarComponent {
 
   setView(view: ViewState) {
     this.store.setView(view);
+  }
+
+  logout(): void {
+    this.auth.logout();
   }
 }

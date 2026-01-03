@@ -5,7 +5,7 @@
  * @updated 2026-01-03
  */
 
-import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 // Layout
@@ -13,8 +13,10 @@ import { SidebarComponent } from '@layout/sidebar/sidebar.component';
 
 // Core
 import { StoreService } from '@core/services/store.service';
+import { AuthService } from '@core/services/auth.service';
 
 // Features
+import { AuthComponent } from '@features/auth/auth.component';
 import { DashboardComponent } from '@features/dashboard/dashboard.component';
 import { InventoryComponent } from '@features/inventory/inventory.component';
 import { POSComponent } from '@features/pos/pos.component';
@@ -53,6 +55,7 @@ import { FinanceComponent } from '@features/finance/finance.component';
     // Layout
     SidebarComponent,
     // Features
+    AuthComponent,
     DashboardComponent,
     InventoryComponent,
     POSComponent,
@@ -64,8 +67,12 @@ import { FinanceComponent } from '@features/finance/finance.component';
     FinanceComponent
   ],
   template: `
+    <!-- Auth Screen -->
+    @if (store.currentView() === 'auth') {
+      <app-auth></app-auth>
+    }
     <!-- Onboarding Full Screen Overlay -->
-    @if (store.currentView() === 'onboarding') {
+    @else if (store.currentView() === 'onboarding') {
       <app-onboarding></app-onboarding>
     } @else {
       <div class="flex h-screen w-screen p-4 gap-4 overflow-hidden animate-fade-in">
@@ -114,7 +121,13 @@ import { FinanceComponent } from '@features/finance/finance.component';
     }
   `]
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   protected readonly store = inject(StoreService);
+  private readonly auth = inject(AuthService);
+
+  ngOnInit(): void {
+    // Check authentication state on app load
+    this.auth.checkAuthState();
+  }
 }
 

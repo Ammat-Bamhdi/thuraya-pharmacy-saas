@@ -3,6 +3,7 @@
  * Domain models and interfaces
  */
 
+export * from './auth.model';
 export * from './branch.model';
 export * from './finance.model';
 export * from './procurement.model';

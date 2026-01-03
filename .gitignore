@@ -8,6 +8,12 @@ dist/
 tmp/
 out-tsc/
 
+# .NET Build outputs
+backend/**/bin/
+backend/**/obj/
+backend/.vs/
+*.user
+
 # IDE
 .idea/
 .vscode/

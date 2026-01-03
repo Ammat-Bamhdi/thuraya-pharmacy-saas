@@ -204,6 +204,7 @@ export interface Expense {
 
 // Expanded ViewState for Sidebar Sub-Navigation
 export type ViewState = 
+  | 'auth'
   | 'onboarding' 
   | 'dashboard' 
   | 'inventory' 
@@ -224,7 +225,7 @@ export type ViewState =
   providedIn: 'root'
 })
 export class StoreService {
-  currentView = signal<ViewState>('onboarding'); 
+  currentView = signal<ViewState>('auth'); 
 
   // --- Multi-Tenancy Data ---
   tenant = signal<Tenant | null>(null);
@@ -425,6 +426,21 @@ export class StoreService {
   inviteUser(email: string, role: Role, branchId?: string, sectionId?: string) {
     const newUser: User = { id: 'u_' + Math.random().toString(36).substr(2, 9), name: email.split('@')[0], email, role, branchId, sectionId, status: 'invited', avatar: `https://picsum.photos/seed/${Math.random()}/32/32` };
     this.users.update(u => [...u, newUser]);
+  }
+
+  // Auth Actions
+  updateCurrentUser(user: User) {
+    this.currentUser.set(user);
+    // Also update in users array if exists
+    this.users.update(users => {
+      const idx = users.findIndex(u => u.id === user.id);
+      if (idx >= 0) {
+        const updated = [...users];
+        updated[idx] = user;
+        return updated;
+      }
+      return [...users, user];
+    });
   }
 
   // Inventory Actions

@@ -1,32 +1,45 @@
-import { HttpInterceptorFn, HttpErrorResponse } from '@angular/common/http';
-import { catchError, throwError } from 'rxjs';
+import { HttpInterceptorFn, HttpErrorResponse, HttpRequest, HttpHandlerFn } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { catchError, throwError, switchMap, take } from 'rxjs';
+import { AuthService } from '../services/auth.service';
+import { StoreService } from '../services/store.service';
+
+const TOKEN_KEY = 'thurayya_access_token';
 
 /**
- * Modern functional HTTP interceptor for Angular 21
- * Adds authentication tokens and handles global errors
+ * JWT Authentication interceptor
+ * Adds Bearer token to API requests and handles 401 responses
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  // Add authentication token if available
-  const token = localStorage.getItem('auth_token');
+  // Skip auth header for auth endpoints
+  if (req.url.includes('/auth/')) {
+    return next(req);
+  }
+
+  const token = localStorage.getItem(TOKEN_KEY);
   
   let authReq = req;
   if (token) {
     authReq = req.clone({
       setHeaders: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${token}`
       }
     });
   }
 
   return next(authReq).pipe(
     catchError((error: HttpErrorResponse) => {
-      // Global error handling
       if (error.status === 401) {
-        // Handle unauthorized - redirect to login
-        console.error('Unauthorized request - redirect to login');
-        localStorage.removeItem('auth_token');
-        // You can inject Router here if needed
+        // Token expired - try refresh
+        const refreshToken = localStorage.getItem('thurayya_refresh_token');
+        
+        if (refreshToken) {
+          // Attempt token refresh
+          return handleTokenRefresh(authReq, next);
+        } else {
+          // No refresh token - logout
+          handleLogout();
+        }
       }
       
       return throwError(() => error);
@@ -35,37 +48,75 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 };
 
 /**
- * Logging interceptor for development
+ * Handle token refresh and retry request
  */
-export const loggingInterceptor: HttpInterceptorFn = (req, next) => {
-  const startTime = Date.now();
+function handleTokenRefresh(req: HttpRequest<unknown>, next: HttpHandlerFn) {
+  const authService = inject(AuthService);
   
-  console.log(`🔄 HTTP ${req.method} Request:`, req.url);
-  
-  return next(req).pipe(
+  return authService.refreshToken().pipe(
+    take(1),
+    switchMap(() => {
+      const newToken = localStorage.getItem(TOKEN_KEY);
+      const retryReq = req.clone({
+        setHeaders: {
+          Authorization: `Bearer ${newToken}`
+        }
+      });
+      return next(retryReq);
+    }),
     catchError((error) => {
-      const duration = Date.now() - startTime;
-      console.error(`❌ HTTP ${req.method} Error (${duration}ms):`, req.url, error);
+      handleLogout();
+      return throwError(() => error);
+    })
+  );
+}
+
+/**
+ * Handle logout and redirect
+ */
+function handleLogout(): void {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem('thurayya_refresh_token');
+  localStorage.removeItem('thurayya_user');
+  localStorage.removeItem('thurayya_first_login');
+  
+  // Redirect to auth
+  const store = inject(StoreService);
+  store.setView('auth');
+}
+
+/**
+ * Content-Type interceptor for JSON requests
+ */
+export const contentTypeInterceptor: HttpInterceptorFn = (req, next) => {
+  // Only add for requests with body
+  if (req.body && !req.headers.has('Content-Type')) {
+    const jsonReq = req.clone({
+      setHeaders: {
+        'Content-Type': 'application/json'
+      }
+    });
+    return next(jsonReq);
+  }
+  
+  return next(req);
+};
+
+/**
+ * Error handling interceptor with logging
+ */
+export const errorInterceptor: HttpInterceptorFn = (req, next) => {
+  return next(req).pipe(
+    catchError((error: HttpErrorResponse) => {
+      // Log errors in development
+      if (!environment.production) {
+        console.error(`HTTP Error ${error.status}:`, error.message, req.url);
+      }
+      
       return throwError(() => error);
     })
   );
 };
 
-/**
- * Cache interceptor for GET requests
- */
-export const cacheInterceptor: HttpInterceptorFn = (req, next) => {
-  // Only cache GET requests
-  if (req.method !== 'GET') {
-    return next(req);
-  }
-
-  // Add cache control headers
-  const cachedReq = req.clone({
-    setHeaders: {
-      'Cache-Control': 'max-age=300' // 5 minutes
-    }
-  });
-
-  return next(cachedReq);
-};
+// Import environment for production check
+import { environment } from '../../../environments/environment';

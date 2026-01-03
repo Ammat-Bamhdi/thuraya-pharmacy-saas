@@ -1,7 +1,7 @@
 import { ApplicationConfig } from '@angular/core';
 import { provideHttpClient, withInterceptors, withFetch } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
-import { authInterceptor, loggingInterceptor, cacheInterceptor } from '@core/interceptors/http.interceptor';
+import { authInterceptor, contentTypeInterceptor, errorInterceptor } from '@core/interceptors/http.interceptor';
 import { environment } from '../environments/environment';
 
 /**
@@ -14,9 +14,9 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(
       withFetch(), // Use native Fetch API
       withInterceptors([
+        contentTypeInterceptor,
         authInterceptor,
-        ...(environment.production ? [] : [loggingInterceptor]),
-        cacheInterceptor
+        ...(environment.production ? [] : [errorInterceptor])
       ])
     ),
     

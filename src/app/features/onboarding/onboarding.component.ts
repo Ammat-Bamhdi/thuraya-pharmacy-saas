@@ -8,6 +8,7 @@
 import { Component, inject, signal, computed, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { StoreService, Role } from '@core/services/store.service';
+import { AuthService } from '@core/services/auth.service';
 import { IconComponent } from '@shared/components/icons/icons.component';
 import { BranchNetworkComponent } from '@features/branch-network/branch-network.component';
 import { FormsModule } from '@angular/forms';
@@ -62,7 +63,8 @@ declare var XLSX: any;
   templateUrl: './onboarding.component.html'
 })
 export class OnboardingComponent {
-  store = inject(StoreService);
+  private readonly store = inject(StoreService);
+  private readonly auth = inject(AuthService);
   
   // Onboarding state
   step = signal(1);
@@ -357,7 +359,8 @@ export class OnboardingComponent {
   }
 
   finish() {
-    this.store.setView('dashboard');
+    // Mark onboarding complete and navigate to dashboard
+    this.auth.completeOnboarding();
   }
 }
 
