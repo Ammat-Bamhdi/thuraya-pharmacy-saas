@@ -1,0 +1,386 @@
+﻿
+    <div class="h-full flex flex-col gap-4 animate-fade-in p-2">
+      <!-- Top Bar: Transaction Info & Customer Link -->
+      <header class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100 shadow-sm shrink-0 relative z-40">
+        <div class="flex items-center gap-4 flex-1">
+           <div>
+             <h2 class="text-xl font-bold text-slate-800 tracking-tight">Point of Sale</h2>
+             <div class="flex items-center gap-2 text-xs text-slate-500 font-mono mt-0.5">
+                <span class="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+                {{ store.activeBranch().name }} â€¢ {{ todayDate() | date:'medium' }}
+             </div>
+           </div>
+           
+           <div class="h-10 w-px bg-slate-200 mx-2"></div>
+
+           <!-- Customer Widget -->
+           <div class="relative w-96">
+              @if (!activeCustomer()) {
+                 <!-- State 1: Walk-in (Default) -->
+                 <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg p-1.5 pl-3 transition-all hover:border-slate-300 group">
+                    <div class="flex items-center gap-3">
+                       <div class="w-8 h-8 rounded-full bg-slate-200 text-slate-400 flex items-center justify-center">
+                          <app-icon name="users" [size]="16"></app-icon>
+                       </div>
+                       <div>
+                          <div class="text-sm font-bold text-slate-700">Walk-in Customer</div>
+                          <div class="text-[10px] text-slate-400">Standard Retail Price</div>
+                       </div>
+                    </div>
+                    <button (click)="toggleCustomerSearch()" class="px-3 py-1.5 bg-white border border-slate-200 rounded text-xs font-medium text-teal-600 shadow-sm hover:bg-teal-50 transition-colors">
+                       Assign / New
+                    </button>
+                 </div>
+              } @else {
+                 <!-- State 2: Linked Customer -->
+                 <div class="flex items-center justify-between bg-teal-50 border border-teal-200 rounded-lg p-1.5 pl-3 shadow-sm">
+                    <div class="flex items-center gap-3">
+                       <div class="w-8 h-8 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center border border-teal-200 font-bold text-xs">
+                          {{ activeCustomer()?.name?.charAt(0) }}
+                       </div>
+                       <div>
+                          <div class="text-sm font-bold text-teal-900">{{ activeCustomer()?.name }}</div>
+                          <div class="text-[10px] text-teal-600 flex gap-2">
+                             <span>{{ activeCustomer()?.type }}</span>
+                             @if (activeCustomer()?.phone) { <span>â€¢ {{ activeCustomer()?.phone }}</span> }
+                          </div>
+                       </div>
+                    </div>
+                    <button (click)="resetCustomer()" class="p-1.5 hover:bg-white/50 text-teal-700 rounded-md transition-colors" title="Remove Customer">
+                       <app-icon name="x" [size]="16"></app-icon>
+                    </button>
+                 </div>
+              }
+
+              <!-- Customer Search & Quick Add Dropdown -->
+              @if (showCustomerSearch()) {
+                 <div class="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden animate-fade-in z-50">
+                    
+                    @if (!showQuickAddForm()) {
+                        <!-- Search View -->
+                        <div class="p-2 border-b border-slate-50 flex gap-2">
+                           <div class="relative flex-1">
+                              <app-icon name="search" [size]="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></app-icon>
+                              <input 
+                                 #custSearchInput
+                                 type="text" 
+                                 [ngModel]="custSearchQuery()" 
+                                 (ngModelChange)="custSearchQuery.set($event)"
+                                 (keydown.enter)="handleCustEnter()"
+                                 placeholder="Search name or phone..." 
+                                 class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-lg text-xs focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none"
+                              >
+                           </div>
+                           <button (click)="enableQuickAdd()" class="px-3 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors shadow-sm" title="Add New">
+                              <app-icon name="plus" [size]="16"></app-icon>
+                           </button>
+                        </div>
+                        <div class="max-h-60 overflow-y-auto">
+                           @for (c of filteredCustomers(); track c.id) {
+                              <button (click)="selectCustomer(c)" class="w-full text-left px-4 py-2 hover:bg-teal-50 flex items-center justify-between group transition-colors border-b border-slate-50 last:border-0">
+                                 <div>
+                                    <div class="text-sm font-medium text-slate-700 group-hover:text-teal-700">{{ c.name }}</div>
+                                    <div class="text-[10px] text-slate-400">{{ c.phone }}</div>
+                                 </div>
+                                 <span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500">{{ c.type }}</span>
+                              </button>
+                           }
+                           @if (filteredCustomers().length === 0) {
+                              <div class="p-4 text-center">
+                                 <p class="text-xs text-slate-400 mb-2">No customers found.</p>
+                                 <button (click)="enableQuickAdd()" class="text-xs text-teal-600 font-medium hover:underline">Create New Customer</button>
+                              </div>
+                           }
+                        </div>
+                    } @else {
+                        <!-- Quick Add Form -->
+                        <div class="p-4">
+                           <div class="flex justify-between items-center mb-4">
+                              <h4 class="text-sm font-bold text-slate-700">New Customer</h4>
+                              <button (click)="showQuickAddForm.set(false)" class="text-slate-400 hover:text-slate-600"><app-icon name="x" [size]="16"></app-icon></button>
+                           </div>
+                           <div class="space-y-3">
+                              <div>
+                                 <input #quickNameInput type="text" [(ngModel)]="quickCust.name" placeholder="Full Name *" class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200">
+                              </div>
+                              <div>
+                                 <input type="text" [(ngModel)]="quickCust.phone" placeholder="Phone Number *" class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200">
+                              </div>
+                              <div>
+                                 <input type="email" [(ngModel)]="quickCust.email" placeholder="Email (Optional)" class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200">
+                              </div>
+                              <div class="grid grid-cols-2 gap-2">
+                                 <select [(ngModel)]="quickCust.type" class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200 bg-white">
+                                    <option value="Standard">Standard</option>
+                                    <option value="Premium">Premium</option>
+                                    <option value="VIP">VIP</option>
+                                    <option value="Corporate">Corporate</option>
+                                 </select>
+                                 <button (click)="saveQuickCustomer()" [disabled]="!quickCust.name || !quickCust.phone" class="bg-slate-800 text-white rounded-lg text-xs font-bold hover:bg-slate-700 transition-colors disabled:opacity-50">
+                                    Save & Link
+                                 </button>
+                              </div>
+                           </div>
+                        </div>
+                    }
+                 </div>
+              }
+           </div>
+        </div>
+
+        <!-- Cashier Info (Simplified) -->
+        <div class="flex items-center gap-2 border-l border-slate-100 pl-4">
+           <img [src]="store.currentUser().avatar" class="w-8 h-8 rounded-full bg-slate-200 border border-white shadow-sm">
+        </div>
+      </header>
+
+      <div class="flex-1 flex gap-4 min-h-0">
+        <!-- Main Transaction Area -->
+        <div class="flex-1 bg-white rounded-xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
+           
+           <!-- Search Bar (Always Focused) -->
+           <div class="p-4 border-b border-slate-100 bg-slate-50/50 relative z-20">
+              <div class="relative">
+                 <app-icon name="search" [size]="20" class="absolute left-4 top-1/2 -translate-y-1/2 text-teal-600"></app-icon>
+                 <input 
+                   #searchInput
+                   type="text" 
+                   [ngModel]="searchQuery()"
+                   (ngModelChange)="updateSearch($event)"
+                   (keydown.enter)="handleEnterKey()"
+                   (keydown.arrowdown)="navigateResults(1)"
+                   (keydown.arrowup)="navigateResults(-1)"
+                   placeholder="Scan barcode or type product name / SKU..." 
+                   class="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-xl text-lg shadow-sm focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all"
+                   autocomplete="off"
+                 >
+                 <!-- Search Results Dropdown -->
+                 @if (showDropdown() && filteredProducts().length > 0) {
+                    <div class="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 max-h-[400px] overflow-y-auto z-50">
+                       @for (p of filteredProducts(); track p.id; let i = $index) {
+                          <button 
+                            (click)="addToCart(p)"
+                            class="w-full text-left px-4 py-3 border-b border-slate-50 hover:bg-teal-50 flex justify-between items-center transition-colors group"
+                            [class.bg-teal-50]="i === activeResultIndex()"
+                          >
+                             <div>
+                                <div class="font-medium text-slate-800 group-hover:text-teal-700">{{ p.name }}</div>
+                                <div class="text-xs text-slate-400 font-mono">{{ p.sku }} â€¢ {{ p.genericName }}</div>
+                             </div>
+                             <div class="text-right">
+                                <div class="font-bold text-slate-700">{{ p.price | number }} <span class="text-[10px] font-normal text-slate-400">YER</span></div>
+                                <div class="text-[10px] px-2 py-0.5 rounded-full inline-block" 
+                                   [class.bg-emerald-100]="p.stock > 10" [class.text-emerald-700]="p.stock > 10"
+                                   [class.bg-red-100]="p.stock <= 10" [class.text-red-700]="p.stock <= 10">
+                                   Stock: {{ p.stock }}
+                                </div>
+                             </div>
+                          </button>
+                       }
+                    </div>
+                 }
+              </div>
+           </div>
+
+           <!-- Transaction Table -->
+           <div class="flex-1 overflow-auto">
+              <table class="w-full text-left border-collapse">
+                 <thead class="bg-slate-50 text-xs uppercase text-slate-500 font-semibold sticky top-0 z-10 shadow-sm">
+                    <tr>
+                       <th class="px-6 py-4 w-16 text-center">#</th>
+                       <th class="px-6 py-4">Item Description</th>
+                       <th class="px-6 py-4 text-right w-32">Unit Price</th>
+                       <th class="px-6 py-4 text-center w-36">Qty</th>
+                       <th class="px-6 py-4 text-right w-32">Total</th>
+                       <th class="px-6 py-4 w-16 text-center"></th>
+                    </tr>
+                 </thead>
+                 <tbody class="text-sm divide-y divide-slate-50">
+                    @if (store.cart().length === 0) {
+                       <tr>
+                          <td colspan="6" class="p-20 text-center text-slate-400">
+                             <div class="flex flex-col items-center justify-center gap-3 opacity-60">
+                                <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-2">
+                                   <app-icon name="shopping-cart" [size]="32"></app-icon>
+                                </div>
+                                <p class="text-lg font-light">Transaction is empty</p>
+                                <p class="text-xs">Scan items or search above to begin sale</p>
+                             </div>
+                          </td>
+                       </tr>
+                    }
+                    @for (item of store.cart(); track item.id; let i = $index) {
+                       <tr class="hover:bg-slate-50/80 transition-colors group">
+                          <td class="px-6 py-4 text-center text-slate-400 font-mono text-xs">{{ i + 1 }}</td>
+                          <td class="px-6 py-4">
+                             <div class="font-medium text-slate-800">{{ item.name }}</div>
+                             <div class="text-xs text-slate-400 font-mono">{{ item.sku }}</div>
+                          </td>
+                          <td class="px-6 py-4 text-right font-medium text-slate-600">
+                             {{ item.price | number }}
+                          </td>
+                          <td class="px-6 py-4">
+                             <div class="flex items-center justify-center">
+                                <div class="flex items-center rounded-lg overflow-hidden shadow-sm">
+                                   <button (click)="updateQty(item, -1)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors border border-r-0 border-slate-200 rounded-l-lg h-9 flex items-center">
+                                      <app-icon name="minus" [size]="14"></app-icon>
+                                   </button>
+                                   <!-- Updated Quantity Input: White background, Dark Text, Clear Border -->
+                                   <input 
+                                      type="number" 
+                                      [value]="item.quantity" 
+                                      (change)="setQty(item, $event)"
+                                      class="w-14 text-center text-sm font-bold text-slate-900 bg-white border-y border-slate-200 h-9 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 z-10"
+                                   >
+                                   <button (click)="updateQty(item, 1)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-teal-600 transition-colors border border-l-0 border-slate-200 rounded-r-lg h-9 flex items-center">
+                                      <app-icon name="plus" [size]="14"></app-icon>
+                                   </button>
+                                </div>
+                             </div>
+                          </td>
+                          <td class="px-6 py-4 text-right font-bold text-slate-800">
+                             {{ item.price * item.quantity | number }}
+                          </td>
+                          <td class="px-6 py-4 text-center">
+                             <button (click)="store.removeFromCart(item.id)" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100">
+                                <app-icon name="trash-2" [size]="16"></app-icon>
+                             </button>
+                          </td>
+                       </tr>
+                    }
+                 </tbody>
+              </table>
+           </div>
+        </div>
+
+        <!-- Payment & Receipt Panel -->
+        <div class="w-96 flex flex-col gap-4 min-w-0">
+           
+           <!-- Receipt Style Invoice Details -->
+           <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col shrink-0">
+              <!-- Header -->
+              <div class="p-3 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                 <span class="font-bold text-[10px] uppercase text-slate-500 tracking-wider">Receipt Info</span>
+                 <app-icon name="file-text" [size]="14" class="text-slate-400"></app-icon>
+              </div>
+              
+              <!-- Thermal Receipt Look -->
+              <div class="p-5 font-mono text-xs leading-relaxed text-slate-600 bg-white relative">
+                 <!-- Top Pattern -->
+                 <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-slate-100 to-transparent opacity-50"></div>
+
+                 <div class="text-center mb-4">
+                    <div class="font-black text-sm text-slate-800 uppercase tracking-widest">{{ store.tenant()?.name || 'THURAYA PHARMACY' }}</div>
+                    <div class="text-[10px] text-slate-400 mt-1 uppercase">{{ store.activeBranch().name }}</div>
+                 </div>
+
+                 <div class="border-b border-dashed border-slate-300 my-3"></div>
+
+                 <div class="flex justify-between items-end mb-1">
+                    <span class="text-[10px] text-slate-400">ORDER #</span>
+                    <span class="font-bold text-slate-800">5073</span>
+                 </div>
+                 <div class="flex justify-between items-end mb-1">
+                    <span class="text-[10px] text-slate-400">DATE</span>
+                    <span>{{ todayDate() | date:'dd/MM/yyyy' }}</span>
+                 </div>
+                 <div class="flex justify-between items-end">
+                    <span class="text-[10px] text-slate-400">TIME</span>
+                    <span>{{ todayDate() | date:'mediumTime' }}</span>
+                 </div>
+
+                 <div class="border-b border-dashed border-slate-300 my-3"></div>
+
+                 <div class="flex justify-between items-end mb-1">
+                    <span class="text-[10px] text-slate-400">CASHIER</span>
+                    <span class="font-bold text-slate-800 uppercase">{{ store.currentUser().name }}</span>
+                 </div>
+                 <div class="flex justify-between items-end">
+                    <span class="text-[10px] text-slate-400">CUSTOMER</span>
+                    <span class="font-bold text-slate-800 uppercase truncate max-w-[140px]">{{ activeCustomer() ? activeCustomer()?.name : 'WALK-IN GUEST' }}</span>
+                 </div>
+                 @if(activeCustomer()) {
+                    <div class="text-right text-[10px] text-slate-400 mt-0.5">{{ activeCustomer()?.phone }}</div>
+                 }
+
+                 <div class="border-b border-dashed border-slate-300 my-3"></div>
+                 
+                 <!-- Barcode Mock -->
+                 <div class="flex justify-center mt-3 opacity-60">
+                    <div class="h-8 w-48 bg-slate-800" style="mask-image: repeating-linear-gradient(90deg, black, black 2px, transparent 2px, transparent 4px);"></div>
+                 </div>
+                 <div class="text-center text-[10px] text-slate-400 mt-1 tracking-[0.2em]">*5073*</div>
+              </div>
+           </div>
+
+           <!-- Financial Summary & Actions (Pushed to bottom) -->
+           <div class="bg-white rounded-xl border border-slate-100 shadow-sm p-6 flex flex-col gap-4 flex-1 h-full">
+              <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Totals</h3>
+              
+              <div class="space-y-3">
+                 <div class="flex justify-between text-sm text-slate-600">
+                    <span>Subtotal</span>
+                    <span class="font-medium">{{ store.cartTotal() | number }}</span>
+                 </div>
+                 <div class="flex justify-between text-sm text-slate-600">
+                    <span>Tax (0%)</span>
+                    <span class="font-medium">0.00</span>
+                 </div>
+                 <div class="flex justify-between text-sm text-emerald-600">
+                    <span>Discount</span>
+                    <span class="font-medium">- 0.00</span>
+                 </div>
+              </div>
+
+              <div class="h-px bg-slate-100 my-2"></div>
+
+              <div class="flex justify-between items-end mb-4">
+                 <span class="text-sm font-bold text-slate-800">Grand Total</span>
+                 <div class="text-right">
+                    <div class="text-3xl font-bold text-slate-900 tracking-tight">{{ store.cartTotal() | number }}</div>
+                    <div class="text-xs text-slate-400 font-medium">YER (Yemeni Rial)</div>
+                 </div>
+              </div>
+
+              <!-- Payment Methods -->
+              <div class="flex gap-2 mb-2">
+                 <button class="flex-1 py-2.5 rounded-lg border border-teal-500 bg-teal-50 text-teal-700 font-medium text-xs flex flex-col items-center gap-1 shadow-sm">
+                    <app-icon name="dollar-sign" [size]="16"></app-icon> Cash
+                 </button>
+                 <button class="flex-1 py-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium text-xs flex flex-col items-center gap-1 transition-colors">
+                    <app-icon name="credit-card" [size]="16"></app-icon> Card
+                 </button>
+                 <button class="flex-1 py-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium text-xs flex flex-col items-center gap-1 transition-colors">
+                    <app-icon name="globe" [size]="16"></app-icon> Online
+                 </button>
+              </div>
+
+              <!-- Actions -->
+              <div class="flex gap-3 mt-auto">
+                 <button 
+                    (click)="printReceipt()" 
+                    [disabled]="store.cart().length === 0"
+                    class="px-4 py-3 border-2 border-slate-200 text-slate-600 rounded-xl hover:border-slate-300 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Print Invoice"
+                 >
+                    <app-icon name="printer" [size]="20"></app-icon>
+                 </button>
+                 <button 
+                    (click)="processCheckout()"
+                    [disabled]="store.cart().length === 0 || processing()"
+                    class="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold text-base shadow-xl shadow-slate-900/20 hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
+                 >
+                    @if (processing()) {
+                       <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                       Processing...
+                    } @else {
+                       <app-icon name="check-circle" [size]="18"></app-icon>
+                       Pay & Issue
+                    }
+                 </button>
+              </div>
+           </div>
+        </div>
+      </div>
+    </div>
+  

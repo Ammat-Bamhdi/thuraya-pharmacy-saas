@@ -1,0 +1,456 @@
+﻿<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-100/80 backdrop-blur-sm animate-fade-in" [dir]="dir()">
+      <!-- Background Elements -->
+      <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div class="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-gradient-to-br from-teal-400/20 to-blue-500/20 rounded-full blur-3xl opacity-50"></div>
+        <div class="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-gradient-to-tr from-purple-400/20 to-pink-500/20 rounded-full blur-3xl opacity-50"></div>
+      </div>
+
+      <div class="relative z-10 w-full max-w-7xl h-[800px] glass-panel rounded-3xl shadow-2xl flex overflow-hidden border border-white/60">
+        
+        <!-- Sidebar Progress -->
+        <div class="w-72 bg-slate-50/80 border-r border-slate-100 p-8 flex flex-col justify-between backdrop-blur-md hidden md:flex ltr:border-r rtl:border-l">
+          <div>
+            <div class="flex items-center gap-3 mb-10">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-teal-500/20">
+                T
+              </div>
+              <span class="font-bold text-xl text-slate-800 tracking-tight">Thuraya</span>
+            </div>
+
+            <div class="space-y-6 relative">
+              <!-- Connecting Line -->
+              <div class="absolute ltr:left-[15px] rtl:right-[15px] top-4 bottom-4 w-0.5 bg-slate-200 z-0"></div>
+
+              <!-- Steps -->
+              @for (s of [1,2,3,4]; track s) {
+                <div class="relative z-10 flex items-center gap-4 transition-all duration-300" [class.opacity-50]="step() < s">
+                  <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-300 bg-white"
+                       [class.border-teal-500]="step() >= s" [class.text-teal-600]="step() >= s"
+                       [class.border-slate-300]="step() < s" [class.text-slate-400]="step() < s"
+                       [class.bg-teal-500]="step() > s" [class.text-white]="step() > s"
+                       [class.border-transparent]="step() > s">
+                     @if (step() > s) { <app-icon name="check" [size]="14"></app-icon> } @else { {{s}} }
+                  </div>
+                  <div class="text-sm font-medium" [class.text-slate-800]="step() >= s" [class.text-slate-400]="step() < s">
+                    {{ getStepLabel(s) }}
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="text-xs text-slate-400">
+            {{ t().footer }}
+          </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="flex-1 flex flex-col relative bg-white/40">
+           
+           <!-- Top Bar -->
+           <div class="p-6 flex justify-between items-center shrink-0">
+             <div class="md:hidden flex items-center gap-2">
+               <div class="font-bold text-slate-800">Step {{ step() }}/4</div>
+             </div>
+             
+             <div class="ltr:ml-auto rtl:mr-auto relative group z-50">
+               <button class="flex items-center gap-2 text-slate-500 hover:text-teal-600 text-sm font-medium px-3 py-1.5 rounded-lg border border-transparent hover:border-slate-200 transition-all bg-white/50">
+                 <app-icon name="globe" [size]="16"></app-icon> 
+                 {{ language() === 'en' ? 'English' : 'Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©' }}
+                 <app-icon name="chevron-down" [size]="14"></app-icon>
+               </button>
+               <div class="absolute ltr:right-0 rtl:left-0 top-full mt-1 w-32 bg-white rounded-lg shadow-lg border border-slate-100 hidden group-hover:block p-1">
+                 <button (click)="setLang('en')" class="w-full text-left rtl:text-right px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-md">English</button>
+                 <button (click)="setLang('ar')" class="w-full text-left rtl:text-right px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-md">Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©</button>
+               </div>
+            </div>
+           </div>
+
+           <!-- Content Container -->
+           <div class="flex-1 p-6 md:p-8 overflow-y-auto">
+             
+             <!-- Step 1: Tenant Details -->
+             @if (step() === 1) {
+              <div class="flex flex-col h-full animate-fade-in-right max-w-2xl mx-auto">
+                <div class="mb-8 text-center md:text-start">
+                  <h2 class="text-3xl font-light text-slate-800 mb-2">{{ t().org.title }}</h2>
+                  <p class="text-slate-500 text-lg font-light">{{ t().org.subtitle }}</p>
+                </div>
+
+                <div class="space-y-6">
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">{{ t().org.name }}</label>
+                    <input type="text" [(ngModel)]="tenantName" class="glass-input w-full px-5 py-4 rounded-xl text-lg bg-white/50 focus:bg-white text-slate-800">
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-6">
+                    <div>
+                      <label class="block text-sm font-medium text-slate-700 mb-1">{{ t().org.country }}</label>
+                      <select [(ngModel)]="country" class="glass-input w-full px-5 py-4 rounded-xl text-base appearance-none bg-white/50 focus:bg-white text-slate-800">
+                        @for (c of countriesList(); track c.value) {
+                            <option [value]="c.value">{{ getLocalizedLabel(c) }}</option>
+                        }
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-slate-700 mb-1">{{ t().org.currency }}</label>
+                      <select [(ngModel)]="currency" class="glass-input w-full px-5 py-4 rounded-xl text-base appearance-none bg-white/50 focus:bg-white text-slate-800">
+                         @for (c of currenciesList(); track c.value) {
+                            <option [value]="c.value">{{ getLocalizedLabel(c) }}</option>
+                        }
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-auto pt-10 flex justify-end">
+                  <button 
+                    (click)="nextStep()" 
+                    [disabled]="!tenantName"
+                    class="px-8 py-3 bg-slate-800 text-white rounded-xl font-medium shadow-lg hover:bg-slate-700 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-base"
+                  >
+                    {{ t().org.continue }} 
+                    <app-icon [name]="isRtl() ? 'arrow-left' : 'arrow-right'" [size]="18"></app-icon>
+                  </button>
+                </div>
+              </div>
+             }
+
+             <!-- Step 2: Branch Network Setup -->
+             @if (step() === 2) {
+               <div class="flex flex-col lg:flex-row h-full gap-8 animate-fade-in-right">
+                
+                <!-- Left: Form Input -->
+                <div class="flex-1 flex flex-col min-w-0 max-w-md">
+                   <div class="mb-6">
+                     <h2 class="text-2xl font-light text-slate-800 mb-1">{{ t().branch.title }}</h2>
+                     <p class="text-slate-500 text-sm">{{ t().branch.subtitle }}</p>
+                   </div>
+
+                   <!-- Toggle Single/Bulk for Branches -->
+                   <div class="flex gap-4 mb-4 border-b border-slate-200">
+                     <button (click)="branchBulkMode.set(false)" class="pb-2 text-sm font-medium transition-colors border-b-2" 
+                        [class]="!branchBulkMode() ? 'border-teal-500 text-teal-600' : 'border-transparent text-slate-500 hover:text-slate-700'">
+                        {{ t().branch.single }}
+                     </button>
+                     <button (click)="branchBulkMode.set(true)" class="pb-2 text-sm font-medium transition-colors border-b-2" 
+                        [class]="branchBulkMode() ? 'border-teal-500 text-teal-600' : 'border-transparent text-slate-500 hover:text-slate-700'">
+                        {{ t().branch.bulk }}
+                     </button>
+                   </div>
+
+                   <!-- Branch Form -->
+                   <div class="p-5 bg-white/60 rounded-2xl border border-white shadow-sm mb-6">
+                      @if (!branchBulkMode()) {
+                          <div class="space-y-4">
+                            <div>
+                              <label class="block text-xs font-medium text-slate-500 mb-1">{{ t().branch.name }}</label>
+                              <input type="text" [(ngModel)]="inputBranchName" [placeholder]="t().branch.namePH" 
+                                     (keydown.enter)="addLocalBranch()"
+                                     class="glass-input w-full px-4 py-3 rounded-xl text-sm bg-white text-slate-800">
+                            </div>
+                            <div>
+                              <label class="block text-xs font-medium text-slate-500 mb-1">{{ t().branch.loc }}</label>
+                              <div class="relative">
+                                <app-icon name="map-pin" [size]="16" class="absolute top-1/2 -translate-y-1/2 text-slate-400 ltr:left-3 rtl:right-3"></app-icon>
+                                <input type="text" [(ngModel)]="inputBranchLocation" [placeholder]="t().branch.locPH" 
+                                       list="cityList"
+                                       (keydown.enter)="addLocalBranch()"
+                                       (input)="validateCity()"
+                                       class="glass-input w-full py-3 rounded-xl text-sm bg-white ltr:pl-11 ltr:pr-4 rtl:pr-11 rtl:pl-4 text-slate-800">
+                                
+                                <datalist id="cityList">
+                                    @for (city of availableCities(); track city) {
+                                        <option [value]="city"></option>
+                                    }
+                                </datalist>
+                              </div>
+                              @if (cityError()) {
+                                  <div class="text-xs text-red-500 mt-1 flex items-center gap-1 animate-fade-in">
+                                      <app-icon name="alert-circle" [size]="12"></app-icon> {{ t().branch.invalidCity }}
+                                  </div>
+                              }
+                            </div>
+                            <button (click)="addLocalBranch()" [disabled]="!inputBranchName || cityError() || !inputBranchLocation" class="w-full py-3 bg-slate-800 text-white rounded-xl text-sm font-medium hover:bg-slate-700 transition-all disabled:opacity-50">
+                              {{ t().branch.add }}
+                            </button>
+                          </div>
+                      } @else {
+                          <!-- Branch Bulk Upload -->
+                          <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors relative group">
+                            <input type="file" (change)="handleBranchFile($event)" accept=".xlsx, .xls, .csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                            <app-icon name="upload-cloud" [size]="32" class="text-slate-400 mb-2 group-hover:text-teal-500 transition-colors"></app-icon>
+                            <p class="text-sm font-medium text-slate-700">{{ t().branch.bulkPH }}</p>
+                            <p class="text-xs text-slate-400 mt-1">{{ t().branch.bulkColumns }}</p>
+                            @if (fileProcessing()) {
+                                <div class="absolute inset-0 bg-white/80 flex items-center justify-center z-20">
+                                   <div class="flex items-center gap-2 text-teal-600 font-medium">
+                                      <div class="w-4 h-4 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+                                      {{ t().branch.addBulk }}
+                                   </div>
+                                </div>
+                            }
+                         </div>
+                         <div class="mt-2 text-center">
+                            <button (click)="downloadBranchSample()" class="text-xs text-teal-600 hover:text-teal-700 hover:underline flex items-center gap-1 justify-center mx-auto">
+                              <app-icon name="download" [size]="14"></app-icon> {{ t().branch.downloadSample }}
+                            </button>
+                         </div>
+                      }
+                   </div>
+
+                   <!-- List of Added Branches -->
+                   <div class="flex-1 overflow-y-auto space-y-2 pr-1">
+                      @if (branchList().length === 0) {
+                        <div class="text-center py-6 border-2 border-dashed border-slate-200 rounded-xl">
+                          <p class="text-slate-400 text-sm">{{ t().branch.listEmpty }}</p>
+                        </div>
+                      }
+                      @for (branch of branchList(); track $index) {
+                        <div class="flex items-center justify-between p-3 bg-white/40 border border-white rounded-xl group hover:border-teal-200 transition-colors">
+                          <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center border border-blue-100 shrink-0">
+                              <span class="text-xs font-bold">{{ $index + 1 }}</span>
+                            </div>
+                            <div class="min-w-0">
+                              <div class="text-sm font-medium text-slate-800 truncate">{{ branch.name }}</div>
+                              <div class="text-xs text-slate-500 truncate">{{ branch.location }}</div>
+                            </div>
+                          </div>
+                          <button (click)="removeLocalBranch($index)" class="p-1.5 text-slate-300 hover:text-red-500 transition-colors">
+                            <app-icon name="trash-2" [size]="16"></app-icon>
+                          </button>
+                        </div>
+                      }
+                   </div>
+
+                   <div class="mt-4 pt-4 border-t border-slate-200 flex justify-between">
+                     <button (click)="step.set(1)" class="text-slate-500 hover:text-slate-800 font-medium text-sm">{{ t().branch.back }}</button>
+                     <button 
+                        (click)="nextStep()" 
+                        [disabled]="branchList().length === 0"
+                        class="px-6 py-2.5 bg-teal-500 text-white rounded-xl font-medium shadow-lg hover:bg-teal-600 transition-all disabled:opacity-50 text-sm flex items-center gap-2"
+                      >
+                        {{ t().branch.next }} <app-icon [name]="isRtl() ? 'arrow-left' : 'arrow-right'" [size]="16"></app-icon>
+                      </button>
+                   </div>
+                </div>
+
+                <!-- Right: Visualizer (Tree) -->
+                <div class="flex-1 hidden lg:flex flex-col gap-4">
+                  <div class="flex-1 glass-panel rounded-2xl p-4 relative shadow-inner">
+                     <app-branch-network 
+                        [tenantName]="tenantName" 
+                        [branches]="branchList()" 
+                        [teamMembers]="teamMembers()"
+                        [isRtl]="isRtl()"
+                        [translations]="t().graph"
+                     ></app-branch-network>
+                  </div>
+                </div>
+               </div>
+             }
+
+             <!-- Step 3: Team Setup (Excel Import) -->
+             @if (step() === 3) {
+               <div class="flex flex-col h-full animate-fade-in-right max-w-3xl mx-auto relative">
+                <div class="mb-6">
+                  <h2 class="text-3xl font-light text-slate-800 mb-2">{{ t().team.title }}</h2>
+                  <p class="text-slate-500 text-lg font-light">{{ t().team.subtitle }}</p>
+                </div>
+
+                <div class="flex-1 flex flex-col min-h-0">
+                   <!-- Toggle Single/Bulk -->
+                   <div class="flex gap-4 mb-4 border-b border-slate-200">
+                     <button (click)="bulkMode.set(false)" class="pb-2 text-sm font-medium transition-colors border-b-2" 
+                        [class]="!bulkMode() ? 'border-teal-500 text-teal-600' : 'border-transparent text-slate-500 hover:text-slate-700'">
+                        {{ t().team.single }}
+                     </button>
+                     <button (click)="bulkMode.set(true)" class="pb-2 text-sm font-medium transition-colors border-b-2" 
+                        [class]="bulkMode() ? 'border-teal-500 text-teal-600' : 'border-transparent text-slate-500 hover:text-slate-700'">
+                        {{ t().team.bulk }}
+                     </button>
+                   </div>
+
+                   <!-- Add User Form -->
+                   <div class="bg-white/60 p-5 rounded-2xl border border-white shadow-sm mb-6 shrink-0">
+                      @if (!bulkMode()) {
+                        <!-- Single Mode -->
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                          <div class="md:col-span-3">
+                            <label class="block text-xs font-medium text-slate-500 mb-1">{{ t().team.name }}</label>
+                            <input type="text" [(ngModel)]="newMemberName" [placeholder]="t().team.namePH" class="glass-input w-full px-3 py-2.5 rounded-lg text-sm bg-white text-slate-800">
+                          </div>
+                          <div class="md:col-span-4">
+                            <label class="block text-xs font-medium text-slate-500 mb-1">{{ t().team.email }}</label>
+                            <input type="email" [(ngModel)]="newMemberEmail" [placeholder]="t().team.emailPH" class="glass-input w-full px-3 py-2.5 rounded-lg text-sm bg-white text-slate-800">
+                          </div>
+                           <div class="md:col-span-3">
+                             <label class="block text-xs font-medium text-slate-500 mb-1">{{ t().team.branch }}</label>
+                             <select [(ngModel)]="newMemberBranchIndex" class="glass-input w-full px-3 py-2.5 rounded-lg text-sm bg-white text-slate-800">
+                               @for (b of branchList(); track $index) {
+                                 <option [value]="$index">{{ b.name }}</option>
+                               }
+                             </select>
+                           </div>
+                           <div class="md:col-span-2">
+                             <button (click)="addTeamMember()" [disabled]="!newMemberName || !newMemberEmail" class="w-full py-2.5 bg-teal-500 text-white rounded-lg shadow hover:bg-teal-600 disabled:opacity-50 transition-colors font-medium text-sm">{{ t().team.add }}</button>
+                           </div>
+                        </div>
+                        <div class="flex gap-4 mt-3">
+                           <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                             <input type="radio" name="role" [(ngModel)]="newMemberRole" value="branch_admin" class="text-teal-500"> {{ t().team.roles.branch_admin }}
+                           </label>
+                           <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                             <input type="radio" name="role" [(ngModel)]="newMemberRole" value="section_admin" class="text-teal-500"> {{ t().team.roles.section_admin }}
+                           </label>
+                        </div>
+                      } @else {
+                        <!-- Bulk Mode (Excel) -->
+                         <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors relative group">
+                            <input type="file" (change)="handleFile($event)" accept=".xlsx, .xls, .csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                            <app-icon name="upload-cloud" [size]="32" class="text-slate-400 mb-2 group-hover:text-teal-500 transition-colors"></app-icon>
+                            <p class="text-sm font-medium text-slate-700">{{ t().team.bulkPH }}</p>
+                            <p class="text-xs text-slate-400 mt-1">{{ t().team.bulkColumns }}</p>
+                            @if (fileProcessing()) {
+                                <div class="absolute inset-0 bg-white/80 flex items-center justify-center z-20">
+                                   <div class="flex items-center gap-2 text-teal-600 font-medium">
+                                      <div class="w-4 h-4 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+                                      {{ t().team.addBulk }}
+                                   </div>
+                                </div>
+                            }
+                         </div>
+                         <div class="mt-2 text-center">
+                            <button (click)="downloadSample()" class="text-xs text-teal-600 hover:text-teal-700 hover:underline flex items-center gap-1 justify-center mx-auto">
+                              <app-icon name="download" [size]="14"></app-icon> {{ t().team.downloadSample }}
+                            </button>
+                         </div>
+                      }
+                   </div>
+
+                   <!-- List -->
+                   <div class="flex-1 overflow-y-auto pr-2 space-y-2 min-h-0">
+                     @if (teamMembers().length === 0) {
+                        <div class="text-center py-10 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400">
+                          <app-icon name="users" [size]="32" class="mx-auto mb-2 opacity-50"></app-icon>
+                          <p>{{ t().team.listEmpty }}</p>
+                        </div>
+                     }
+                     @for (member of teamMembers(); track $index) {
+                       <div class="flex items-center justify-between p-3 bg-white/40 rounded-xl border border-white/50">
+                          <div class="flex items-center gap-3">
+                             <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs uppercase">
+                               {{ member.name.charAt(0) }}
+                             </div>
+                             <div>
+                               <div class="text-sm font-medium text-slate-800">{{ member.name }}</div>
+                               <div class="text-xs text-slate-500">{{ member.email }} â€¢ {{ t().team.roles[member.role === 'branch_admin' ? 'branch_admin' : 'section_admin'] }}</div>
+                             </div>
+                          </div>
+                          <div class="flex items-center gap-3">
+                            <span class="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{{ getBranchNameLocal(member.branchIndex) }}</span>
+                            <button (click)="removeTeamMember($index)" class="text-slate-400 hover:text-red-500 transition-colors">
+                              <app-icon name="x" [size]="16"></app-icon>
+                            </button>
+                          </div>
+                       </div>
+                     }
+                   </div>
+                </div>
+
+                <div class="mt-auto pt-6 flex justify-between items-center border-t border-slate-200/50">
+                   <button 
+                    (click)="step.set(2)" 
+                    class="px-6 py-3 text-slate-500 hover:text-slate-800 transition-colors font-medium flex items-center gap-2"
+                  >
+                    <app-icon [name]="isRtl() ? 'arrow-right' : 'arrow-left'" [size]="18"></app-icon> {{ t().branch.back }}
+                  </button>
+                  <div class="flex gap-4">
+                    <button (click)="handleSkip()" class="px-6 py-3 text-slate-500 hover:text-teal-600 font-medium text-sm">
+                      {{ t().team.skip }}
+                    </button>
+                    <button 
+                      (click)="startProvisioning()" 
+                      class="px-8 py-3 bg-teal-500 text-white rounded-xl font-medium shadow-lg shadow-teal-500/30 hover:bg-teal-600 transition-all flex items-center gap-2 text-base"
+                    >
+                      {{ t().team.finish }} <app-icon name="check" [size]="18"></app-icon>
+                    </button>
+                  </div>
+                </div>
+               </div>
+             }
+
+             <!-- Step 4: Provisioning -->
+             @if (step() === 4) {
+               <div class="flex flex-col h-full items-center justify-center animate-fade-in-right text-center">
+                  @if (!provisioningComplete()) {
+                      <div class="mb-8 relative">
+                        <div class="w-24 h-24 rounded-full border-4 border-slate-100 border-t-teal-500 animate-spin"></div>
+                        <div class="absolute inset-0 flex items-center justify-center text-teal-500">
+                          <app-icon name="loader" [size]="32" class="animate-pulse"></app-icon>
+                        </div>
+                      </div>
+                      <h2 class="text-3xl font-light text-slate-800 mb-2">{{ t().prov.title }}</h2>
+                      <div class="flex flex-col gap-3 text-base text-slate-500 w-full max-w-sm mt-8 text-start">
+                        <div class="flex items-center gap-3 transition-all duration-300" [class.text-emerald-500]="provisionStep() > 0" [class.opacity-50]="provisionStep() < 0">
+                          <app-icon [name]="provisionStep() > 0 ? 'check' : 'loader'" [size]="20" [class.animate-spin]="provisionStep() === 0"></app-icon>
+                          {{ t().prov.step1 }}
+                        </div>
+                        <div class="flex items-center gap-3 transition-all duration-300" [class.text-emerald-500]="provisionStep() > 1" [class.opacity-50]="provisionStep() < 1">
+                          <app-icon [name]="provisionStep() > 1 ? 'check' : 'loader'" [size]="20" [class.animate-spin]="provisionStep() === 1"></app-icon>
+                          {{ t().prov.step2.replace('{0}', '' + branchList().length) }}
+                        </div>
+                         <div class="flex items-center gap-3 transition-all duration-300" [class.text-emerald-500]="provisionStep() > 2" [class.opacity-50]="provisionStep() < 2">
+                          <app-icon [name]="provisionStep() > 2 ? 'check' : 'loader'" [size]="20" [class.animate-spin]="provisionStep() === 2"></app-icon>
+                           {{ t().prov.step3.replace('{0}', '' + teamMembers().length) }}
+                        </div>
+                        <div class="flex items-center gap-3 transition-all duration-300" [class.text-emerald-500]="provisionStep() > 3" [class.opacity-50]="provisionStep() < 3">
+                            <app-icon [name]="provisionStep() > 3 ? 'check' : 'loader'" [size]="20" [class.animate-spin]="provisionStep() === 3"></app-icon>
+                          {{ t().prov.step4 }}
+                        </div>
+                      </div>
+                  } @else {
+                      <div class="mb-6 w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 animate-bounce-in">
+                        <app-icon name="check" [size]="48"></app-icon>
+                      </div>
+                      <h2 class="text-4xl font-light text-slate-800 mb-4">{{ t().prov.doneTitle }}</h2>
+                      <p class="text-slate-500 mb-10 font-light max-w-lg text-lg">{{ t().prov.doneDesc }}</p>
+                      <button 
+                        (click)="finish()" 
+                        class="px-12 py-4 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-xl font-medium shadow-xl shadow-teal-500/30 hover:scale-105 transition-all flex items-center gap-2 text-lg"
+                      >
+                        {{ t().prov.button }} <app-icon [name]="isRtl() ? 'arrow-left' : 'arrow-right'" [size]="20"></app-icon>
+                      </button>
+                  }
+               </div>
+             }
+           </div>
+        </div>
+        
+        <!-- Skip Confirmation Modal -->
+        @if (showSkipConfirmation()) {
+          <div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/20 backdrop-blur-sm animate-fade-in">
+            <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-slate-100 mx-4">
+              <div class="flex flex-col items-center text-center gap-4">
+                <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-500 flex items-center justify-center">
+                  <app-icon name="alert-circle" [size]="24"></app-icon>
+                </div>
+                <div>
+                  <h3 class="text-lg font-semibold text-slate-800">{{ t().team.skipWarningTitle }}</h3>
+                  <p class="text-sm text-slate-500 mt-2">{{ t().team.skipWarningText }}</p>
+                </div>
+                <div class="flex gap-3 w-full mt-2">
+                  <button (click)="cancelSkip()" class="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 font-medium text-sm">
+                    {{ t().team.noStay }}
+                  </button>
+                  <button (click)="confirmSkip()" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 shadow-lg shadow-red-500/30 font-medium text-sm">
+                    {{ t().team.yesProceed }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    </div>

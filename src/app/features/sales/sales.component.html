@@ -1,0 +1,502 @@
+﻿
+@let currentTab = activeTab();
+@let isCustomersTab = currentTab === 'sales-customers';
+
+<div class="h-full flex flex-col animate-fade-in relative" (click)="closeActionMenu(); showBranchMenu.set(false)">
+  
+  <!-- Header Component -->
+  <ng-container [ngTemplateOutlet]="salesHeader" />
+
+  <div class="glass-panel rounded-xl flex-1 flex flex-col overflow-hidden animate-fade-in">
+    <!-- Toolbar Component -->
+    <ng-container [ngTemplateOutlet]="salesToolbar" />
+
+    <!-- Data Views with @switch for better performance -->
+    <div class="overflow-auto flex-1 bg-slate-50/30">
+       @switch (currentTab) {
+         @case ('sales-customers') {
+           <ng-container [ngTemplateOutlet]="customersView" />
+         }
+         @case ('sales-invoices') {
+           <ng-container [ngTemplateOutlet]="invoicesView" />
+         }
+       }
+    </div>
+
+    <!-- Pagination Component -->
+    <ng-container [ngTemplateOutlet]="salesPagination" />
+  </div>
+
+  <!-- Add/Edit Customer Modal with @defer for lazy loading -->
+  @defer (when showCustomerModal()) {
+    <div class="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm animate-fade-in p-4" (click)="showCustomerModal.set(false)">
+           <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-slate-100" (click)="$event.stopPropagation()">
+              <div class="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl shrink-0">
+                 <div>
+                    <h3 class="text-xl font-medium text-slate-800">{{ editingId() ? 'Edit Customer' : 'Add New Customer' }}</h3>
+                    <p class="text-sm text-slate-500">{{ editingId() ? 'Update existing customer profile.' : 'Fill in the required information to create a customer profile.' }}</p>
+                 </div>
+                 <button (click)="showCustomerModal.set(false)" class="text-slate-400 hover:text-slate-600 transition-colors p-2 hover:bg-slate-100 rounded-full" aria-label="Close Modal">
+                    <app-icon name="x" [size]="20"></app-icon>
+                 </button>
+              </div>
+              <div class="flex-1 overflow-y-auto p-6 bg-slate-50/30">
+                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
+                    <div class="flex flex-col gap-6 h-full">
+                       <fieldset class="border border-slate-200 rounded-xl p-4 bg-white shadow-sm shrink-0">
+                          <legend class="px-2 text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><app-icon name="users" [size]="14"></app-icon> Client Identity</legend>
+                          <div class="space-y-4 pt-2">
+                             <div><label class="block text-xs font-medium text-slate-700 mb-1">Full Name <span class="text-red-500">*</span></label><input type="text" [(ngModel)]="newCustomer.name" (ngModelChange)="validateField('name')" class="glass-input w-full px-3 py-2.5 rounded-lg text-sm bg-white border-slate-200" [class.border-red-500]="formErrors().name"></div>
+                             <div><label class="block text-xs font-medium text-slate-700 mb-1">Company Name <span class="text-red-500">*</span></label><input type="text" [(ngModel)]="newCustomer.companyName" (ngModelChange)="validateField('companyName')" class="glass-input w-full px-3 py-2.5 rounded-lg text-sm bg-white border-slate-200" [class.border-red-500]="formErrors().companyName"></div>
+                             <div class="grid grid-cols-2 gap-4">
+                                <div><label class="block text-xs font-medium text-slate-700 mb-1">Phone <span class="text-red-500">*</span></label><input type="text" [(ngModel)]="newCustomer.phone" (ngModelChange)="validateField('phone')" class="glass-input w-full px-3 py-2.5 rounded-lg text-sm bg-white border-slate-200" [class.border-red-500]="formErrors().phone"></div>
+                                <div><label class="block text-xs font-medium text-slate-500 mb-1">Email</label><input type="email" [(ngModel)]="newCustomer.email" (ngModelChange)="validateField('email')" class="glass-input w-full px-3 py-2.5 rounded-lg text-sm bg-white border-slate-200" [class.border-red-500]="formErrors().email"></div>
+                             </div>
+                          </div>
+                       </fieldset>
+                       <fieldset class="border border-slate-200 rounded-xl p-4 bg-white shadow-sm flex-1 flex flex-col">
+                          <legend class="px-2 text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><app-icon name="map-pin" [size]="14"></app-icon> Location</legend>
+                          <div class="space-y-4 pt-2 flex-1">
+                             <div><label class="block text-xs font-medium text-slate-700 mb-1">Country <span class="text-red-500">*</span></label><select [(ngModel)]="newCustomer.country" (change)="onCountryChange()" class="glass-input w-full px-3 py-2.5 rounded-lg text-sm bg-white border-slate-200"><option value="Yemen">Yemen</option><option value="Saudi Arabia">Saudi Arabia</option><option value="UAE">UAE</option><option value="Egypt">Egypt</option></select></div>
+                             <div class="grid grid-cols-2 gap-4">
+                                <div><label class="block text-xs font-medium text-slate-700 mb-1">State <span class="text-red-500">*</span></label><input type="text" [(ngModel)]="newCustomer.state" class="glass-input w-full px-3 py-2.5 rounded-lg text-sm bg-white border-slate-200"></div>
+                                <div><label class="block text-xs font-medium text-slate-700 mb-1">City <span class="text-red-500">*</span></label><input type="text" [(ngModel)]="newCustomer.city" class="glass-input w-full px-3 py-2.5 rounded-lg text-sm bg-white border-slate-200"></div>
+                             </div>
+                             <div class="flex-1 flex flex-col"><label class="block text-xs font-medium text-slate-700 mb-1">Street Address <span class="text-red-500">*</span></label><textarea [(ngModel)]="newCustomer.billingAddress" rows="2" class="glass-input w-full px-3 py-2.5 rounded-lg text-sm bg-white resize-none border-slate-200 flex-1"></textarea></div>
+                          </div>
+                       </fieldset>
+                    </div>
+                    <div class="flex flex-col gap-6 h-full">
+                       <fieldset class="border border-slate-200 rounded-xl p-4 bg-white shadow-sm shrink-0">
+                          <legend class="px-2 text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><app-icon name="briefcase" [size]="14"></app-icon> Classification</legend>
+                          <div class="space-y-4 pt-2">
+                             <div class="grid grid-cols-2 gap-4">
+                                <div><label class="block text-xs font-medium text-slate-700 mb-1">Type <span class="text-red-500">*</span></label><select [(ngModel)]="newCustomer.type" class="glass-input w-full px-3 py-2.5 rounded-lg text-sm bg-white border-slate-200"><option value="Standard">Standard</option><option value="Premium">Premium</option><option value="VIP">VIP</option><option value="Corporate">Corporate</option></select></div>
+                                <div><label class="block text-xs font-medium text-slate-700 mb-1">Source <span class="text-red-500">*</span></label><select [(ngModel)]="newCustomer.source" class="glass-input w-full px-3 py-2.5 rounded-lg text-sm bg-white border-slate-200"><option value="Walk-in">Walk-in</option><option value="Referral">Referral</option></select></div>
+                             </div>
+                             <div class="grid grid-cols-2 gap-4">
+                                <div><label class="block text-xs font-medium text-slate-700 mb-1">Sales Rep <span class="text-red-500">*</span></label><select [(ngModel)]="newCustomer.assignedSalesRep" class="glass-input w-full px-3 py-2.5 rounded-lg text-sm bg-white border-slate-200"><option value="" disabled>-- Select --</option>@for(u of store.users(); track u.id){<option [value]="u.id">{{ u.name }}</option>}</select></div>
+                                <div><label class="block text-xs font-medium text-slate-700 mb-1">Price Group <span class="text-red-500">*</span></label><select [(ngModel)]="newCustomer.priceGroup" class="glass-input w-full px-3 py-2.5 rounded-lg text-sm bg-white border-slate-200"><option value="Retail">Retail</option><option value="Wholesale">Wholesale</option></select></div>
+                             </div>
+                          </div>
+                       </fieldset>
+                       <fieldset class="border border-slate-200 rounded-xl p-4 bg-white shadow-sm flex-1 flex flex-col">
+                          <legend class="px-2 text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><app-icon name="credit-card" [size]="14"></app-icon> Financials</legend>
+                          <div class="space-y-4 pt-2 flex-1 flex flex-col">
+                             <div class="grid grid-cols-2 gap-4">
+                                <div><label class="block text-xs font-medium text-slate-700 mb-1">Credit Limit <span class="text-red-500">*</span></label><div class="relative"><input type="number" [(ngModel)]="newCustomer.creditLimit" class="glass-input w-full px-3 py-2.5 rounded-lg text-sm bg-white border-slate-200"><span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">YER</span></div></div>
+                                <div><label class="block text-xs font-medium text-slate-700 mb-1">Terms <span class="text-red-500">*</span></label><select [(ngModel)]="newCustomer.paymentTerms" class="glass-input w-full px-3 py-2.5 rounded-lg text-sm bg-white border-slate-200"><option value="Immediate">Immediate</option><option value="Net 30">Net 30</option></select></div>
+                             </div>
+                             <div class="flex-1 flex flex-col"><label class="block text-xs font-medium text-slate-500 mb-1">Internal Notes</label><textarea [(ngModel)]="newCustomer.notes" rows="2" class="glass-input w-full px-3 py-2 rounded-lg text-sm bg-white resize-none border-slate-200 flex-1"></textarea></div>
+                          </div>
+                       </fieldset>
+                    </div>
+                 </div>
+              </div>
+              <div class="p-6 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end gap-3 shrink-0">
+                <button (click)="showCustomerModal.set(false)" class="px-5 py-2.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-white text-sm font-medium transition-colors">Cancel</button>
+                <button (click)="saveCustomer()" [disabled]="!isFormValid()" class="px-6 py-2.5 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 shadow-lg shadow-slate-800/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all">
+                   <app-icon name="check" [size]="16"></app-icon> {{ editingId() ? 'Update Customer' : 'Save Customer' }}
+                </button>
+              </div>
+           </div>
+        </div>
+      }
+
+      @if (showInvoiceModal()) {
+         <div class="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm animate-fade-in p-4" (click)="closeInvoiceModal()">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-slate-100" (click)="$event.stopPropagation()">
+               @if (selectedInvoice(); as inv) {
+                  <div class="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl shrink-0">
+                     <div>
+                        <div class="flex items-center gap-3">
+                           <h3 class="text-xl font-mono font-medium text-slate-800">{{ inv.id }}</h3>
+                           <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider" 
+                              [class.bg-emerald-100]="inv.status === 'Paid'" [class.text-emerald-700]="inv.status === 'Paid'"
+                              [class.bg-amber-100]="inv.status === 'Pending'" [class.text-amber-700]="inv.status === 'Pending'"
+                              [class.bg-red-100]="inv.status === 'Overdue'" [class.text-red-700]="inv.status === 'Overdue'">
+                              {{ inv.status }}
+                           </span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1">Invoice Date: {{ inv.date }} | Branch: {{ getBranchName(inv.branchId) }}</p>
+                     </div>
+                     <button (click)="closeInvoiceModal()" class="text-slate-400 hover:text-slate-600 transition-colors p-2 hover:bg-slate-100 rounded-full">
+                        <app-icon name="x" [size]="20"></app-icon>
+                     </button>
+                  </div>
+                  <!-- Invoice Body -->
+                  <div class="flex-1 overflow-y-auto p-8 bg-white">
+                     <!-- Invoice Header Info -->
+                     <div class="flex justify-between mb-8">
+                        <div>
+                           <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Billed To</h4>
+                           <div class="font-medium text-slate-800 text-lg">{{ getCustomerName(inv.customerId) }}</div>
+                           <div class="text-sm text-slate-500 max-w-xs mt-1">{{ getCustomerAddress(inv.customerId) }}</div>
+                        </div>
+                        <div class="text-right">
+                           <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Total Amount</h4>
+                           <div class="text-3xl font-light text-slate-800">{{ inv.total | number }} <span class="text-sm font-normal text-slate-400">YER</span></div>
+                        </div>
+                     </div>
+                     <!-- Items Table -->
+                     <div class="border border-slate-100 rounded-xl overflow-hidden mb-8">
+                        <table class="w-full text-left">
+                           <thead class="bg-slate-50 text-[10px] uppercase text-slate-500 font-bold tracking-wider">
+                              <tr><th class="p-4">Item Description</th><th class="p-4 text-right">Qty</th><th class="p-4 text-right">Unit Price</th><th class="p-4 text-right">Total</th></tr>
+                           </thead>
+                           <tbody class="text-sm">
+                              @if (inv.items.length === 0) { <tr><td colspan="4" class="p-8 text-center text-slate-400">No items listed.</td></tr> }
+                              @for (item of inv.items; track $index) {
+                                 <tr class="border-t border-slate-50">
+                                    <td class="p-4 font-medium text-slate-700">{{ getProductName(item.productId) }}</td>
+                                    <td class="p-4 text-right text-slate-600">{{ item.quantity }}</td>
+                                    <td class="p-4 text-right text-slate-600">{{ item.price | number }}</td>
+                                    <td class="p-4 text-right font-medium text-slate-800">{{ item.quantity * item.price | number }}</td>
+                                 </tr>
+                              }
+                           </tbody>
+                        </table>
+                     </div>
+                     <!-- Actions -->
+                     <div class="flex justify-between items-center pt-6 border-t border-slate-100">
+                        <div class="flex items-center gap-2">
+                           <span class="text-sm text-slate-500">Change Status:</span>
+                           <select [ngModel]="inv.status" (ngModelChange)="updateInvoiceStatus(inv.id, $event)" class="glass-input py-1 px-3 rounded-lg text-sm bg-slate-50 border-slate-200"><option value="Paid">Paid</option><option value="Pending">Pending</option><option value="Overdue">Overdue</option></select>
+                        </div>
+                        <button class="flex items-center gap-2 text-teal-600 font-medium hover:underline text-sm"><app-icon name="printer" [size]="16"></app-icon> Print Invoice</button>
+                     </div>
+                  </div>
+               }
+            </div>
+         </div>
+      }
+
+      @if (activeActionRow()) {
+         <div 
+           class="fixed z-50 bg-white rounded-lg shadow-xl border border-slate-100 py-1 w-48 text-left animate-fade-in"
+           [style.top.px]="actionMenuPosition().y"
+           [style.left.px]="actionMenuPosition().x"
+           (click)="$event.stopPropagation()"
+         >
+            <button class="w-full text-left px-4 py-2 text-xs text-red-500 hover:bg-red-50 flex items-center gap-2">
+              <app-icon name="trash-2" [size]="14"></app-icon> Delete Record
+            </button>
+         </div>
+      }
+</div>
+
+<!-- Template Definitions -->
+<ng-template #salesHeader>
+  <!-- Sales Header with Branch Switcher -->
+  <header class="flex flex-col gap-6 mb-6 shrink-0">
+    <!-- Top Row: Title & Context -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+       <div>
+          <h2 class="text-2xl font-light tracking-tight text-slate-800">Sales & CRM</h2>
+          <p class="text-sm text-slate-500 font-light mt-1">
+             @switch (currentTab) {
+               @case ('sales-customers') { Customer Relationships }
+               @case ('sales-invoices') { Invoices & History }
+               @default { Overview }
+             }
+          </p>
+       </div>
+
+       <!-- High-Contrast Branch Switcher -->
+       <div class="relative z-30" (click)="$event.stopPropagation()">
+          <button 
+            (click)="showBranchMenu.set(!showBranchMenu())"
+            class="flex items-center gap-4 pl-2 pr-5 py-2 bg-slate-900 text-white rounded-full shadow-xl shadow-slate-900/20 hover:bg-slate-800 hover:scale-[1.02] transition-all group"
+          >
+             <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-teal-400 border border-white/10">
+                <app-icon name="map-pin" [size]="18"></app-icon>
+             </div>
+             <div class="text-left">
+                <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mb-1">Active Branch</div>
+                <div class="text-sm font-bold text-white leading-none tracking-wide">{{ getBranchName(selectedBranchId()) }}</div>
+             </div>
+             <div class="pl-2 border-l border-white/10 ml-1">
+                <app-icon name="chevron-down" [size]="16" class="text-slate-400 group-hover:text-white transition-colors" [class.rotate-180]="showBranchMenu()"></app-icon>
+             </div>
+          </button>
+
+          <!-- Branch Dropdown -->
+          @if (showBranchMenu()) {
+             <div class="absolute top-full right-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-fade-in origin-top-right ring-1 ring-black/5">
+                <div class="p-4 bg-slate-50/50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wider flex justify-between items-center">
+                   <span>Select Location</span>
+                   <span class="bg-teal-100 text-teal-700 px-2 py-0.5 rounded text-[10px]">Live</span>
+                </div>
+                <div class="max-h-72 overflow-y-auto p-2 space-y-1">
+                   @for (b of store.branches(); track b.id) {
+                      <button 
+                         (click)="selectedBranchId.set(b.id); showBranchMenu.set(false)"
+                         class="w-full flex items-center gap-4 p-3 rounded-xl transition-all text-left group border border-transparent"
+                         [class.bg-teal-50]="selectedBranchId() === b.id"
+                         [class.border-teal-100]="selectedBranchId() === b.id"
+                         [class.hover:bg-slate-50]="selectedBranchId() !== b.id"
+                      >
+                         <div class="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm border transition-all"
+                            [class.bg-white]="selectedBranchId() === b.id" [class.text-teal-600]="selectedBranchId() === b.id" [class.border-teal-200]="selectedBranchId() === b.id"
+                            [class.bg-slate-100]="selectedBranchId() !== b.id" [class.text-slate-400]="selectedBranchId() !== b.id" [class.border-slate-200]="selectedBranchId() !== b.id">
+                            <span class="font-black text-sm tracking-tighter">{{ b.code.substring(0,2) }}</span>
+                         </div>
+                         <div class="flex-1">
+                            <div class="text-sm font-bold" [class.text-teal-900]="selectedBranchId() === b.id" [class.text-slate-700]="selectedBranchId() !== b.id">{{ b.name }}</div>
+                            <div class="text-[11px]" [class.text-teal-600]="selectedBranchId() === b.id" [class.text-slate-400]="selectedBranchId() !== b.id">{{ b.location }}</div>
+                         </div>
+                         @if (selectedBranchId() === b.id) {
+                            <div class="w-2 h-2 rounded-full bg-teal-500 shadow-[0_0_8px_rgba(20,184,166,0.6)]"></div>
+                         }
+                      </button>
+                   }
+                </div>
+             </div>
+          }
+       </div>
+    </div>
+  </header>
+</ng-template>
+
+<ng-template #salesToolbar>
+  <!-- Sales Toolbar (Filters & Actions) -->
+  <div class="p-4 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white/50">
+    <!-- Filters -->
+    <div class="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+       <div class="relative group w-full sm:w-64 transition-all duration-300 focus-within:w-72">
+         <app-icon name="search" [size]="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-500 transition-colors pointer-events-none"></app-icon>
+         <input 
+           type="text" 
+           [(ngModel)]="searchQuery" 
+           placeholder="Search..." 
+           class="glass-input w-full pl-10 pr-9 py-2 rounded-lg text-xs bg-white transition-all"
+         >
+         @if (searchQuery()) {
+           <button (click)="searchQuery.set('')" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-full hover:bg-slate-100">
+             <app-icon name="x" [size]="12"></app-icon>
+           </button>
+         }
+       </div>
+
+       @if (isCustomersTab) {
+          <div class="relative">
+            <select [(ngModel)]="customerTypeFilter" class="glass-input pl-3 pr-8 py-2 rounded-lg text-xs bg-white appearance-none cursor-pointer hover:bg-slate-50 transition-colors min-w-[140px]">
+              <option value="All">All Types</option>
+              <option value="Standard">Standard</option>
+              <option value="Premium">Premium</option>
+              <option value="VIP">VIP</option>
+              <option value="Corporate">Corporate</option>
+              <option value="Insurance">Insurance</option>
+            </select>
+            <app-icon name="chevron-down" [size]="12" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></app-icon>
+          </div>
+       } @else {
+          <div class="relative">
+            <select [(ngModel)]="invoiceStatusFilter" class="glass-input pl-3 pr-8 py-2 rounded-lg text-xs bg-white appearance-none cursor-pointer hover:bg-slate-50 transition-colors min-w-[140px]">
+              <option value="All">All Status</option>
+              <option value="Paid">Paid</option>
+              <option value="Pending">Pending</option>
+              <option value="Overdue">Overdue</option>
+            </select>
+            <app-icon name="chevron-down" [size]="12" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></app-icon>
+          </div>
+       }
+    </div>
+
+    <!-- Actions -->
+    <div class="flex items-center gap-3">
+       <!-- Column Toggle -->
+       <div class="relative">
+         <button (click)="toggleColumnMenu($event)" class="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs hover:bg-slate-50 flex items-center gap-2 transition-all shadow-sm">
+           <app-icon name="layout-grid" [size]="14"></app-icon> Columns
+         </button>
+         @if (showColumnMenu()) {
+           <div class="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 p-2 z-50 animate-fade-in" (click)="$event.stopPropagation()">
+             <div class="text-xs font-semibold text-slate-400 px-2 py-1 uppercase tracking-wider mb-1">Toggle Columns</div>
+             @for (col of isCustomersTab ? allCustomerColumns : allInvoiceColumns; track col.key) {
+               <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer text-xs text-slate-700">
+                 <input type="checkbox" [checked]="col.visible" (change)="toggleColumn(col.key)" class="rounded text-teal-500 focus:ring-teal-500 border-slate-300">
+                 {{ col.label }}
+               </label>
+             }
+           </div>
+         }
+       </div>
+       
+       @if (isCustomersTab) {
+         <button (click)="openCustomerModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white shadow-lg shadow-slate-800/20 rounded-lg text-xs transition-all flex items-center gap-2 font-medium">
+           <app-icon name="plus" [size]="14"></app-icon> New Customer
+         </button>
+       }
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #customersView>
+  <!-- Customers Table View -->
+  <table class="w-full text-left border-collapse">
+    <thead class="sticky top-0 bg-white/95 backdrop-blur z-10 text-xs uppercase text-slate-400 font-medium shadow-sm">
+      <tr>
+        @for (col of visibleCustomerColumns(); track col.key) {
+          <th (click)="sort(col.key)" class="p-3 font-medium border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors select-none group whitespace-nowrap" [class.text-right]="isNumericCol(col.key)">
+            <div class="flex items-center gap-1" [class.justify-end]="isNumericCol(col.key)">
+               {{ col.label }}
+               <div class="flex flex-col opacity-0 group-hover:opacity-50" [class.opacity-100]="sortConfig().key === col.key">
+                  <app-icon name="chevron-down" [size]="10" class="rotate-180 -mb-1" [class.text-teal-600]="sortConfig().key === col.key && sortConfig().direction === 'asc'"></app-icon>
+                  <app-icon name="chevron-down" [size]="10" [class.text-teal-600]="sortConfig().key === col.key && sortConfig().direction === 'desc'"></app-icon>
+               </div>
+            </div>
+          </th>
+        }
+        <th class="p-3 font-medium border-b border-slate-100 text-right w-20">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="text-sm divide-y divide-slate-50">
+      @if (paginatedData().length === 0) {
+         <tr><td [attr.colspan]="visibleCustomerColumns().length + 1" class="p-12 text-center text-slate-400">No customers found.</td></tr>
+      }
+      @for (c of paginatedData(); track c.id) {
+        <tr class="hover:bg-slate-50 transition-colors group">
+          @for (col of visibleCustomerColumns(); track col.key) {
+            <td class="p-3 whitespace-nowrap" [class.text-right]="isNumericCol(col.key)">
+              @if (col.key === 'name') {
+                 <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs">
+                       {{ getInitials(c.name) }}
+                    </div>
+                    <div>
+                       <div class="font-bold text-slate-700 text-sm">{{ c.name }}</div>
+                       @if (c.companyName) {
+                         <div class="text-[10px] text-slate-400">{{ c.companyName }}</div>
+                       }
+                    </div>
+                 </div>
+              } @else if (col.key === 'type') {
+                 <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border shadow-sm"
+                   [class.bg-purple-50]="c.type === 'Corporate'" [class.text-purple-600]="c.type === 'Corporate'" [class.border-purple-100]="c.type === 'Corporate'"
+                   [class.bg-blue-50]="c.type === 'Insurance'" [class.text-blue-600]="c.type === 'Insurance'" [class.border-blue-100]="c.type === 'Insurance'"
+                   [class.bg-amber-50]="c.type === 'VIP'" [class.text-amber-600]="c.type === 'VIP'" [class.border-amber-100]="c.type === 'VIP'"
+                   [class.bg-emerald-50]="c.type === 'Premium'" [class.text-emerald-600]="c.type === 'Premium'" [class.border-emerald-100]="c.type === 'Premium'"
+                   [class.bg-slate-50]="c.type === 'Standard'" [class.text-slate-600]="c.type === 'Standard'" [class.border-slate-100]="c.type === 'Standard'">
+                   {{ c.type }}
+                 </span>
+              } @else if (col.key === 'balance' || col.key === 'creditLimit') {
+                 @if (col.key === 'creditLimit') {
+                     <div class="flex flex-col items-end">
+                        <span class="font-medium text-slate-700">{{ c.creditLimit | number }}</span>
+                     </div>
+                 } @else {
+                     <!-- Balance with Progress Bar -->
+                     <div class="flex flex-col items-end w-32 ml-auto">
+                        <div class="flex justify-between w-full mb-1">
+                           <span class="text-[10px] text-slate-400">Due</span>
+                           <span class="font-bold text-slate-800">{{ c.balance | number }}</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                           <div class="h-full rounded-full transition-all duration-500"
+                                [style.width.%]="Math.min((c.balance / (c.creditLimit || 1)) * 100, 100)"
+                                [class.bg-emerald-500]="(c.balance / (c.creditLimit || 1)) < 0.5"
+                                [class.bg-amber-500]="(c.balance / (c.creditLimit || 1)) >= 0.5 && (c.balance / (c.creditLimit || 1)) < 0.8"
+                                [class.bg-red-500]="(c.balance / (c.creditLimit || 1)) >= 0.8">
+                           </div>
+                        </div>
+                     </div>
+                 }
+              } @else {
+                 <span class="text-slate-600">{{ getCustomerValue(c, col.key) || '-' }}</span>
+              }
+            </td>
+          }
+          <td class="p-3 text-right">
+            <button (click)="openActionMenu($event, c.id)" class="p-1.5 hover:bg-white rounded-lg text-slate-400 hover:text-teal-600 transition-colors border border-transparent hover:border-slate-100 shadow-sm">
+              <app-icon name="more-horizontal" [size]="16"></app-icon>
+            </button>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</ng-template>
+
+<ng-template #invoicesView>
+  <!-- Invoices Table View -->
+  <table class="w-full text-left border-collapse">
+    <thead class="sticky top-0 bg-white/95 backdrop-blur z-10 text-xs uppercase text-slate-400 font-medium shadow-sm">
+      <tr>
+        @for (col of visibleInvoiceColumns(); track col.key) {
+          <th (click)="sort(col.key)" class="p-3 font-medium border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors select-none group whitespace-nowrap" [class.text-right]="isNumericCol(col.key)">
+            <div class="flex items-center gap-1" [class.justify-end]="isNumericCol(col.key)">
+               {{ col.label }}
+               <div class="flex flex-col opacity-0 group-hover:opacity-50" [class.opacity-100]="sortConfig().key === col.key">
+                  <app-icon name="chevron-down" [size]="10" class="rotate-180 -mb-1" [class.text-teal-600]="sortConfig().key === col.key && sortConfig().direction === 'asc'"></app-icon>
+                  <app-icon name="chevron-down" [size]="10" [class.text-teal-600]="sortConfig().key === col.key && sortConfig().direction === 'desc'"></app-icon>
+               </div>
+            </div>
+          </th>
+        }
+        <th class="p-3 font-medium border-b border-slate-100 text-right w-20">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="text-sm divide-y divide-slate-50">
+      @if (paginatedData().length === 0) {
+         <tr><td [attr.colspan]="visibleInvoiceColumns().length + 1" class="p-12 text-center text-slate-400">No invoices found for {{ getBranchName(selectedBranchId()) }}.</td></tr>
+      }
+      @for (inv of paginatedData(); track inv.id) {
+        <tr class="hover:bg-slate-50 transition-colors group">
+          @for (col of visibleInvoiceColumns(); track col.key) {
+            <td class="p-3 whitespace-nowrap" [class.text-right]="isNumericCol(col.key)">
+              @if (col.key === 'id') {
+                 <div class="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded w-fit">{{ inv.id }}</div>
+              } @else if (col.key === 'customerId') {
+                 <span class="font-semibold text-slate-700">{{ getCustomerName(inv.customerId) }}</span>
+              } @else if (col.key === 'status') {
+                 <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold"
+                   [class.bg-emerald-50]="inv.status === 'Paid'" [class.text-emerald-600]="inv.status === 'Paid'"
+                   [class.bg-amber-50]="inv.status === 'Pending'" [class.text-amber-600]="inv.status === 'Pending'"
+                   [class.bg-red-50]="inv.status === 'Overdue'" [class.text-red-600]="inv.status === 'Overdue'">
+                   {{ inv.status }}
+                 </span>
+              } @else if (col.key === 'total') {
+                 <span class="font-bold text-slate-700 text-sm">{{ inv.total | number }} <span class="text-[10px] font-normal text-slate-400">YER</span></span>
+              } @else {
+                 <span class="text-slate-600">{{ getInvoiceValue(inv, col.key) }}</span>
+              }
+            </td>
+          }
+          <td class="p-3 text-right">
+             <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button (click)="viewInvoice(inv.id)" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-teal-600 transition-colors" title="View Details">
+                   <app-icon name="file-text" [size]="16"></app-icon> 
+                </button>
+             </div>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</ng-template>
+
+<ng-template #salesPagination>
+  <!-- Pagination Controls -->
+  <div class="p-3 border-t border-slate-100 bg-white/50 flex justify-between items-center text-xs text-slate-500">
+     <div class="flex items-center gap-2">
+        <span>Rows per page:</span>
+        <select [(ngModel)]="pageSize" (change)="currentPage.set(1)" class="bg-transparent border-none focus:ring-0 font-medium text-slate-700 cursor-pointer">
+          <option [value]="10">10</option>
+          <option [value]="20">20</option>
+        </select>
+        <span class="ml-2">
+          {{ (currentPage() - 1) * pageSize() + 1 }} - {{ Math.min(currentPage() * pageSize(), filteredData().length) }} of {{ filteredData().length }}
+        </span>
+     </div>
+     <div class="flex items-center gap-1">
+        <button (click)="changePage(-1)" [disabled]="currentPage() === 1" class="p-1 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed">
+          <app-icon name="arrow-left" [size]="14"></app-icon>
+        </button>
+        <button (click)="changePage(1)" [disabled]="currentPage() * pageSize() >= filteredData().length" class="p-1 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed">
+          <app-icon name="arrow-right" [size]="14"></app-icon>
+        </button>
+     </div>
+  </div>
+</ng-template>
+  

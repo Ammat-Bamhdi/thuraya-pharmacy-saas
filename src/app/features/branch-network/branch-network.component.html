@@ -1,0 +1,18 @@
+﻿
+    <div class="w-full h-full relative overflow-hidden rounded-2xl bg-slate-50/50 flex flex-col items-center justify-center group border border-slate-100" #container>
+      <!-- Background Grid -->
+      <div class="absolute inset-0 z-0 opacity-20" 
+           style="background-image: radial-gradient(#94a3b8 1px, transparent 1px); background-size: 20px 20px;">
+      </div>
+      
+      <!-- Toolbar -->
+      <div class="absolute top-4 right-4 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button (click)="printGraph()" class="p-2 bg-white/80 backdrop-blur border border-slate-200 rounded-lg text-slate-500 hover:text-teal-700 hover:border-teal-200 shadow-sm transition-all" title="Print / Save as PDF">
+           <app-icon name="printer" [size]="18"></app-icon>
+        </button>
+      </div>
+
+      <!-- D3 Container -->
+      <div #chart class="absolute inset-0 z-10 w-full h-full"></div>
+    </div>
+  

@@ -1,0 +1,125 @@
+﻿
+    <div class="h-full flex flex-col animate-fade-in relative">
+      <header class="flex justify-between items-center mb-6">
+        <div>
+          <h2 class="text-2xl font-light tracking-tight text-slate-800">Team & Roles</h2>
+          <p class="text-sm text-slate-500 font-light mt-1">Manage access for {{ store.tenant()?.name || 'Organization' }}</p>
+        </div>
+        <button (click)="showInviteModal.set(true)" class="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white shadow-lg shadow-teal-500/30 rounded-lg text-sm transition-all flex items-center gap-2">
+          <app-icon name="plus" [size]="16"></app-icon>
+          Invite Member
+        </button>
+      </header>
+
+      <!-- Users Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto pb-4">
+        @for (user of store.users(); track user.id) {
+          <div class="glass-panel p-5 rounded-xl flex flex-col gap-4 group hover:border-teal-200 transition-colors">
+            <div class="flex justify-between items-start">
+              <div class="flex gap-3">
+                <img [src]="user.avatar" class="w-10 h-10 rounded-full bg-slate-200 object-cover border border-white shadow-sm" alt="Avatar">
+                <div>
+                  <h3 class="font-medium text-slate-800">{{ user.name }}</h3>
+                  <p class="text-xs text-slate-400">{{ user.email }}</p>
+                </div>
+              </div>
+              <span 
+                class="text-[10px] uppercase font-bold px-2 py-1 rounded-full border"
+                [class.bg-purple-50]="user.role === 'super_admin'"
+                [class.text-purple-600]="user.role === 'super_admin'"
+                [class.border-purple-200]="user.role === 'super_admin'"
+                [class.bg-blue-50]="user.role === 'branch_admin'"
+                [class.text-blue-600]="user.role === 'branch_admin'"
+                [class.border-blue-200]="user.role === 'branch_admin'"
+                [class.bg-slate-50]="user.role === 'section_admin'"
+                [class.text-slate-600]="user.role === 'section_admin'"
+                [class.border-slate-200]="user.role === 'section_admin'"
+              >
+                {{ formatRole(user.role) }}
+              </span>
+            </div>
+
+            <div class="border-t border-slate-100 pt-3 mt-auto">
+              <div class="flex justify-between items-center text-xs">
+                <span class="text-slate-400">Status</span>
+                <span [class.text-emerald-600]="user.status === 'active'" [class.text-amber-600]="user.status === 'invited'">
+                  {{ user.status | titlecase }}
+                </span>
+              </div>
+              <div class="flex justify-between items-center text-xs mt-2">
+                <span class="text-slate-400">Scope</span>
+                <span class="text-slate-600 truncate max-w-[120px] text-right">
+                  {{ getScopeLabel(user) }}
+                </span>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Invite Modal -->
+      @if (showInviteModal()) {
+        <div class="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/10 backdrop-blur-sm animate-fade-in">
+          <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 border border-slate-100">
+            <div class="flex justify-between items-center mb-6">
+              <h3 class="text-lg font-medium text-slate-800">Invite New User</h3>
+              <button (click)="showInviteModal.set(false)" class="text-slate-400 hover:text-slate-600">
+                <app-icon name="x" [size]="20"></app-icon> <!-- Fallback if X not in icon set, but close works -->
+                Close
+              </button>
+            </div>
+
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+                <input type="email" [(ngModel)]="newEmail" placeholder="colleague@pharmacy.com" class="glass-input w-full px-3 py-2 rounded-lg text-sm bg-slate-50">
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Role</label>
+                <div class="grid grid-cols-1 gap-2">
+                  <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors" [class.border-purple-500]="newRole === 'super_admin'" [class.bg-purple-50]="newRole === 'super_admin'">
+                    <input type="radio" name="role" [(ngModel)]="newRole" value="super_admin" class="text-purple-600">
+                    <div>
+                      <div class="text-sm font-medium text-slate-800">Super Admin</div>
+                      <div class="text-xs text-slate-500">Full access to all branches & billing.</div>
+                    </div>
+                  </label>
+                  <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors" [class.border-blue-500]="newRole === 'branch_admin'" [class.bg-blue-50]="newRole === 'branch_admin'">
+                    <input type="radio" name="role" [(ngModel)]="newRole" value="branch_admin" class="text-blue-600">
+                     <div>
+                      <div class="text-sm font-medium text-slate-800">Branch Admin</div>
+                      <div class="text-xs text-slate-500">Manage operations for a specific branch.</div>
+                    </div>
+                  </label>
+                  <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors" [class.border-slate-500]="newRole === 'section_admin'" [class.bg-slate-50]="newRole === 'section_admin'">
+                    <input type="radio" name="role" [(ngModel)]="newRole" value="section_admin" class="text-slate-600">
+                     <div>
+                      <div class="text-sm font-medium text-slate-800">Section Admin</div>
+                      <div class="text-xs text-slate-500">Limited access to specific areas (e.g. Warehouse).</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              @if (newRole !== 'super_admin') {
+                <div class="animate-fade-in">
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Assign Branch</label>
+                  <select [(ngModel)]="selectedBranch" class="glass-input w-full px-3 py-2 rounded-lg text-sm bg-slate-50">
+                    @for (branch of store.branches(); track branch.id) {
+                      <option [value]="branch.id">{{ branch.name }}</option>
+                    }
+                  </select>
+                </div>
+              }
+            </div>
+
+            <div class="mt-8 flex gap-3">
+              <button (click)="showInviteModal.set(false)" class="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50">Cancel</button>
+              <button (click)="invite()" [disabled]="!newEmail" class="flex-1 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50">Send Invite</button>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  

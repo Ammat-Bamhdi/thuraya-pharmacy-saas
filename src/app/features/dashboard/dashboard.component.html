@@ -1,0 +1,132 @@
+﻿
+    <div class="h-full flex flex-col gap-6 animate-fade-in overflow-y-auto pr-2">
+      <header class="flex justify-between items-center mb-2 shrink-0">
+        <div>
+          <h2 class="text-2xl font-light tracking-tight text-slate-800">Dashboard</h2>
+          <p class="text-sm text-slate-500 font-light mt-1">{{ store.activeBranch().name }} â€¢ <span class="text-teal-500">Live</span></p>
+        </div>
+        <div class="flex gap-2">
+          <button class="px-4 py-2 bg-white/50 hover:bg-white border border-slate-200 text-slate-600 rounded-lg text-sm transition-all duration-300">
+            Export Report
+          </button>
+        </div>
+      </header>
+
+      <!-- Setup Guide (For New Tenants) -->
+      @if (store.showSetupGuide() && store.setupCompletion() < 100) {
+        <div class="glass-panel p-0 rounded-xl mb-2 border-l-4 border-l-teal-500 relative overflow-hidden animate-slide-in shrink-0">
+           <div class="p-4 border-b border-slate-100 bg-white/50 flex justify-between items-center">
+             <div class="flex items-center gap-3">
+               <div class="w-8 h-8 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center">
+                 <app-icon name="check" [size]="16"></app-icon>
+               </div>
+               <div>
+                 <h3 class="font-medium text-slate-800">Welcome to {{ store.tenant()?.name || 'Thuraya' }}!</h3>
+                 <p class="text-xs text-slate-500">Complete these steps to get your pharmacy fully operational.</p>
+               </div>
+             </div>
+             <div class="flex items-center gap-4">
+               <div class="text-xs font-bold text-teal-600">{{ store.setupCompletion() }}% Complete</div>
+               <button (click)="store.dismissSetupGuide()" class="text-slate-400 hover:text-slate-600">
+                 <app-icon name="x" [size]="18"></app-icon>
+               </button>
+             </div>
+           </div>
+           
+           <div class="p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+             @for (step of store.setupProgress(); track step.id) {
+               <div class="flex items-start gap-3 p-3 rounded-lg border transition-all" 
+                    [class.bg-emerald-50]="step.done" [class.border-emerald-100]="step.done"
+                    [class.bg-white]="!step.done" [class.border-slate-100]="!step.done"
+                    [class.opacity-50]="!step.done && !step.action"
+                >
+                  <div class="mt-0.5">
+                    @if (step.done) {
+                      <div class="text-emerald-500"><app-icon name="check-square" [size]="18"></app-icon></div>
+                    } @else {
+                      <div class="text-slate-300"><app-icon name="square" [size]="18"></app-icon></div>
+                    }
+                  </div>
+                  <div>
+                    <div class="text-sm font-medium" [class.text-emerald-700]="step.done" [class.text-slate-700]="!step.done">{{ step.label }}</div>
+                    @if (!step.done && step.action) {
+                      <button (click)="store.setView(step.action)" class="text-xs text-teal-600 font-medium hover:underline mt-1 flex items-center gap-1">
+                        Complete Now <app-icon name="chevron-right" [size]="12"></app-icon>
+                      </button>
+                    }
+                  </div>
+               </div>
+             }
+           </div>
+           
+           <!-- Progress Bar Bottom -->
+           <div class="h-1 w-full bg-slate-100">
+             <div class="h-full bg-teal-500 transition-all duration-1000" [style.width.%]="store.setupCompletion()"></div>
+           </div>
+        </div>
+      }
+
+      <!-- Stats Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
+        <div class="glass-panel p-5 rounded-xl flex flex-col justify-between group hover:border-teal-300/50 transition-colors duration-300">
+          <div class="flex justify-between items-start">
+            <div class="p-2 bg-teal-50 rounded-lg text-teal-600 group-hover:scale-110 transition-transform">
+              <app-icon name="trending-up" [size]="20"></app-icon>
+            </div>
+            <span class="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">+12.5%</span>
+          </div>
+          <div class="mt-4">
+            <h3 class="text-3xl font-light text-slate-800">243,500 <span class="text-sm text-slate-400">YER</span></h3>
+            <p class="text-xs text-slate-500 mt-1">Total Sales Today</p>
+          </div>
+        </div>
+
+        <div class="glass-panel p-5 rounded-xl flex flex-col justify-between group hover:border-blue-300/50 transition-colors duration-300">
+          <div class="flex justify-between items-start">
+            <div class="p-2 bg-blue-50 rounded-lg text-blue-600 group-hover:scale-110 transition-transform">
+              <app-icon name="package" [size]="20"></app-icon>
+            </div>
+          </div>
+          <div class="mt-4">
+            <h3 class="text-3xl font-light text-slate-800">{{ store.totalStockValue() | number }} <span class="text-sm text-slate-400">YER</span></h3>
+            <p class="text-xs text-slate-500 mt-1">Total Stock Value</p>
+          </div>
+        </div>
+
+        <div class="glass-panel p-5 rounded-xl flex flex-col justify-between group hover:border-red-300/50 transition-colors duration-300">
+          <div class="flex justify-between items-start">
+            <div class="p-2 bg-red-50 rounded-lg text-red-600 group-hover:scale-110 transition-transform">
+              <app-icon name="alert-circle" [size]="20"></app-icon>
+            </div>
+            @if (store.lowStockItems().length > 0) {
+              <span class="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-full">{{ store.lowStockItems().length }} Items</span>
+            }
+          </div>
+          <div class="mt-4">
+            <h3 class="text-3xl font-light text-slate-800">Low Stock</h3>
+            <p class="text-xs text-slate-500 mt-1">Needs attention</p>
+          </div>
+        </div>
+
+        <div class="glass-panel p-5 rounded-xl flex flex-col justify-between group hover:border-purple-300/50 transition-colors duration-300">
+          <div class="flex justify-between items-start">
+            <div class="p-2 bg-purple-50 rounded-lg text-purple-600 group-hover:scale-110 transition-transform">
+              <app-icon name="users" [size]="20"></app-icon>
+            </div>
+          </div>
+          <div class="mt-4">
+            <h3 class="text-3xl font-light text-slate-800">4</h3>
+            <p class="text-xs text-slate-500 mt-1">Active Staff</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Chart Area -->
+      <div class="flex-1 glass-panel rounded-xl p-6 flex flex-col min-h-[300px]">
+        <h3 class="text-lg font-light text-slate-800 mb-4">Revenue Trend (7 Days)</h3>
+        <div class="flex-1 w-full">
+          <app-sales-chart></app-sales-chart>
+        </div>
+      </div>
+    </div>
+  
