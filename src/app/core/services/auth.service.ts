@@ -203,6 +203,21 @@ export class AuthService {
   }
 
   /**
+   * Navigate directly to onboarding
+   */
+  goToOnboarding(): void {
+    this.store.setView('onboarding');
+  }
+
+  /**
+   * Navigate directly to dashboard
+   */
+  goToDashboard(): void {
+    localStorage.removeItem(FIRST_LOGIN_KEY);
+    this.store.setView('dashboard');
+  }
+
+  /**
    * Check if app should show auth screen
    */
   checkAuthState(): void {

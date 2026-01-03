@@ -1131,14 +1131,19 @@ export class AuthComponent implements OnInit, OnDestroy {
    */
   private authenticateWithGoogle(credential: string): void {
     this.auth.googleAuth({ credential }).subscribe({
-      next: () => {
+      next: (response) => {
         this.googleLoading.set(false);
         this.googleCredential.set(null);
-        // Navigate based on whether user is new (handled by auth service)
-        this.auth.navigateAfterAuth();
+        // Navigate based on whether user is new
+        if (response.isNewUser) {
+          this.auth.goToOnboarding();
+        } else {
+          this.auth.goToDashboard();
+        }
       },
-      error: () => {
+      error: (err) => {
         this.googleLoading.set(false);
+        console.error('Google auth error:', err);
       }
     });
   }
