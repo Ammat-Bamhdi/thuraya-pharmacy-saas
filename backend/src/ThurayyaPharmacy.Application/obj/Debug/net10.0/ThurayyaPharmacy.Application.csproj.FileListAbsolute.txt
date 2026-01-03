@@ -1,0 +1,16 @@
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Application\bin\Debug\net10.0\ThurayyaPharmacy.Application.deps.json
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Application\bin\Debug\net10.0\ThurayyaPharmacy.Application.dll
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Application\bin\Debug\net10.0\ThurayyaPharmacy.Application.pdb
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Application\bin\Debug\net10.0\ThurayyaPharmacy.Domain.dll
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Application\bin\Debug\net10.0\ThurayyaPharmacy.Domain.pdb
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Application\obj\Debug\net10.0\ThurayyaPharmacy.Application.csproj.AssemblyReference.cache
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Application\obj\Debug\net10.0\ThurayyaPharmacy.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Application\obj\Debug\net10.0\ThurayyaPharmacy.Application.AssemblyInfoInputs.cache
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Application\obj\Debug\net10.0\ThurayyaPharmacy.Application.AssemblyInfo.cs
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Application\obj\Debug\net10.0\ThurayyaPharmacy.Application.csproj.CoreCompileInputs.cache
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Application\obj\Debug\net10.0\ThurayyaPharmacy.Application.sourcelink.json
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Application\obj\Debug\net10.0\Thurayya.AD4C0DB4.Up2Date
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Application\obj\Debug\net10.0\ThurayyaPharmacy.Application.dll
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Application\obj\Debug\net10.0\refint\ThurayyaPharmacy.Application.dll
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Application\obj\Debug\net10.0\ThurayyaPharmacy.Application.pdb
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Application\obj\Debug\net10.0\ref\ThurayyaPharmacy.Application.dll

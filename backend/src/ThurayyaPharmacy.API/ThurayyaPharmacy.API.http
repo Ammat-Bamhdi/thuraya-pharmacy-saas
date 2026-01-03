@@ -1,0 +1,6 @@
+@ThurayyaPharmacy.API_HostAddress = http://localhost:5019
+
+GET {{ThurayyaPharmacy.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

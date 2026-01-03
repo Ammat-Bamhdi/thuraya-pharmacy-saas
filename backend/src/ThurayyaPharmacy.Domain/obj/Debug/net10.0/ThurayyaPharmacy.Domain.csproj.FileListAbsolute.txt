@@ -1,0 +1,12 @@
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Domain\bin\Debug\net10.0\ThurayyaPharmacy.Domain.deps.json
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Domain\bin\Debug\net10.0\ThurayyaPharmacy.Domain.dll
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Domain\bin\Debug\net10.0\ThurayyaPharmacy.Domain.pdb
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Domain\obj\Debug\net10.0\ThurayyaPharmacy.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Domain\obj\Debug\net10.0\ThurayyaPharmacy.Domain.AssemblyInfoInputs.cache
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Domain\obj\Debug\net10.0\ThurayyaPharmacy.Domain.AssemblyInfo.cs
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Domain\obj\Debug\net10.0\ThurayyaPharmacy.Domain.csproj.CoreCompileInputs.cache
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Domain\obj\Debug\net10.0\ThurayyaPharmacy.Domain.sourcelink.json
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Domain\obj\Debug\net10.0\ThurayyaPharmacy.Domain.dll
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Domain\obj\Debug\net10.0\refint\ThurayyaPharmacy.Domain.dll
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Domain\obj\Debug\net10.0\ThurayyaPharmacy.Domain.pdb
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.Domain\obj\Debug\net10.0\ref\ThurayyaPharmacy.Domain.dll
