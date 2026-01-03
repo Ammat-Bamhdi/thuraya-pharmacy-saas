@@ -3,7 +3,7 @@
  * Production-ready with accessibility, Google OAuth, and proper validation
  * 
  * @author Thuraya Systems
- * @version 1.1.0
+ * @version 1.2.0
  */
 
 import { 
@@ -187,7 +187,6 @@ declare const google: any;
             (ngSubmit)="handleSubmit()" 
             class="auth-form"
             aria-labelledby="form-title"
-            #authForm="ngForm"
           >
             <!-- Registration Fields -->
             @if (!isLogin()) {
@@ -197,20 +196,15 @@ declare const google: any;
                   type="text" 
                   id="name" 
                   name="name"
-                  [(ngModel)]="name" 
-                  #nameInput="ngModel"
+                  [ngModel]="name()" 
+                  (ngModelChange)="name.set($event)"
                   placeholder="John Doe"
                   required
                   minlength="2"
                   maxlength="100"
                   autocomplete="name"
-                  [attr.aria-invalid]="nameInput.invalid && nameInput.touched"
                   class="form-input"
-                  [class.error]="nameInput.invalid && nameInput.touched"
                 />
-                @if (nameInput.invalid && nameInput.touched) {
-                  <span class="field-error" role="alert">Enter your full name (min 2 characters)</span>
-                }
               </div>
 
               <div class="form-group">
@@ -219,19 +213,14 @@ declare const google: any;
                   type="text" 
                   id="pharmacy" 
                   name="pharmacy"
-                  [(ngModel)]="pharmacyName"
-                  #pharmacyInput="ngModel"
+                  [ngModel]="pharmacyName()"
+                  (ngModelChange)="pharmacyName.set($event)"
                   placeholder="Acme Pharmacy"
                   required
                   minlength="2"
                   maxlength="200"
-                  [attr.aria-invalid]="pharmacyInput.invalid && pharmacyInput.touched"
                   class="form-input"
-                  [class.error]="pharmacyInput.invalid && pharmacyInput.touched"
                 />
-                @if (pharmacyInput.invalid && pharmacyInput.touched) {
-                  <span class="field-error" role="alert">Enter your organization name</span>
-                }
               </div>
             }
 
@@ -242,90 +231,91 @@ declare const google: any;
                 type="email" 
                 id="email" 
                 name="email"
-                [(ngModel)]="email"
-                #emailInput="ngModel"
+                [ngModel]="email()"
+                (ngModelChange)="email.set($event)"
                 placeholder="you&#64;company.com"
                 required
-                email
                 autocomplete="email"
-                [attr.aria-invalid]="emailInput.invalid && emailInput.touched"
                 class="form-input"
-                [class.error]="emailInput.invalid && emailInput.touched"
               />
-              @if (emailInput.invalid && emailInput.touched) {
-                <span class="field-error" role="alert">Enter a valid email address</span>
-              }
             </div>
 
-            <!-- Password Field -->
-            <div class="form-group">
-              <div class="label-row">
-                <label for="password" class="form-label">Password</label>
-                @if (isLogin()) {
-                  <a href="#" class="forgot-link" (click)="$event.preventDefault()">Forgot?</a>
+            <!-- Password Field (hidden for Google signup) -->
+            @if (!googleCredential()) {
+              <div class="form-group">
+                <div class="label-row">
+                  <label for="password" class="form-label">Password</label>
+                  @if (isLogin()) {
+                    <a href="#" class="forgot-link" (click)="$event.preventDefault()">Forgot?</a>
+                  }
+                </div>
+                <div class="password-input">
+                  <input 
+                    [type]="showPassword() ? 'text' : 'password'" 
+                    id="password" 
+                    name="password"
+                    [ngModel]="password()"
+                    (ngModelChange)="password.set($event)"
+                    placeholder="••••••••"
+                    required
+                    [autocomplete]="isLogin() ? 'current-password' : 'new-password'"
+                    [attr.aria-describedby]="!isLogin() ? 'password-requirements' : null"
+                    class="form-input"
+                  />
+                  <button 
+                    type="button" 
+                    class="toggle-password" 
+                    (click)="showPassword.set(!showPassword())"
+                    [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+                  >
+                    @if (showPassword()) {
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                      </svg>
+                    } @else {
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    }
+                  </button>
+                </div>
+                
+                <!-- Password Requirements (Signup only) -->
+                @if (!isLogin()) {
+                  <div id="password-requirements" class="password-requirements">
+                    <p class="requirements-title">Password must contain:</p>
+                    <ul class="requirements-list">
+                      <li [class.valid]="passwordChecks().minLength">
+                        <span class="check-icon" [class.valid]="passwordChecks().minLength">
+                          {{ passwordChecks().minLength ? '✓' : '○' }}
+                        </span>
+                        At least 8 characters
+                      </li>
+                      <li [class.valid]="passwordChecks().hasUppercase">
+                        <span class="check-icon" [class.valid]="passwordChecks().hasUppercase">
+                          {{ passwordChecks().hasUppercase ? '✓' : '○' }}
+                        </span>
+                        One uppercase letter
+                      </li>
+                      <li [class.valid]="passwordChecks().hasLowercase">
+                        <span class="check-icon" [class.valid]="passwordChecks().hasLowercase">
+                          {{ passwordChecks().hasLowercase ? '✓' : '○' }}
+                        </span>
+                        One lowercase letter
+                      </li>
+                      <li [class.valid]="passwordChecks().hasNumber">
+                        <span class="check-icon" [class.valid]="passwordChecks().hasNumber">
+                          {{ passwordChecks().hasNumber ? '✓' : '○' }}
+                        </span>
+                        One number
+                      </li>
+                    </ul>
+                  </div>
                 }
               </div>
-              <div class="password-input">
-                <input 
-                  [type]="showPassword() ? 'text' : 'password'" 
-                  id="password" 
-                  name="password"
-                  [(ngModel)]="password"
-                  #passwordInput="ngModel"
-                  placeholder="••••••••"
-                  required
-                  [minlength]="isLogin() ? 1 : 8"
-                  [autocomplete]="isLogin() ? 'current-password' : 'new-password'"
-                  [attr.aria-invalid]="passwordInput.invalid && passwordInput.touched"
-                  [attr.aria-describedby]="!isLogin() ? 'password-requirements' : null"
-                  class="form-input"
-                  [class.error]="passwordInput.invalid && passwordInput.touched"
-                />
-                <button 
-                  type="button" 
-                  class="toggle-password" 
-                  (click)="showPassword.set(!showPassword())"
-                  [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
-                >
-                  @if (showPassword()) {
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
-                      <line x1="1" y1="1" x2="23" y2="23"/>
-                    </svg>
-                  } @else {
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                      <circle cx="12" cy="12" r="3"/>
-                    </svg>
-                  }
-                </button>
-              </div>
-              
-              <!-- Password Requirements (Signup only) -->
-              @if (!isLogin()) {
-                <div id="password-requirements" class="password-requirements">
-                  <p class="requirements-title">Password must contain:</p>
-                  <ul class="requirements-list">
-                    <li [class.valid]="passwordChecks().minLength">
-                      <span class="check-icon">{{ passwordChecks().minLength ? '✓' : '○' }}</span>
-                      At least 8 characters
-                    </li>
-                    <li [class.valid]="passwordChecks().hasUppercase">
-                      <span class="check-icon">{{ passwordChecks().hasUppercase ? '✓' : '○' }}</span>
-                      One uppercase letter
-                    </li>
-                    <li [class.valid]="passwordChecks().hasLowercase">
-                      <span class="check-icon">{{ passwordChecks().hasLowercase ? '✓' : '○' }}</span>
-                      One lowercase letter
-                    </li>
-                    <li [class.valid]="passwordChecks().hasNumber">
-                      <span class="check-icon">{{ passwordChecks().hasNumber ? '✓' : '○' }}</span>
-                      One number
-                    </li>
-                  </ul>
-                </div>
-              }
-            </div>
+            }
 
             <!-- Registration: Country & Currency -->
             @if (!isLogin()) {
@@ -335,12 +325,10 @@ declare const google: any;
                   <select 
                     id="country" 
                     name="country"
-                    [(ngModel)]="country"
-                    #countryInput="ngModel"
+                    [ngModel]="country()"
+                    (ngModelChange)="onCountryChange($event)"
                     required
                     class="form-input form-select"
-                    [class.error]="countryInput.invalid && countryInput.touched"
-                    (change)="onCountryChange()"
                   >
                     <option value="" disabled>Select</option>
                     <option value="SA">Saudi Arabia</option>
@@ -359,11 +347,10 @@ declare const google: any;
                   <select 
                     id="currency" 
                     name="currency"
-                    [(ngModel)]="currency"
-                    #currencyInput="ngModel"
+                    [ngModel]="currency()"
+                    (ngModelChange)="currency.set($event)"
                     required
                     class="form-input form-select"
-                    [class.error]="currencyInput.invalid && currencyInput.touched"
                   >
                     <option value="" disabled>Select</option>
                     <option value="SAR">SAR</option>
@@ -843,7 +830,10 @@ declare const google: any;
       font-size: 0.625rem;
       width: 14px;
       text-align: center;
+      transition: color 0.15s;
     }
+    
+    .check-icon.valid { color: var(--color-success); }
 
     /* ========== Submit Button ========== */
     .submit-btn {
@@ -934,20 +924,21 @@ export class AuthComponent implements OnInit, OnDestroy {
   protected readonly auth = inject(AuthService);
   private readonly ngZone = inject(NgZone);
 
-  // UI State
+  // UI State - All signals for reactivity
   readonly isLogin = signal(true);
   readonly showPassword = signal(false);
   readonly language = signal<'en' | 'ar'>('en');
   readonly successMessage = signal<string | null>(null);
   readonly googleLoading = signal(false);
+  readonly googleCredential = signal<string | null>(null);
 
-  // Form fields
-  name = '';
-  email = '';
-  password = '';
-  pharmacyName = '';
-  country = '';
-  currency = '';
+  // Form fields - All signals for reactive password validation
+  readonly name = signal('');
+  readonly email = signal('');
+  readonly password = signal('');
+  readonly pharmacyName = signal('');
+  readonly country = signal('');
+  readonly currency = signal('');
 
   // Country to currency mapping
   private readonly currencyMap: Record<string, string> = {
@@ -959,22 +950,56 @@ export class AuthComponent implements OnInit, OnDestroy {
   private readonly googleClientId = environment.googleClientId || '';
 
   /**
-   * Password validation checks
+   * Password validation checks - now reactive since password is a signal
    */
-  readonly passwordChecks = computed(() => ({
-    minLength: this.password.length >= 8,
-    hasUppercase: /[A-Z]/.test(this.password),
-    hasLowercase: /[a-z]/.test(this.password),
-    hasNumber: /[0-9]/.test(this.password)
-  }));
+  readonly passwordChecks = computed(() => {
+    const pwd = this.password();
+    return {
+      minLength: pwd.length >= 8,
+      hasUppercase: /[A-Z]/.test(pwd),
+      hasLowercase: /[a-z]/.test(pwd),
+      hasNumber: /[0-9]/.test(pwd)
+    };
+  });
 
   /**
    * Check if password meets all requirements
    */
   readonly isPasswordValid = computed(() => {
-    if (this.isLogin()) return this.password.length > 0;
+    if (this.isLogin()) return this.password().length > 0;
+    if (this.googleCredential()) return true; // Google signup doesn't need password
     const checks = this.passwordChecks();
     return checks.minLength && checks.hasUppercase && checks.hasLowercase && checks.hasNumber;
+  });
+
+  /**
+   * Check if form is valid for submission
+   */
+  readonly isFormValid = computed(() => {
+    if (this.isLogin()) {
+      return !!(this.email() && this.password());
+    }
+    
+    // For Google signup, password is not required
+    if (this.googleCredential()) {
+      return !!(
+        this.name() && 
+        this.email() && 
+        this.pharmacyName() && 
+        this.country() && 
+        this.currency()
+      );
+    }
+    
+    // Regular signup requires password
+    return !!(
+      this.name() && 
+      this.email() && 
+      this.isPasswordValid() &&
+      this.pharmacyName() && 
+      this.country() && 
+      this.currency()
+    );
   });
 
   ngOnInit(): void {
@@ -1044,7 +1069,7 @@ export class AuthComponent implements OnInit, OnDestroy {
           // Fallback to popup
           google.accounts.oauth2.initTokenClient({
             client_id: this.googleClientId,
-            scope: 'email profile',
+            scope: 'email profile openid',
             callback: (response: any) => {
               if (response.access_token) {
                 this.handleGoogleToken(response.access_token);
@@ -1070,14 +1095,12 @@ export class AuthComponent implements OnInit, OnDestroy {
   private handleGoogleCallback(response: any): void {
     if (response.credential) {
       this.ngZone.run(() => {
-        this.googleCredential = response.credential;
-        
-        // For login mode, try to authenticate directly
+        // For login mode, authenticate directly with backend
         if (this.isLogin()) {
-          this.authenticateWithGoogle(response.credential);
+          this.authenticateWithGoogle(response.credential, null, null, null);
         } else {
-          // For signup, we need org details - show form with pre-filled data
-          this.prefillFromGoogleCredential(response.credential);
+          // For signup mode, also try directly - backend will tell us if we need org details
+          this.authenticateWithGoogle(response.credential, null, null, null);
         }
       });
     } else {
@@ -1091,16 +1114,23 @@ export class AuthComponent implements OnInit, OnDestroy {
    * Handle Google access token (OAuth popup flow)
    */
   private handleGoogleToken(accessToken: string): void {
-    // Get user info from Google, then get ID token for backend verification
+    // Get user info from Google
     fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`)
       .then(res => res.json())
       .then(user => {
         this.ngZone.run(() => {
-          // For access token flow, pre-fill form (we don't have ID token)
-          this.email = user.email || '';
-          this.name = user.name || '';
+          // Pre-fill form with Google data (since we don't have ID token for backend)
+          this.email.set(user.email || '');
+          this.name.set(user.name || '');
           this.googleLoading.set(false);
-          this.successMessage.set(`Welcome ${user.given_name || 'User'}! Complete the form below.`);
+          
+          // Switch to signup mode with pre-filled data
+          if (this.isLogin()) {
+            // For login, try email/password flow
+            this.successMessage.set(`Welcome ${user.given_name || 'User'}! Please enter your password.`);
+          } else {
+            this.successMessage.set(`Welcome ${user.given_name || 'User'}! Complete organization details.`);
+          }
           setTimeout(() => this.successMessage.set(null), 4000);
         });
       })
@@ -1112,93 +1142,56 @@ export class AuthComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Pre-fill form from Google credential for signup
-   */
-  private prefillFromGoogleCredential(credential: string): void {
-    try {
-      const payload = JSON.parse(atob(credential.split('.')[1]));
-      this.email = payload.email || '';
-      this.name = payload.name || '';
-      this.googleLoading.set(false);
-      this.successMessage.set(`Welcome ${payload.given_name || 'User'}! Enter your organization details to continue.`);
-      setTimeout(() => this.successMessage.set(null), 5000);
-    } catch {
-      this.googleLoading.set(false);
-    }
-  }
-
-  /**
    * Authenticate with Google via backend
    */
-  private authenticateWithGoogle(credential: string): void {
+  private authenticateWithGoogle(
+    credential: string, 
+    tenantName: string | null, 
+    country: string | null, 
+    currency: string | null
+  ): void {
     this.auth.googleAuth({
       credential,
-      tenantName: this.pharmacyName || undefined,
-      country: this.country || undefined,
-      currency: this.currency || undefined
+      tenantName: tenantName || undefined,
+      country: country || undefined,
+      currency: currency || undefined
     }).subscribe({
       next: (response) => {
         this.googleLoading.set(false);
+        this.googleCredential.set(null);
         // Navigate based on whether user is new
-        if (response.isNewUser) {
-          this.auth.navigateAfterAuth(); // Goes to onboarding
-        } else {
-          this.auth.navigateAfterAuth(); // Goes to dashboard
-        }
+        this.auth.navigateAfterAuth();
       },
       error: (err) => {
         this.googleLoading.set(false);
-        // If error is about missing tenant, show signup form
-        if (err.message?.includes('Organization name')) {
-          this.isLogin.set(false);
-          this.prefillFromGoogleCredential(credential);
-          this.successMessage.set('Please complete your organization details to continue.');
-          setTimeout(() => this.successMessage.set(null), 5000);
+        
+        // If error is about missing tenant, switch to signup mode and show form
+        if (err.message?.includes('Organization name') || err.message?.includes('required')) {
+          // Decode credential to get user info
+          try {
+            const payload = JSON.parse(atob(credential.split('.')[1]));
+            this.email.set(payload.email || '');
+            this.name.set(payload.name || '');
+            this.googleCredential.set(credential);
+            this.isLogin.set(false);
+            this.successMessage.set('Please complete your organization details to create your account.');
+            setTimeout(() => this.successMessage.set(null), 5000);
+          } catch {
+            // Ignore decode errors
+          }
         }
       }
     });
   }
 
-  // Store Google credential for signup completion
-  private googleCredential: string | null = null;
-
-  /**
-   * Check if form is valid for submission
-   */
-  isFormValid(): boolean {
-    if (this.isLogin()) {
-      return !!(this.email && this.password);
-    }
-    
-    // For Google signup, password is not required
-    if (this.googleCredential) {
-      return !!(
-        this.name && 
-        this.email && 
-        this.pharmacyName && 
-        this.country && 
-        this.currency
-      );
-    }
-    
-    // Regular signup requires password
-    return !!(
-      this.name && 
-      this.email && 
-      this.isPasswordValid() &&
-      this.pharmacyName && 
-      this.country && 
-      this.currency
-    );
-  }
-
   /**
    * Auto-select currency when country changes
    */
-  onCountryChange(): void {
-    const suggestedCurrency = this.currencyMap[this.country];
-    if (suggestedCurrency && !this.currency) {
-      this.currency = suggestedCurrency;
+  onCountryChange(value: string): void {
+    this.country.set(value);
+    const suggestedCurrency = this.currencyMap[value];
+    if (suggestedCurrency) {
+      this.currency.set(suggestedCurrency);
     }
   }
 
@@ -1209,6 +1202,7 @@ export class AuthComponent implements OnInit, OnDestroy {
     this.isLogin.set(!this.isLogin());
     this.auth.clearError();
     this.successMessage.set(null);
+    this.googleCredential.set(null);
     this.resetForm();
   }
 
@@ -1227,8 +1221,8 @@ export class AuthComponent implements OnInit, OnDestroy {
 
   private login(): void {
     this.auth.login({
-      email: this.email.trim(),
-      password: this.password
+      email: this.email().trim(),
+      password: this.password()
     }).subscribe({
       next: () => this.auth.navigateAfterAuth()
     });
@@ -1236,15 +1230,15 @@ export class AuthComponent implements OnInit, OnDestroy {
 
   private register(): void {
     // If we have a Google credential, use Google auth
-    if (this.googleCredential) {
+    if (this.googleCredential()) {
       this.auth.googleAuth({
-        credential: this.googleCredential,
-        tenantName: this.pharmacyName.trim(),
-        country: this.country,
-        currency: this.currency
+        credential: this.googleCredential()!,
+        tenantName: this.pharmacyName().trim(),
+        country: this.country(),
+        currency: this.currency()
       }).subscribe({
         next: () => {
-          this.googleCredential = null;
+          this.googleCredential.set(null);
           this.auth.navigateAfterAuth();
         }
       });
@@ -1253,24 +1247,23 @@ export class AuthComponent implements OnInit, OnDestroy {
 
     // Regular email/password registration
     this.auth.register({
-      name: this.name.trim(),
-      email: this.email.trim(),
-      password: this.password,
-      tenantName: this.pharmacyName.trim(),
-      country: this.country,
-      currency: this.currency
+      name: this.name().trim(),
+      email: this.email().trim(),
+      password: this.password(),
+      tenantName: this.pharmacyName().trim(),
+      country: this.country(),
+      currency: this.currency()
     }).subscribe({
       next: () => this.auth.navigateAfterAuth()
     });
   }
 
   private resetForm(): void {
-    this.name = '';
-    this.email = '';
-    this.password = '';
-    this.pharmacyName = '';
-    this.country = '';
-    this.currency = '';
-    this.googleCredential = null;
+    this.name.set('');
+    this.email.set('');
+    this.password.set('');
+    this.pharmacyName.set('');
+    this.country.set('');
+    this.currency.set('');
   }
 }
