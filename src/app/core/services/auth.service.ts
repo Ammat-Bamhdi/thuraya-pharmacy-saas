@@ -1,11 +1,14 @@
 /**
  * @fileoverview Authentication service for backend API integration
  * Handles login, registration, token management, and user state
+ * 
+ * @author Thuraya Systems
+ * @version 1.0.0
  */
 
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
+import { Observable, throwError, of } from 'rxjs';
 import { map, catchError, tap, finalize } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { 
@@ -18,6 +21,7 @@ import {
 } from '../models/auth.model';
 import { StoreService } from './store.service';
 
+// Storage keys
 const TOKEN_KEY = 'thurayya_access_token';
 const REFRESH_TOKEN_KEY = 'thurayya_refresh_token';
 const USER_KEY = 'thurayya_user';
@@ -53,20 +57,20 @@ export class AuthService {
    * Load user from localStorage on app init
    */
   private loadStoredUser(): void {
-    const token = this.getToken();
-    const storedUser = localStorage.getItem(USER_KEY);
-    
-    if (token && storedUser && !this.isTokenExpired(token)) {
-      try {
+    try {
+      const token = this.getToken();
+      const storedUser = localStorage.getItem(USER_KEY);
+      
+      if (token && storedUser && !this.isTokenExpired(token)) {
         this._user.set(JSON.parse(storedUser));
-      } catch {
-        this.clearAuth();
+      } else if (token && this.isTokenExpired(token)) {
+        // Token expired, try refresh silently
+        this.refreshToken().subscribe({
+          error: () => this.clearAuth()
+        });
       }
-    } else if (token) {
-      // Token expired, try refresh
-      this.refreshToken().subscribe({
-        error: () => this.clearAuth()
-      });
+    } catch {
+      this.clearAuth();
     }
   }
 
@@ -86,7 +90,7 @@ export class AuthService {
           return response.data;
         }),
         tap(authResponse => {
-          this.setAuth(authResponse, true); // Mark as first login
+          this.setAuth(authResponse, true);
         }),
         catchError(error => this.handleError(error)),
         finalize(() => this._isLoading.set(false))
@@ -109,7 +113,7 @@ export class AuthService {
           return response.data;
         }),
         tap(authResponse => {
-          this.setAuth(authResponse, false); // Not first login
+          this.setAuth(authResponse, false);
         }),
         catchError(error => this.handleError(error)),
         finalize(() => this._isLoading.set(false))
@@ -119,27 +123,29 @@ export class AuthService {
   /**
    * Refresh the access token
    */
-  refreshToken(): Observable<AuthResponse> {
+  refreshToken(): Observable<AuthResponse | null> {
     const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
     
     if (!refreshToken) {
-      return throwError(() => new Error('No refresh token'));
+      return of(null);
     }
 
     return this.http.post<ApiResponse<AuthResponse>>(`${this.apiUrl}/auth/refresh`, { refreshToken })
       .pipe(
         map(response => {
           if (!response.success || !response.data) {
-            throw new Error(response.message || 'Token refresh failed');
+            throw new Error('Token refresh failed');
           }
           return response.data;
         }),
         tap(authResponse => {
-          this.setAuth(authResponse, false);
+          if (authResponse) {
+            this.setAuth(authResponse, false);
+          }
         }),
-        catchError(error => {
+        catchError(() => {
           this.clearAuth();
-          return throwError(() => error);
+          return of(null);
         })
       );
   }
@@ -196,8 +202,6 @@ export class AuthService {
     try {
       const payload = this.decodeToken(token);
       if (!payload) return true;
-      
-      // Check if expired (with 60 second buffer)
       return (payload.exp * 1000) < (Date.now() - 60000);
     } catch {
       return true;
@@ -273,23 +277,24 @@ export class AuthService {
   }
 
   /**
-   * Handle HTTP errors
+   * Handle HTTP errors with user-friendly messages
    */
   private handleError(error: HttpErrorResponse): Observable<never> {
-    let message = 'An error occurred';
+    let message = 'An unexpected error occurred. Please try again.';
     
     if (error.error instanceof ErrorEvent) {
       // Client-side error
-      message = error.error.message;
-    } else if (error.error?.message) {
-      // Server error with message
-      message = error.error.message;
-    } else if (error.status === 401) {
-      message = 'Invalid email or password';
-    } else if (error.status === 400) {
-      message = 'Invalid request. Please check your input.';
+      message = 'Network error. Please check your connection.';
     } else if (error.status === 0) {
-      message = 'Unable to connect to server. Please check your connection.';
+      message = 'Unable to connect to server. Please check if the server is running.';
+    } else if (error.status === 400) {
+      message = error.error?.message || 'Invalid request. Please check your input.';
+    } else if (error.status === 401) {
+      message = 'Invalid email or password.';
+    } else if (error.status === 409) {
+      message = 'This email is already registered.';
+    } else if (error.error?.message) {
+      message = error.error.message;
     }
     
     this._error.set(message);
@@ -303,4 +308,3 @@ export class AuthService {
     this._error.set(null);
   }
 }
-
