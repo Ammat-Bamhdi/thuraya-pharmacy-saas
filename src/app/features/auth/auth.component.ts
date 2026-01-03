@@ -1156,7 +1156,7 @@ export class AuthComponent implements OnInit, OnDestroy {
       country: country || undefined,
       currency: currency || undefined
     }).subscribe({
-      next: (response) => {
+      next: () => {
         this.googleLoading.set(false);
         this.googleCredential.set(null);
         // Navigate based on whether user is new
