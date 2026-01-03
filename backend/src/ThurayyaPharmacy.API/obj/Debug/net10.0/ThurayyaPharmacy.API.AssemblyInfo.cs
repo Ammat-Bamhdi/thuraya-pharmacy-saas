@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ThurayyaPharmacy.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e6f73e0e9e439a3613f1edbf060cce246a7c9bc3")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+100c3c71f9b93caac4dc9f7b57219d4c41032420")]
 [assembly: System.Reflection.AssemblyProductAttribute("ThurayyaPharmacy.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ThurayyaPharmacy.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
