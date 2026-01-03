@@ -1065,13 +1065,20 @@ export class AuthComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Handle Google credential callback
+   * Handle Google credential callback (One Tap / popup credential response)
    */
   private handleGoogleCallback(response: any): void {
     if (response.credential) {
       this.ngZone.run(() => {
-        // Send credential to backend for verification
-        this.sendGoogleCredentialToBackend(response.credential);
+        this.googleCredential = response.credential;
+        
+        // For login mode, try to authenticate directly
+        if (this.isLogin()) {
+          this.authenticateWithGoogle(response.credential);
+        } else {
+          // For signup, we need org details - show form with pre-filled data
+          this.prefillFromGoogleCredential(response.credential);
+        }
       });
     } else {
       this.ngZone.run(() => {
@@ -1081,15 +1088,15 @@ export class AuthComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Handle Google access token
+   * Handle Google access token (OAuth popup flow)
    */
   private handleGoogleToken(accessToken: string): void {
-    // Get user info from Google
+    // Get user info from Google, then get ID token for backend verification
     fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`)
       .then(res => res.json())
       .then(user => {
         this.ngZone.run(() => {
-          // Auto-fill form with Google data
+          // For access token flow, pre-fill form (we don't have ID token)
           this.email = user.email || '';
           this.name = user.name || '';
           this.googleLoading.set(false);
@@ -1105,22 +1112,55 @@ export class AuthComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Send Google credential to backend
+   * Pre-fill form from Google credential for signup
    */
-  private sendGoogleCredentialToBackend(credential: string): void {
-    // TODO: Implement backend endpoint for Google OAuth
-    // For now, decode the JWT and fill the form
+  private prefillFromGoogleCredential(credential: string): void {
     try {
       const payload = JSON.parse(atob(credential.split('.')[1]));
       this.email = payload.email || '';
       this.name = payload.name || '';
       this.googleLoading.set(false);
-      this.successMessage.set(`Welcome ${payload.given_name || 'User'}! Complete the form below.`);
-      setTimeout(() => this.successMessage.set(null), 4000);
+      this.successMessage.set(`Welcome ${payload.given_name || 'User'}! Enter your organization details to continue.`);
+      setTimeout(() => this.successMessage.set(null), 5000);
     } catch {
       this.googleLoading.set(false);
     }
   }
+
+  /**
+   * Authenticate with Google via backend
+   */
+  private authenticateWithGoogle(credential: string): void {
+    this.auth.googleAuth({
+      credential,
+      tenantName: this.pharmacyName || undefined,
+      country: this.country || undefined,
+      currency: this.currency || undefined
+    }).subscribe({
+      next: (response) => {
+        this.googleLoading.set(false);
+        // Navigate based on whether user is new
+        if (response.isNewUser) {
+          this.auth.navigateAfterAuth(); // Goes to onboarding
+        } else {
+          this.auth.navigateAfterAuth(); // Goes to dashboard
+        }
+      },
+      error: (err) => {
+        this.googleLoading.set(false);
+        // If error is about missing tenant, show signup form
+        if (err.message?.includes('Organization name')) {
+          this.isLogin.set(false);
+          this.prefillFromGoogleCredential(credential);
+          this.successMessage.set('Please complete your organization details to continue.');
+          setTimeout(() => this.successMessage.set(null), 5000);
+        }
+      }
+    });
+  }
+
+  // Store Google credential for signup completion
+  private googleCredential: string | null = null;
 
   /**
    * Check if form is valid for submission
@@ -1129,6 +1169,19 @@ export class AuthComponent implements OnInit, OnDestroy {
     if (this.isLogin()) {
       return !!(this.email && this.password);
     }
+    
+    // For Google signup, password is not required
+    if (this.googleCredential) {
+      return !!(
+        this.name && 
+        this.email && 
+        this.pharmacyName && 
+        this.country && 
+        this.currency
+      );
+    }
+    
+    // Regular signup requires password
     return !!(
       this.name && 
       this.email && 
@@ -1182,6 +1235,23 @@ export class AuthComponent implements OnInit, OnDestroy {
   }
 
   private register(): void {
+    // If we have a Google credential, use Google auth
+    if (this.googleCredential) {
+      this.auth.googleAuth({
+        credential: this.googleCredential,
+        tenantName: this.pharmacyName.trim(),
+        country: this.country,
+        currency: this.currency
+      }).subscribe({
+        next: () => {
+          this.googleCredential = null;
+          this.auth.navigateAfterAuth();
+        }
+      });
+      return;
+    }
+
+    // Regular email/password registration
     this.auth.register({
       name: this.name.trim(),
       email: this.email.trim(),
@@ -1201,5 +1271,6 @@ export class AuthComponent implements OnInit, OnDestroy {
     this.pharmacyName = '';
     this.country = '';
     this.currency = '';
+    this.googleCredential = null;
   }
 }

@@ -14,7 +14,9 @@ import { environment } from '../../../environments/environment';
 import { 
   LoginRequest, 
   RegisterRequest, 
+  GoogleAuthRequest,
   AuthResponse, 
+  GoogleAuthResponse,
   AuthUser, 
   ApiResponse,
   TokenPayload 
@@ -114,6 +116,29 @@ export class AuthService {
         }),
         tap(authResponse => {
           this.setAuth(authResponse, false);
+        }),
+        catchError(error => this.handleError(error)),
+        finalize(() => this._isLoading.set(false))
+      );
+  }
+
+  /**
+   * Authenticate with Google OAuth
+   */
+  googleAuth(request: GoogleAuthRequest): Observable<GoogleAuthResponse> {
+    this._isLoading.set(true);
+    this._error.set(null);
+
+    return this.http.post<ApiResponse<GoogleAuthResponse>>(`${this.apiUrl}/auth/google`, request)
+      .pipe(
+        map(response => {
+          if (!response.success || !response.data) {
+            throw new Error(response.message || 'Google authentication failed');
+          }
+          return response.data;
+        }),
+        tap(authResponse => {
+          this.setAuth(authResponse, authResponse.isNewUser);
         }),
         catchError(error => this.handleError(error)),
         finalize(() => this._isLoading.set(false))

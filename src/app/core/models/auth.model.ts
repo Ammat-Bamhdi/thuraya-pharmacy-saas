@@ -16,6 +16,13 @@ export interface RegisterRequest {
   currency: string;
 }
 
+export interface GoogleAuthRequest {
+  credential: string;        // Google ID token (JWT)
+  tenantName?: string;       // Required for new user registration
+  country?: string;          // Required for new user registration
+  currency?: string;         // Required for new user registration
+}
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -32,6 +39,10 @@ export interface AuthResponse {
   refreshToken: string;
   expiresAt: string;
   user: AuthUser;
+}
+
+export interface GoogleAuthResponse extends AuthResponse {
+  isNewUser: boolean;        // True if this is first login (needs onboarding)
 }
 
 export interface ApiResponse<T> {

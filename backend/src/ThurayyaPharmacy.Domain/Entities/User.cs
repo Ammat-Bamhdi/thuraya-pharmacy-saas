@@ -19,6 +19,10 @@ public class User : TenantEntity
     public string? RefreshToken { get; set; }
     public DateTime? RefreshTokenExpiryTime { get; set; }
     
+    // OAuth providers
+    public string? GoogleId { get; set; }
+    public bool EmailVerified { get; set; } = false;
+    
     // Navigation
     public virtual Branch? Branch { get; set; }
 }

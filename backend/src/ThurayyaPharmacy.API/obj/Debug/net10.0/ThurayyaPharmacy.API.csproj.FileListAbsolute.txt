@@ -87,3 +87,10 @@ C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.
 C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.API\obj\Debug\net10.0\ThurayyaPharmacy.API.pdb
 C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.API\obj\Debug\net10.0\ThurayyaPharmacy.API.genruntimeconfig.cache
 C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.API\obj\Debug\net10.0\ref\ThurayyaPharmacy.API.dll
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.API\bin\Debug\net10.0\Google.Apis.dll
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.API\bin\Debug\net10.0\Google.Apis.Auth.dll
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.API\bin\Debug\net10.0\Google.Apis.Core.dll
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.API\bin\Debug\net10.0\Newtonsoft.Json.dll
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.API\bin\Debug\net10.0\System.CodeDom.dll
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.API\bin\Debug\net10.0\System.Management.dll
+C:\Users\Ammar\Downloads\thuraya-pharmacy-saas (2)\backend\src\ThurayyaPharmacy.API\bin\Debug\net10.0\runtimes\win\lib\net7.0\System.Management.dll

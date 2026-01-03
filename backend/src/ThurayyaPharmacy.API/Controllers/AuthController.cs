@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Google.Apis.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -18,11 +19,16 @@ public class AuthController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
     private readonly IConfiguration _config;
+    private readonly ILogger<AuthController> _logger;
 
-    public AuthController(ApplicationDbContext db, IConfiguration config)
+    // Google Client ID for token verification
+    private const string GoogleClientId = "826988304508-nb0662tfl3uo5b0b87tmvkvmsbtn6g44.apps.googleusercontent.com";
+
+    public AuthController(ApplicationDbContext db, IConfiguration config, ILogger<AuthController> logger)
     {
         _db = db;
         _config = config;
+        _logger = logger;
     }
 
     [HttpPost("register")]
@@ -103,6 +109,160 @@ public class AuthController : ControllerBase
         return Ok(new ApiResponse<AuthResponse>(true, response));
     }
 
+    /// <summary>
+    /// Authenticate with Google OAuth
+    /// </summary>
+    [HttpPost("google")]
+    public async Task<ActionResult<ApiResponse<GoogleAuthResponse>>> GoogleAuth([FromBody] GoogleAuthRequest request)
+    {
+        try
+        {
+            // Verify the Google ID token
+            var payload = await VerifyGoogleToken(request.Credential);
+            if (payload == null)
+            {
+                return Unauthorized(new ApiResponse<GoogleAuthResponse>(false, null, "Invalid Google token"));
+            }
+
+            _logger.LogInformation("Google auth for email: {Email}", payload.Email);
+
+            // Check if user exists
+            var existingUser = await _db.Users
+                .Include(u => u.Branch)
+                .Include(u => u.Tenant)
+                .FirstOrDefaultAsync(u => u.Email == payload.Email);
+
+            if (existingUser != null)
+            {
+                // Existing user - login
+                if (existingUser.Status != UserStatus.Active)
+                {
+                    return Unauthorized(new ApiResponse<GoogleAuthResponse>(false, null, "Account is not active"));
+                }
+
+                var (accessToken, expiresAt) = GenerateAccessToken(existingUser, existingUser.TenantId);
+                var refreshToken = GenerateRefreshToken();
+
+                existingUser.RefreshToken = refreshToken;
+                existingUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+                
+                // Update avatar if changed
+                if (!string.IsNullOrEmpty(payload.Picture) && existingUser.Avatar != payload.Picture)
+                {
+                    existingUser.Avatar = payload.Picture;
+                }
+                
+                await _db.SaveChangesAsync();
+
+                var userDto = new UserDto(
+                    existingUser.Id, 
+                    existingUser.Name, 
+                    existingUser.Email, 
+                    existingUser.Role, 
+                    existingUser.BranchId, 
+                    existingUser.Branch?.Name, 
+                    existingUser.Status, 
+                    existingUser.Avatar
+                );
+
+                return Ok(new ApiResponse<GoogleAuthResponse>(true, new GoogleAuthResponse(
+                    accessToken, refreshToken, expiresAt, userDto, IsNewUser: false
+                )));
+            }
+            else
+            {
+                // New user - register with Google
+                // Require tenant info for new registrations
+                if (string.IsNullOrEmpty(request.TenantName))
+                {
+                    return BadRequest(new ApiResponse<GoogleAuthResponse>(
+                        false, null, "Organization name is required for new registrations"
+                    ));
+                }
+
+                // Create tenant
+                var tenant = new Tenant
+                {
+                    Name = request.TenantName,
+                    Country = request.Country ?? "SA",
+                    Currency = request.Currency ?? "SAR",
+                    Language = Language.En
+                };
+                _db.Tenants.Add(tenant);
+
+                // Create user (no password - Google-only auth)
+                var newUser = new User
+                {
+                    Name = payload.Name ?? payload.Email.Split('@')[0],
+                    Email = payload.Email,
+                    PasswordHash = "", // No password for Google users
+                    GoogleId = payload.Subject, // Store Google user ID
+                    Avatar = payload.Picture,
+                    Role = UserRole.SuperAdmin,
+                    Status = UserStatus.Active,
+                    TenantId = tenant.Id,
+                    EmailVerified = payload.EmailVerified
+                };
+                _db.Users.Add(newUser);
+
+                await _db.SaveChangesAsync();
+
+                var (accessToken, expiresAt) = GenerateAccessToken(newUser, tenant.Id);
+                var refreshToken = GenerateRefreshToken();
+
+                newUser.RefreshToken = refreshToken;
+                newUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+                await _db.SaveChangesAsync();
+
+                var userDto = new UserDto(
+                    newUser.Id, 
+                    newUser.Name, 
+                    newUser.Email, 
+                    newUser.Role, 
+                    newUser.BranchId, 
+                    null, 
+                    newUser.Status, 
+                    newUser.Avatar
+                );
+
+                return Ok(new ApiResponse<GoogleAuthResponse>(true, new GoogleAuthResponse(
+                    accessToken, refreshToken, expiresAt, userDto, IsNewUser: true
+                )));
+            }
+        }
+        catch (InvalidJwtException ex)
+        {
+            _logger.LogWarning(ex, "Invalid Google JWT token");
+            return Unauthorized(new ApiResponse<GoogleAuthResponse>(false, null, "Invalid Google token"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during Google authentication");
+            return StatusCode(500, new ApiResponse<GoogleAuthResponse>(false, null, "Authentication failed"));
+        }
+    }
+
+    /// <summary>
+    /// Verify Google ID token
+    /// </summary>
+    private async Task<GoogleJsonWebSignature.Payload?> VerifyGoogleToken(string idToken)
+    {
+        try
+        {
+            var settings = new GoogleJsonWebSignature.ValidationSettings
+            {
+                Audience = new[] { GoogleClientId }
+            };
+
+            var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, settings);
+            return payload;
+        }
+        catch (InvalidJwtException)
+        {
+            return null;
+        }
+    }
+
     [HttpPost("refresh")]
     public async Task<ActionResult<ApiResponse<AuthResponse>>> RefreshToken([FromBody] RefreshTokenRequest request)
     {
@@ -174,7 +334,8 @@ public class AuthController : ControllerBase
 
     private static bool VerifyPassword(string password, string hash)
     {
+        // For Google users, password is empty
+        if (string.IsNullOrEmpty(hash)) return false;
         return BCrypt.Net.BCrypt.Verify(password, hash);
     }
 }
-
