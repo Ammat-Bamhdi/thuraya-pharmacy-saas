@@ -1,9 +1,8 @@
-﻿
-    <div class="h-full flex flex-col animate-fade-in relative">
+<div class="h-full flex flex-col animate-fade-in relative" role="main" aria-label="Financial Overview">
       <header class="flex justify-between items-center mb-6">
         <div>
-          <h2 class="text-2xl font-light tracking-tight text-slate-800">Financial Overview</h2>
-          <p class="text-sm text-slate-500 font-light mt-1">Profit & Loss, Expenses, and Cash Flow</p>
+          <h1 class="text-2xl font-semibold tracking-tight text-slate-800">Financial Overview</h1>
+          <p class="text-sm text-slate-500 mt-1">Profit & Loss, Expenses, and Cash Flow</p>
         </div>
       </header>
 
@@ -11,20 +10,32 @@
          
          <!-- Summary Cards -->
          <div class="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
-            <div class="glass-panel p-5 rounded-xl border-t-4 border-t-emerald-500 flex flex-col justify-between">
+            <article class="glass-panel p-5 rounded-xl border-t-4 border-t-emerald-500 flex flex-col justify-between">
               <span class="text-xs font-medium text-slate-500 uppercase">Total Revenue (Month)</span>
-              <div class="text-2xl font-bold text-slate-800 mt-2">{{ totalRevenue() | number }} <span class="text-xs font-normal text-slate-400">YER</span></div>
-            </div>
-            <div class="glass-panel p-5 rounded-xl border-t-4 border-t-red-500 flex flex-col justify-between">
+              @if (store.invoices().length === 0) {
+                <div class="text-2xl font-bold text-slate-400 mt-2">-- <span class="text-xs font-normal">YER</span></div>
+              } @else {
+                <div class="text-2xl font-bold text-slate-800 mt-2">{{ totalRevenue() | number }} <span class="text-xs font-normal text-slate-400">YER</span></div>
+              }
+            </article>
+            <article class="glass-panel p-5 rounded-xl border-t-4 border-t-red-500 flex flex-col justify-between">
               <span class="text-xs font-medium text-slate-500 uppercase">Total Expenses</span>
-              <div class="text-2xl font-bold text-slate-800 mt-2">{{ totalExpenses() | number }} <span class="text-xs font-normal text-slate-400">YER</span></div>
-            </div>
-            <div class="glass-panel p-5 rounded-xl border-t-4 border-t-blue-500 flex flex-col justify-between">
+              @if (store.expenses().length === 0) {
+                <div class="text-2xl font-bold text-slate-400 mt-2">-- <span class="text-xs font-normal">YER</span></div>
+              } @else {
+                <div class="text-2xl font-bold text-slate-800 mt-2">{{ totalExpenses() | number }} <span class="text-xs font-normal text-slate-400">YER</span></div>
+              }
+            </article>
+            <article class="glass-panel p-5 rounded-xl border-t-4 border-t-blue-500 flex flex-col justify-between">
               <span class="text-xs font-medium text-slate-500 uppercase">Net Profit</span>
-              <div class="text-2xl font-bold mt-2" [class.text-emerald-600]="netProfit() >= 0" [class.text-red-600]="netProfit() < 0">
-                 {{ netProfit() | number }} <span class="text-xs font-normal text-slate-400">YER</span>
-              </div>
-            </div>
+              @if (store.invoices().length === 0 && store.expenses().length === 0) {
+                <div class="text-2xl font-bold text-slate-400 mt-2">-- <span class="text-xs font-normal">YER</span></div>
+              } @else {
+                <div class="text-2xl font-bold mt-2" [class.text-emerald-600]="netProfit() >= 0" [class.text-red-600]="netProfit() < 0">
+                   {{ netProfit() | number }} <span class="text-xs font-normal text-slate-400">YER</span>
+                </div>
+              }
+            </article>
          </div>
 
          <!-- Expenses List -->

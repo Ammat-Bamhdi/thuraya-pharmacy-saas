@@ -1,8 +1,7 @@
 /**
  * @fileoverview Root application component and shell
  * @author Thuraya Systems
- * @created 2026-01-03
- * @updated 2026-01-03
+ * @version 2.0.0
  */
 
 import { Component, inject, ChangeDetectionStrategy, OnInit } from '@angular/core';
@@ -27,34 +26,13 @@ import { ProcurementComponent } from '@features/procurement/procurement.componen
 import { SalesComponent } from '@features/sales/sales.component';
 import { FinanceComponent } from '@features/finance/finance.component';
 
-/**
- * @component AppComponent
- * @description Root application shell with navigation and view management
- * 
- * @features
- * - Application shell layout
- * - View routing via signal-based state
- * - Onboarding wizard for new users
- * - Sidebar navigation
- * - Responsive layout
- * 
- * @architecture
- * - OnPush change detection
- * - Signal-based view state
- * - Standalone component architecture
- * - Feature-based modular imports
- * 
- * @since 1.0.0
- */
 @Component({
   selector: 'app-root',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    // Layout
     SidebarComponent,
-    // Features
     AuthComponent,
     DashboardComponent,
     InventoryComponent,
@@ -67,14 +45,30 @@ import { FinanceComponent } from '@features/finance/finance.component';
     FinanceComponent
   ],
   template: `
+    <!-- Loading State while initializing auth -->
+    @if (!auth.initialized()) {
+      <div class="fixed inset-0 flex items-center justify-center bg-slate-50">
+        <div class="text-center">
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-teal-500/20 mx-auto mb-4 animate-pulse">
+            T
+          </div>
+          <p class="text-slate-500 text-sm">Loading...</p>
+        </div>
+      </div>
+    }
+    
     <!-- Auth Screen -->
-    @if (store.currentView() === 'auth') {
+    @else if (store.currentView() === 'auth') {
       <app-auth></app-auth>
     }
+    
     <!-- Onboarding Full Screen Overlay -->
     @else if (store.currentView() === 'onboarding') {
       <app-onboarding></app-onboarding>
-    } @else {
+    } 
+    
+    <!-- Main App Layout -->
+    @else {
       <div class="flex h-screen w-screen p-4 gap-4 overflow-hidden animate-fade-in">
         <!-- Sidebar -->
         <div class="w-64 h-full shrink-0">
@@ -83,29 +77,40 @@ import { FinanceComponent } from '@features/finance/finance.component';
 
         <!-- Main Content Area -->
         <main class="flex-1 h-full min-w-0 relative">
-          @if (store.currentView() === 'dashboard') {
-             <app-dashboard class="block h-full"></app-dashboard>
-          }
-          @else if (store.currentView() === 'inventory') {
-             <app-inventory class="block h-full"></app-inventory>
-          }
-          @else if (store.currentView().startsWith('procurement')) {
-             <app-procurement class="block h-full"></app-procurement>
-          }
-          @else if (store.currentView().startsWith('sales')) {
-             <app-sales class="block h-full"></app-sales>
-          }
-          @else if (store.currentView() === 'finance') {
-             <app-finance class="block h-full"></app-finance>
-          }
-          @else if (store.currentView() === 'pos') {
-             <app-pos class="block h-full"></app-pos>
-          }
-          @else if (store.currentView() === 'users') {
-             <app-users class="block h-full"></app-users>
-          }
-          @else if (store.currentView() === 'settings') {
-             <app-settings class="block h-full"></app-settings>
+          @switch (store.currentView()) {
+            @case ('dashboard') {
+              <app-dashboard class="block h-full"></app-dashboard>
+            }
+            @case ('inventory') {
+              <app-inventory class="block h-full"></app-inventory>
+            }
+            @case ('procurement-orders') {
+              <app-procurement class="block h-full"></app-procurement>
+            }
+            @case ('procurement-bills') {
+              <app-procurement class="block h-full"></app-procurement>
+            }
+            @case ('procurement-suppliers') {
+              <app-procurement class="block h-full"></app-procurement>
+            }
+            @case ('sales-customers') {
+              <app-sales class="block h-full"></app-sales>
+            }
+            @case ('sales-invoices') {
+              <app-sales class="block h-full"></app-sales>
+            }
+            @case ('finance') {
+              <app-finance class="block h-full"></app-finance>
+            }
+            @case ('pos') {
+              <app-pos class="block h-full"></app-pos>
+            }
+            @case ('users') {
+              <app-users class="block h-full"></app-users>
+            }
+            @case ('settings') {
+              <app-settings class="block h-full"></app-settings>
+            }
           }
         </main>
       </div>
@@ -123,11 +128,11 @@ import { FinanceComponent } from '@features/finance/finance.component';
 })
 export class AppComponent implements OnInit {
   protected readonly store = inject(StoreService);
-  private readonly auth = inject(AuthService);
+  protected readonly auth = inject(AuthService);
 
-  ngOnInit(): void {
-    // Check authentication state on app load
-    this.auth.checkAuthState();
+  async ngOnInit(): Promise<void> {
+    // Initialize auth state - validates token against backend
+    // This is the single source of truth for auth
+    await this.auth.initialize();
   }
 }
-

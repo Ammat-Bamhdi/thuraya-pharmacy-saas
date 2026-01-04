@@ -1,5 +1,5 @@
-﻿
-    <div class="h-full flex flex-col animate-fade-in relative" (click)="closeActionMenu(); showBranchMenu.set(false)">
+
+<div class="h-full flex flex-col animate-fade-in relative" (click)="closeActionMenu(); showBranchMenu.set(false)" role="main" aria-label="Inventory Management">
       
       <!-- Modern Header with Separated Context -->
       <header class="flex flex-col gap-6 mb-6 shrink-0">
@@ -7,8 +7,8 @@
         <!-- Top Row: Title & Context -->
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
            <div>
-              <h2 class="text-2xl font-light tracking-tight text-slate-800">Product Master</h2>
-              <p class="text-sm text-slate-500 font-light mt-1">Catalog & Stock Management</p>
+              <h1 class="text-2xl font-semibold tracking-tight text-slate-800">Inventory</h1>
+              <p class="text-sm text-slate-500 mt-1">Product catalog & stock management</p>
            </div>
 
            <!-- High-Contrast Branch Switcher -->
@@ -71,6 +71,92 @@
         </div>
       </header>
 
+      <!-- Empty State for First Time Users -->
+      @if (store.branches().length === 0) {
+        <div class="glass-panel rounded-xl flex-1 flex items-center justify-center p-12" aria-label="No branches configured">
+          <div class="text-center max-w-md">
+            <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-amber-50 flex items-center justify-center">
+              <app-icon name="map-pin" [size]="40" class="text-amber-500"></app-icon>
+            </div>
+            <h2 class="text-xl font-semibold text-slate-800 mb-2">No Branches Configured</h2>
+            <p class="text-slate-500 mb-6 leading-relaxed">
+              Create your first branch during onboarding to start managing inventory.
+            </p>
+            <button 
+              (click)="store.setView('settings')"
+              class="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+            >
+              <app-icon name="settings" [size]="18"></app-icon>
+              Go to Settings
+            </button>
+          </div>
+        </div>
+      } @else if (store.products().length === 0 && store.suppliers().length === 0) {
+        <!-- Empty State - No Products and No Suppliers -->
+        <div class="glass-panel rounded-xl flex-1 flex items-center justify-center p-12" aria-label="Get started with inventory">
+          <div class="text-center max-w-lg">
+            <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center shadow-xl shadow-teal-500/20">
+              <app-icon name="package" [size]="40" class="text-white"></app-icon>
+            </div>
+            <h2 class="text-2xl font-semibold text-slate-800 mb-2">Start Building Your Inventory</h2>
+            <p class="text-slate-500 mb-8 leading-relaxed">
+              Before adding products, set up your suppliers. This helps track where your inventory comes from and streamlines purchase orders.
+            </p>
+            
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+              <button 
+                (click)="store.setView('procurement-suppliers')"
+                class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+              >
+                <app-icon name="truck" [size]="18"></app-icon>
+                Add Suppliers First
+              </button>
+              <button 
+                (click)="openAddModal()"
+                class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-slate-700 border border-slate-200 rounded-xl font-medium hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+              >
+                <app-icon name="plus" [size]="18"></app-icon>
+                Add Product Manually
+              </button>
+            </div>
+            
+            <!-- Quick Tip -->
+            <div class="mt-8 p-4 bg-blue-50 rounded-xl border border-blue-100 text-left">
+              <div class="flex items-start gap-3">
+                <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                  <app-icon name="info" [size]="16" class="text-blue-600"></app-icon>
+                </div>
+                <div>
+                  <h4 class="text-sm font-semibold text-blue-800">Pro Tip</h4>
+                  <p class="text-sm text-blue-600 mt-1">
+                    Adding suppliers first enables smart inventory ingestion from purchase orders, automatically tracking costs and batch numbers.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      } @else if (store.products().length === 0) {
+        <!-- Empty State - Has Suppliers but No Products -->
+        <div class="glass-panel rounded-xl flex-1 flex items-center justify-center p-12" aria-label="Add your first product">
+          <div class="text-center max-w-md">
+            <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-slate-100 flex items-center justify-center">
+              <app-icon name="package" [size]="40" class="text-slate-400"></app-icon>
+            </div>
+            <h2 class="text-xl font-semibold text-slate-800 mb-2">No Products Yet</h2>
+            <p class="text-slate-500 mb-6 leading-relaxed">
+              Add your first product to start managing your pharmacy inventory. You can import from purchase orders or add manually.
+            </p>
+            <button 
+              (click)="openAddModal()"
+              class="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+            >
+              <app-icon name="plus" [size]="18"></app-icon>
+              Add First Product
+            </button>
+          </div>
+        </div>
+      } @else {
       <div class="glass-panel rounded-xl flex flex-col flex-1 overflow-hidden animate-fade-in">
         <!-- Advanced Toolbar (Main List) -->
         <div class="p-4 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white/50">
@@ -670,6 +756,8 @@
         </div>
       }
 
+      } <!-- End of else block for products display -->
+
       <!-- Action Menu Overlay -->
       @if (activeActionRow()) {
          <div 
@@ -677,15 +765,17 @@
            [style.top.px]="actionMenuPosition().y"
            [style.left.px]="actionMenuPosition().x"
            (click)="$event.stopPropagation()"
+           role="menu"
+           aria-label="Product actions"
          >
-            <button (click)="editProduct(activeActionRow()!)" class="w-full text-left px-4 py-2 text-xs text-slate-600 hover:bg-slate-50 hover:text-teal-600 flex items-center gap-2">
+            <button (click)="editProduct(activeActionRow()!)" class="w-full text-left px-4 py-2 text-xs text-slate-600 hover:bg-slate-50 hover:text-teal-600 flex items-center gap-2" role="menuitem">
               <app-icon name="edit-3" [size]="14"></app-icon> Edit Details
             </button>
-            <div class="h-px bg-slate-100 my-1"></div>
-            <button (click)="deleteProduct(activeActionRow()!)" class="w-full text-left px-4 py-2 text-xs text-red-500 hover:bg-red-50 flex items-center gap-2">
+            <div class="h-px bg-slate-100 my-1" role="separator"></div>
+            <button (click)="deleteProduct(activeActionRow()!)" class="w-full text-left px-4 py-2 text-xs text-red-500 hover:bg-red-50 flex items-center gap-2" role="menuitem">
               <app-icon name="trash-2" [size]="14"></app-icon> Delete
             </button>
          </div>
       }
     </div>
-  
+

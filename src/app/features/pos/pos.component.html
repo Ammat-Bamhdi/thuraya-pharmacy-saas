@@ -1,13 +1,75 @@
-﻿
-    <div class="h-full flex flex-col gap-4 animate-fade-in p-2">
+<!-- POS Empty State when no products -->
+@if (store.products().length === 0) {
+  <div class="h-full flex items-center justify-center p-12" role="main" aria-label="POS Setup Required">
+    <div class="text-center max-w-lg">
+      <div class="w-24 h-24 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-xl shadow-orange-500/20">
+        <app-icon name="shopping-cart" [size]="48" class="text-white"></app-icon>
+      </div>
+      <h2 class="text-2xl font-semibold text-slate-800 mb-3">Set Up Your Store First</h2>
+      <p class="text-slate-500 mb-8 leading-relaxed">
+        Before you can start selling, you need to add products to your inventory. The POS will automatically show products available at your current branch.
+      </p>
+      
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <button 
+          (click)="store.setView('inventory')"
+          class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+        >
+          <app-icon name="package" [size]="18"></app-icon>
+          Add Products
+        </button>
+        <button 
+          (click)="store.setView('procurement-suppliers')"
+          class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-slate-700 border border-slate-200 rounded-xl font-medium hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+        >
+          <app-icon name="truck" [size]="18"></app-icon>
+          Add Suppliers
+        </button>
+      </div>
+      
+      <!-- Quick Setup Steps -->
+      <div class="mt-10 p-6 bg-slate-50 rounded-xl border border-slate-200 text-left">
+        <h4 class="text-sm font-semibold text-slate-700 mb-4">Quick Setup Steps</h4>
+        <ol class="space-y-3">
+          <li class="flex items-start gap-3">
+            <span class="w-6 h-6 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-xs font-bold shrink-0">1</span>
+            <div>
+              <p class="text-sm font-medium text-slate-700">Add your suppliers</p>
+              <p class="text-xs text-slate-500">Register your pharmaceutical distributors</p>
+            </div>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">2</span>
+            <div>
+              <p class="text-sm font-medium text-slate-700">Create purchase orders</p>
+              <p class="text-xs text-slate-500">Order products from your suppliers</p>
+            </div>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">3</span>
+            <div>
+              <p class="text-sm font-medium text-slate-700">Receive inventory</p>
+              <p class="text-xs text-slate-500">Products become available for sale</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </div>
+} @else {
+<div class="h-full flex flex-col gap-4 animate-fade-in p-2" role="main" aria-label="Point of Sale">
       <!-- Top Bar: Transaction Info & Customer Link -->
       <header class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100 shadow-sm shrink-0 relative z-40">
         <div class="flex items-center gap-4 flex-1">
            <div>
-             <h2 class="text-xl font-bold text-slate-800 tracking-tight">Point of Sale</h2>
+             <h1 class="text-xl font-bold text-slate-800 tracking-tight">Point of Sale</h1>
              <div class="flex items-center gap-2 text-xs text-slate-500 font-mono mt-0.5">
-                <span class="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
-                {{ store.activeBranch().name }} â€¢ {{ todayDate() | date:'medium' }}
+                <span class="w-2 h-2 rounded-full bg-teal-500 animate-pulse" aria-hidden="true"></span>
+                @if (store.activeBranch(); as branch) {
+                  {{ branch.name }} • {{ todayDate() | date:'medium' }}
+                } @else {
+                  No branch selected
+                }
              </div>
            </div>
            
@@ -130,7 +192,13 @@
 
         <!-- Cashier Info (Simplified) -->
         <div class="flex items-center gap-2 border-l border-slate-100 pl-4">
-           <img [src]="store.currentUser().avatar" class="w-8 h-8 rounded-full bg-slate-200 border border-white shadow-sm">
+           @if (store.currentUser()?.avatar) {
+             <img [src]="store.currentUser()!.avatar" class="w-8 h-8 rounded-full bg-slate-200 border border-white shadow-sm">
+           } @else {
+             <div class="w-8 h-8 rounded-full bg-teal-100 border border-white shadow-sm flex items-center justify-center text-teal-600 font-semibold text-sm">
+               {{ (store.currentUser()?.name || 'U')[0].toUpperCase() }}
+             </div>
+           }
         </div>
       </header>
 
@@ -293,7 +361,7 @@
 
                  <div class="flex justify-between items-end mb-1">
                     <span class="text-[10px] text-slate-400">CASHIER</span>
-                    <span class="font-bold text-slate-800 uppercase">{{ store.currentUser().name }}</span>
+                    <span class="font-bold text-slate-800 uppercase">{{ store.currentUser()?.name || 'Cashier' }}</span>
                  </div>
                  <div class="flex justify-between items-end">
                     <span class="text-[10px] text-slate-400">CUSTOMER</span>
@@ -383,4 +451,5 @@
         </div>
       </div>
     </div>
-  
+}
+

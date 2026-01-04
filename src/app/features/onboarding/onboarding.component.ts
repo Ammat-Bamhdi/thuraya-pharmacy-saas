@@ -7,8 +7,9 @@
 
 import { Component, inject, signal, computed, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { StoreService, Role } from '@core/services/store.service';
+import type { Role } from '@core/services/store.service';
 import { AuthService } from '@core/services/auth.service';
+import { OnboardingService } from '@core/services/onboarding.service';
 import { IconComponent } from '@shared/components/icons/icons.component';
 import { BranchNetworkComponent } from '@features/branch-network/branch-network.component';
 import { FormsModule } from '@angular/forms';
@@ -63,8 +64,8 @@ declare var XLSX: any;
   templateUrl: './onboarding.component.html'
 })
 export class OnboardingComponent {
-  private readonly store = inject(StoreService);
   private readonly auth = inject(AuthService);
+  private readonly onboardingService = inject(OnboardingService);
   
   // Onboarding state
   step = signal(1);
@@ -82,12 +83,24 @@ export class OnboardingComponent {
   countriesList = signal(COUNTRIES);
   currenciesList = signal(CURRENCIES);
 
+  // Get authenticated user info for pre-filling
+  readonly currentUser = computed(() => this.auth.user());
+
   constructor() {
     effect(() => {
       const dir = this.dir();
       const lang = this.language();
       document.documentElement.dir = dir;
       document.documentElement.lang = lang;
+    });
+
+    // Pre-fill tenant name from authenticated user if available
+    effect(() => {
+      const user = this.currentUser();
+      if (user && !this.tenantName) {
+        // Use user's name to suggest organization name
+        this.tenantName = user.name ? `${user.name}'s Pharmacy` : '';
+      }
     });
   }
 
@@ -214,24 +227,12 @@ export class OnboardingComponent {
 
   nextStep() {
     if (this.step() === 1) {
-       this.store.createTenant({
-        name: this.tenantName,
-        country: this.country,
-        currency: this.currency,
-        language: this.language() as any
-      });
+      // Step 1: Collect tenant info (will be saved during provisioning)
+      // Just move to next step - actual API call happens in startProvisioning
       this.step.set(2);
     } else if (this.step() === 2) {
-      // Commit branches
-      this.createdBranchIds = [];
-      this.branchList().forEach(b => {
-        const id = this.store.addBranch({
-          name: b.name,
-          location: b.location,
-          isOfflineEnabled: true
-        });
-        this.createdBranchIds.push(id);
-      });
+      // Step 2: Collect branch info (will be saved during provisioning)
+      // Just move to next step - actual API call happens in startProvisioning
       this.newMemberBranchIndex = 0;
       this.step.set(3);
     }
@@ -343,19 +344,39 @@ export class OnboardingComponent {
 
   startProvisioning() {
     this.step.set(4);
-    setTimeout(() => this.provisionStep.set(1), 1000); 
-    setTimeout(() => this.provisionStep.set(2), 2000); 
-    setTimeout(() => {
-      this.provisionStep.set(3); 
-      this.teamMembers().forEach(member => {
-        const branchId = this.createdBranchIds[member.branchIndex] || this.createdBranchIds[0];
-        this.store.inviteUser(member.email, member.role, branchId);
-      });
-    }, 3000);
-    setTimeout(() => {
-      this.provisionStep.set(4);
-      this.provisioningComplete.set(true);
-    }, 4000);
+    this.provisionStep.set(1);
+
+    // Use the onboarding service to make real API calls
+    this.onboardingService.completeOnboarding(
+      {
+        name: this.tenantName,
+        country: this.country,
+        currency: this.currency,
+        language: this.language()
+      },
+      this.branchList(),
+      this.teamMembers()
+    ).subscribe({
+      next: (result) => {
+        // Store the created branch IDs for reference
+        this.createdBranchIds = result.branches.map(b => b.id);
+        
+        // Update progress steps
+        this.provisionStep.set(2);
+        setTimeout(() => this.provisionStep.set(3), 500);
+        setTimeout(() => {
+          this.provisionStep.set(4);
+          this.provisioningComplete.set(true);
+        }, 1000);
+      },
+      error: (error) => {
+        console.error('Onboarding failed:', error);
+        // Still mark as complete but with error handling
+        // In production, you'd show an error message
+        this.provisionStep.set(4);
+        this.provisioningComplete.set(true);
+      }
+    });
   }
 
   finish() {

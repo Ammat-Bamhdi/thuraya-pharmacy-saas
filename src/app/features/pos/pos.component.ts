@@ -217,7 +217,7 @@ export class POSComponent implements OnInit, OnDestroy {
           paymentTerms: 'Immediate',
           priceGroup: 'Retail',
           source: 'Walk-in',
-          assignedSalesRep: this.store.currentUser().id
+          assignedSalesRep: this.store.currentUser()?.id
       };
 
       this.store.addCustomer(newC);

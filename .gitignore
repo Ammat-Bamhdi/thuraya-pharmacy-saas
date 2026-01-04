@@ -17,6 +17,7 @@ backend/.vs/
 # IDE
 .idea/
 .vscode/
+.vs/
 *.swp
 *.swo
 .project
