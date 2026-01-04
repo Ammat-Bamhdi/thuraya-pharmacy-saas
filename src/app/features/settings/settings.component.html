@@ -252,7 +252,7 @@
                  @for (user of store.users(); track user.id) {
                    <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between group hover:border-teal-200 transition-all">
                       <div class="flex items-center gap-4">
-                         <img [src]="user.avatar" class="w-10 h-10 rounded-full bg-slate-100 object-cover border border-white shadow-sm">
+                         <img [src]="user.avatar" [alt]="user.name + ' avatar'" class="w-10 h-10 rounded-full bg-slate-100 object-cover border border-white shadow-sm">
                          <div>
                            <div class="font-medium text-slate-800">{{ user.name }}</div>
                            <div class="text-xs text-slate-500">{{ user.email }}</div>

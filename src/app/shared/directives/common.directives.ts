@@ -79,9 +79,7 @@ export class TooltipDirective {
   }
   
   @HostBinding('class.cursor-help')
-  get cursorHelp(): boolean {
-    return true;
-  }
+  readonly cursorHelp = true;
 }
 
 /**
@@ -207,7 +205,5 @@ export class CopyToClipboardDirective {
   }
   
   @HostBinding('class.cursor-pointer')
-  get cursorPointer(): boolean {
-    return true;
-  }
+  readonly cursorPointer = true;
 }

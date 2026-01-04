@@ -139,7 +139,7 @@ export class InventoryComponent {
      const branchId = this.selectedBranchId(); // Filter POs by current branch
      if (!supplierId || !branchId) return [];
      
-     let pos = this.store.purchaseOrders().filter(p => p.supplierId === supplierId && p.branchId === branchId);
+     const pos = this.store.purchaseOrders().filter(p => p.supplierId === supplierId && p.branchId === branchId);
      return pos.sort((a,b) => b.date.localeCompare(a.date));
   });
 
@@ -558,7 +558,7 @@ export class InventoryComponent {
     }
     const buttonRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const menuWidth = 160; 
-    let x = buttonRect.right - menuWidth;
+    const x = buttonRect.right - menuWidth;
     let y = buttonRect.bottom + 5;
     if (y + 100 > window.innerHeight) {
         y = buttonRect.top - 100;

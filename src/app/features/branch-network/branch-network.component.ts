@@ -9,7 +9,7 @@ import { Component, ElementRef, ViewChild, ViewEncapsulation, effect, input, Cha
 import { CommonModule } from '@angular/common';
 import { IconComponent } from '@shared/components/icons/icons.component';
 
-declare var d3: any;
+declare let d3: any;
 
 /**
  * @component BranchNetworkComponent
@@ -184,7 +184,7 @@ export class BranchNetworkComponent {
     
     const treeLayout = d3.tree()
       .nodeSize([nodeWidth + 60, nodeHeight + 80]) 
-      .separation((a: any, b: any) => a.parent == b.parent ? 1.1 : 1.3);
+      .separation((a: any, b: any) => a.parent === b.parent ? 1.1 : 1.3);
 
     treeLayout(root);
 

@@ -14,7 +14,6 @@ import {
   effect,
   viewChild,
   ElementRef,
-  inject,
   ChangeDetectionStrategy
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
