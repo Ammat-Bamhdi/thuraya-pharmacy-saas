@@ -1,186 +1,331 @@
-﻿
-    <nav class="h-full flex flex-col py-5 pl-4 pr-2 bg-white/80 border-r border-slate-200/60 backdrop-blur-xl w-64 shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-50">
-      
-      <!-- Brand -->
-      <div class="px-2 mb-8 flex items-center gap-3 select-none">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-teal-500/20 ring-1 ring-white/20">
-          T
-        </div>
-        <div class="flex flex-col">
-           <span class="font-bold text-lg tracking-tight text-slate-800 leading-none">Thuraya</span>
-           <span class="text-[10px] font-medium text-slate-400 tracking-wide uppercase mt-0.5">Pharmacy OS</span>
-        </div>
-      </div>
-
-      <!-- Menu Scroll Area -->
-      <div class="flex-1 overflow-y-auto space-y-1 pr-2 custom-scrollbar">
-        
-        <!-- Dashboard -->
-        <button 
-          (click)="setView('dashboard')" 
-          class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative"
-          [class.bg-teal-50]="isActive('dashboard')" 
-          [class.text-teal-700]="isActive('dashboard')"
-          [class.text-slate-600]="!isActive('dashboard')" 
-          [class.hover:bg-slate-50]="!isActive('dashboard')"
-        >
-          <app-icon name="layout-grid" [size]="18" [class]="isActive('dashboard') ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'"></app-icon>
-          Dashboard
-        </button>
-
-        <!-- Inventory -->
-        <button 
-          (click)="setView('inventory')" 
-          class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative"
-          [class.bg-teal-50]="isActive('inventory')" 
-          [class.text-teal-700]="isActive('inventory')"
-          [class.text-slate-600]="!isActive('inventory')" 
-          [class.hover:bg-slate-50]="!isActive('inventory')"
-        >
-          <app-icon name="package" [size]="18" [class]="isActive('inventory') ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'"></app-icon>
-          Inventory
-        </button>
-
-        <!-- Procurement Group -->
-        <div class="pt-1">
-           <button 
-             (click)="handleGroupClick('procurement')" 
-             class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group"
-             [class.text-teal-800]="isParentActive('procurement')"
-             [class.bg-slate-50]="isParentActive('procurement') && !isGroupOpen('procurement')"
-             [class.text-slate-600]="!isParentActive('procurement')"
-             [class.hover:bg-slate-50]="!isParentActive('procurement')"
-           >
-             <div class="flex items-center gap-3">
-               <app-icon name="briefcase" [size]="18" [class]="isParentActive('procurement') ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'"></app-icon>
-               Procurement
-             </div>
-             <app-icon name="chevron-down" [size]="14" class="text-slate-300 transition-transform duration-300" [class.rotate-180]="isGroupOpen('procurement')"></app-icon>
-           </button>
-           
-           @if (isGroupOpen('procurement')) {
-             <div class="flex flex-col gap-0.5 mt-1 ml-4 pl-3 border-l-2 border-slate-100 animate-slide-down origin-top">
-               <button (click)="setView('procurement-orders')" 
-                  class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] transition-colors"
-                  [class]="isActive('procurement-orders') ? 'text-teal-700 bg-teal-50/50 font-semibold' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'">
-                 Orders
-               </button>
-               <button (click)="setView('procurement-bills')" 
-                  class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] transition-colors"
-                  [class]="isActive('procurement-bills') ? 'text-teal-700 bg-teal-50/50 font-semibold' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'">
-                 Bills & Payments
-               </button>
-               <button (click)="setView('procurement-suppliers')" 
-                  class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] transition-colors"
-                  [class]="isActive('procurement-suppliers') ? 'text-teal-700 bg-teal-50/50 font-semibold' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'">
-                 Suppliers
-               </button>
-             </div>
-           }
-        </div>
-
-        <!-- Sales Group -->
-        <div class="pt-1">
-           <button 
-             (click)="handleGroupClick('sales')" 
-             class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group"
-             [class.text-teal-800]="isParentActive('sales')"
-             [class.bg-slate-50]="isParentActive('sales') && !isGroupOpen('sales')"
-             [class.text-slate-600]="!isParentActive('sales')"
-             [class.hover:bg-slate-50]="!isParentActive('sales')"
-           >
-             <div class="flex items-center gap-3">
-               <app-icon name="trending-up" [size]="18" [class]="isParentActive('sales') ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'"></app-icon>
-               Sales & CRM
-             </div>
-             <app-icon name="chevron-down" [size]="14" class="text-slate-300 transition-transform duration-300" [class.rotate-180]="isGroupOpen('sales')"></app-icon>
-           </button>
-           
-           @if (isGroupOpen('sales')) {
-             <div class="flex flex-col gap-0.5 mt-1 ml-4 pl-3 border-l-2 border-slate-100 animate-slide-down origin-top">
-                <button (click)="setView('sales-customers')" 
-                  class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] transition-colors"
-                  [class]="isActive('sales-customers') ? 'text-teal-700 bg-teal-50/50 font-semibold' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'">
-                 Customers
-               </button>
-               <button (click)="setView('sales-invoices')" 
-                  class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] transition-colors"
-                  [class]="isActive('sales-invoices') ? 'text-teal-700 bg-teal-50/50 font-semibold' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'">
-                 Invoices
-               </button>
-             </div>
-           }
-        </div>
-
-        <!-- Point of Sale -->
-        <button 
-          (click)="setView('pos')" 
-          class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative mt-1"
-          [class.bg-teal-50]="isActive('pos')" 
-          [class.text-teal-700]="isActive('pos')"
-          [class.text-slate-600]="!isActive('pos')" 
-          [class.hover:bg-slate-50]="!isActive('pos')"
-        >
-          <app-icon name="shopping-cart" [size]="18" [class]="isActive('pos') ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'"></app-icon>
-          Point of Sale
-        </button>
-
-         <div class="pt-6 pb-2">
-           <div class="h-px bg-slate-100 mx-3 mb-3"></div>
-           <p class="px-3 text-[10px] uppercase font-bold text-slate-400 tracking-wider">Management</p>
-         </div>
-
-         <button 
-          (click)="setView('finance')" 
-          class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative"
-          [class.bg-teal-50]="isActive('finance')" [class.text-teal-700]="isActive('finance')"
-          [class.text-slate-600]="!isActive('finance')" [class.hover:bg-slate-50]="!isActive('finance')"
-        >
-          <app-icon name="credit-card" [size]="18" [class]="isActive('finance') ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'"></app-icon>
-          Finance
-        </button>
-
-         <button 
-          (click)="setView('users')" 
-          class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative"
-          [class.bg-teal-50]="isActive('users')" [class.text-teal-700]="isActive('users')"
-          [class.text-slate-600]="!isActive('users')" [class.hover:bg-slate-50]="!isActive('users')"
-        >
-          <app-icon name="users" [size]="18" [class]="isActive('users') ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'"></app-icon>
-          Team & Roles
-        </button>
-
-         <button 
-          (click)="setView('settings')"
-          class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative"
-          [class.bg-teal-50]="isActive('settings')" [class.text-teal-700]="isActive('settings')"
-          [class.text-slate-600]="!isActive('settings')" [class.hover:bg-slate-50]="!isActive('settings')"
-        >
-          <app-icon name="settings" [size]="18" [class]="isActive('settings') ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'"></app-icon>
-          Settings
-        </button>
-      </div>
-
-      <!-- User Footer -->
-      <div class="mt-auto px-2 pt-4 border-t border-slate-100">
-        <div class="flex items-center gap-2">
-          <button (click)="setView('settings')" class="flex-1 flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors group text-left">
-            <div class="w-9 h-9 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shadow-sm shrink-0">
-              <img [src]="store.currentUser().avatar" alt="User" class="object-cover w-full h-full opacity-90 group-hover:opacity-100" />
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold text-slate-700 truncate group-hover:text-slate-900">{{ store.currentUser().name }}</p>
-              <p class="text-xs text-slate-400 truncate">{{ store.tenant()?.name || 'No Org' }}</p>
-            </div>
-          </button>
-          <button 
-            (click)="logout()" 
-            class="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-            title="Logout"
-          >
-            <app-icon name="log-out" [size]="18"></app-icon>
-          </button>
-        </div>
-      </div>
-    </nav>
+<nav class="h-full flex flex-col py-5 pl-4 pr-2 bg-white/80 border-r border-slate-200/60 backdrop-blur-xl w-64 shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-50" 
+     role="navigation" 
+     aria-label="Main navigation">
   
+  <!-- Brand -->
+  <div class="px-2 mb-8 flex items-center gap-3 select-none">
+    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-teal-500/20 ring-1 ring-white/20"
+         aria-hidden="true">
+      T
+    </div>
+    <div class="flex flex-col">
+      <span class="font-bold text-lg tracking-tight text-slate-800 leading-none">Thuraya</span>
+      <span class="text-[10px] font-medium text-slate-400 tracking-wide uppercase mt-0.5">Pharmacy OS</span>
+    </div>
+  </div>
+
+  <!-- Menu Scroll Area -->
+  <div class="flex-1 overflow-y-auto space-y-1 pr-2 custom-scrollbar" role="menu">
+    
+    <!-- Dashboard -->
+    <button 
+      (click)="setView('dashboard')" 
+      class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative"
+      [class.bg-teal-50]="isActive('dashboard')" 
+      [class.text-teal-700]="isActive('dashboard')"
+      [class.text-slate-600]="!isActive('dashboard')" 
+      [class.hover:bg-slate-50]="!isActive('dashboard')"
+      role="menuitem"
+      [attr.aria-current]="isActive('dashboard') ? 'page' : null"
+    >
+      <app-icon name="layout-grid" [size]="18" [class]="isActive('dashboard') ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'" aria-hidden="true"></app-icon>
+      <span>Dashboard</span>
+    </button>
+
+    <!-- Inventory -->
+    <button 
+      (click)="setView('inventory')" 
+      class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative"
+      [class.bg-teal-50]="isActive('inventory')" 
+      [class.text-teal-700]="isActive('inventory')"
+      [class.text-slate-600]="!isActive('inventory')" 
+      [class.hover:bg-slate-50]="!isActive('inventory')"
+      role="menuitem"
+      [attr.aria-current]="isActive('inventory') ? 'page' : null"
+    >
+      <app-icon name="package" [size]="18" [class]="isActive('inventory') ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'" aria-hidden="true"></app-icon>
+      <span>Inventory</span>
+    </button>
+
+    <!-- Procurement Group -->
+    <div class="pt-1">
+      <button 
+        (click)="handleGroupClick('procurement')" 
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group"
+        [class.text-teal-800]="isParentActive('procurement')"
+        [class.bg-slate-50]="isParentActive('procurement') && !isGroupOpen('procurement')"
+        [class.text-slate-600]="!isParentActive('procurement')"
+        [class.hover:bg-slate-50]="!isParentActive('procurement')"
+        [attr.aria-expanded]="isGroupOpen('procurement')"
+        aria-controls="procurement-menu"
+      >
+        <div class="flex items-center gap-3">
+          <app-icon name="briefcase" [size]="18" [class]="isParentActive('procurement') ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'" aria-hidden="true"></app-icon>
+          <span>Procurement</span>
+        </div>
+        <app-icon name="chevron-down" [size]="14" class="text-slate-300 transition-transform duration-300" [class.rotate-180]="isGroupOpen('procurement')" aria-hidden="true"></app-icon>
+      </button>
+      
+      @if (isGroupOpen('procurement')) {
+        <div id="procurement-menu" class="flex flex-col gap-0.5 mt-1 ml-4 pl-3 border-l-2 border-slate-100 animate-slide-down origin-top" role="menu">
+          <button (click)="setView('procurement-orders')" 
+            class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] transition-colors"
+            [class]="isActive('procurement-orders') ? 'text-teal-700 bg-teal-50/50 font-semibold' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'"
+            role="menuitem"
+            [attr.aria-current]="isActive('procurement-orders') ? 'page' : null">
+            Orders
+          </button>
+          <button (click)="setView('procurement-bills')" 
+            class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] transition-colors"
+            [class]="isActive('procurement-bills') ? 'text-teal-700 bg-teal-50/50 font-semibold' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'"
+            role="menuitem"
+            [attr.aria-current]="isActive('procurement-bills') ? 'page' : null">
+            Bills & Payments
+          </button>
+          <button (click)="setView('procurement-suppliers')" 
+            class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] transition-colors"
+            [class]="isActive('procurement-suppliers') ? 'text-teal-700 bg-teal-50/50 font-semibold' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'"
+            role="menuitem"
+            [attr.aria-current]="isActive('procurement-suppliers') ? 'page' : null">
+            Suppliers
+          </button>
+        </div>
+      }
+    </div>
+
+    <!-- Sales Group -->
+    <div class="pt-1">
+      <button 
+        (click)="handleGroupClick('sales')" 
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group"
+        [class.text-teal-800]="isParentActive('sales')"
+        [class.bg-slate-50]="isParentActive('sales') && !isGroupOpen('sales')"
+        [class.text-slate-600]="!isParentActive('sales')"
+        [class.hover:bg-slate-50]="!isParentActive('sales')"
+        [attr.aria-expanded]="isGroupOpen('sales')"
+        aria-controls="sales-menu"
+      >
+        <div class="flex items-center gap-3">
+          <app-icon name="trending-up" [size]="18" [class]="isParentActive('sales') ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'" aria-hidden="true"></app-icon>
+          <span>Sales & CRM</span>
+        </div>
+        <app-icon name="chevron-down" [size]="14" class="text-slate-300 transition-transform duration-300" [class.rotate-180]="isGroupOpen('sales')" aria-hidden="true"></app-icon>
+      </button>
+      
+      @if (isGroupOpen('sales')) {
+        <div id="sales-menu" class="flex flex-col gap-0.5 mt-1 ml-4 pl-3 border-l-2 border-slate-100 animate-slide-down origin-top" role="menu">
+          <button (click)="setView('sales-customers')" 
+            class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] transition-colors"
+            [class]="isActive('sales-customers') ? 'text-teal-700 bg-teal-50/50 font-semibold' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'"
+            role="menuitem"
+            [attr.aria-current]="isActive('sales-customers') ? 'page' : null">
+            Customers
+          </button>
+          <button (click)="setView('sales-invoices')" 
+            class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] transition-colors"
+            [class]="isActive('sales-invoices') ? 'text-teal-700 bg-teal-50/50 font-semibold' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'"
+            role="menuitem"
+            [attr.aria-current]="isActive('sales-invoices') ? 'page' : null">
+            Invoices
+          </button>
+        </div>
+      }
+    </div>
+
+    <!-- Point of Sale -->
+    <button 
+      (click)="setView('pos')" 
+      class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative mt-1"
+      [class.bg-teal-50]="isActive('pos')" 
+      [class.text-teal-700]="isActive('pos')"
+      [class.text-slate-600]="!isActive('pos')" 
+      [class.hover:bg-slate-50]="!isActive('pos')"
+      role="menuitem"
+      [attr.aria-current]="isActive('pos') ? 'page' : null"
+    >
+      <app-icon name="shopping-cart" [size]="18" [class]="isActive('pos') ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'" aria-hidden="true"></app-icon>
+      <span>Point of Sale</span>
+    </button>
+
+    <div class="pt-6 pb-2">
+      <div class="h-px bg-slate-100 mx-3 mb-3" aria-hidden="true"></div>
+      <p class="px-3 text-[10px] uppercase font-bold text-slate-400 tracking-wider">Management</p>
+    </div>
+
+    <button 
+      (click)="setView('finance')" 
+      class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative"
+      [class.bg-teal-50]="isActive('finance')" [class.text-teal-700]="isActive('finance')"
+      [class.text-slate-600]="!isActive('finance')" [class.hover:bg-slate-50]="!isActive('finance')"
+      role="menuitem"
+      [attr.aria-current]="isActive('finance') ? 'page' : null"
+    >
+      <app-icon name="credit-card" [size]="18" [class]="isActive('finance') ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'" aria-hidden="true"></app-icon>
+      <span>Finance</span>
+    </button>
+
+    <button 
+      (click)="setView('users')" 
+      class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative"
+      [class.bg-teal-50]="isActive('users')" [class.text-teal-700]="isActive('users')"
+      [class.text-slate-600]="!isActive('users')" [class.hover:bg-slate-50]="!isActive('users')"
+      role="menuitem"
+      [attr.aria-current]="isActive('users') ? 'page' : null"
+    >
+      <app-icon name="users" [size]="18" [class]="isActive('users') ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'" aria-hidden="true"></app-icon>
+      <span>Team & Roles</span>
+    </button>
+
+    <button 
+      (click)="setView('settings')"
+      class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative"
+      [class.bg-teal-50]="isActive('settings')" [class.text-teal-700]="isActive('settings')"
+      [class.text-slate-600]="!isActive('settings')" [class.hover:bg-slate-50]="!isActive('settings')"
+      role="menuitem"
+      [attr.aria-current]="isActive('settings') ? 'page' : null"
+    >
+      <app-icon name="settings" [size]="18" [class]="isActive('settings') ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'" aria-hidden="true"></app-icon>
+      <span>Settings</span>
+    </button>
+  </div>
+
+  <!-- User Profile Footer -->
+  <div class="mt-auto px-2 pt-4 border-t border-slate-100">
+    <!-- Organization Badge -->
+    <div class="px-2 py-2 mb-3 rounded-lg bg-gradient-to-r from-slate-50 to-slate-100/50 border border-slate-200/50">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded bg-teal-100 flex items-center justify-center shrink-0" aria-hidden="true">
+          <app-icon name="building" [size]="14" class="text-teal-600"></app-icon>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-semibold text-slate-700 truncate">{{ organizationName }}</p>
+          <p class="text-[10px] text-slate-400">Organization</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Profile -->
+    <div class="relative">
+      <button 
+        (click)="toggleUserMenu()" 
+        class="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors group text-left"
+        [attr.aria-expanded]="showUserMenu()"
+        aria-haspopup="true"
+        aria-label="User menu"
+      >
+        <!-- Avatar -->
+        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 overflow-hidden border-2 border-white shadow-md shrink-0 flex items-center justify-center">
+          @if (userAvatar) {
+            <img [src]="userAvatar" [alt]="userName" class="object-cover w-full h-full" loading="lazy" />
+          } @else {
+            <span class="text-white font-semibold text-sm">{{ userInitials }}</span>
+          }
+        </div>
+        
+        <!-- User Info -->
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold text-slate-700 truncate group-hover:text-slate-900">{{ userName }}</p>
+          <p class="text-xs text-slate-400 truncate">{{ userRole }}</p>
+        </div>
+        
+        <!-- Chevron -->
+        <app-icon 
+          name="chevron-up" 
+          [size]="16" 
+          class="text-slate-400 transition-transform duration-200"
+          [class.rotate-180]="!showUserMenu()"
+          aria-hidden="true"
+        ></app-icon>
+      </button>
+
+      <!-- User Dropdown Menu -->
+      @if (showUserMenu()) {
+        <div 
+          class="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden animate-scale-in z-50"
+          role="menu"
+          aria-label="User options"
+        >
+          <button 
+            (click)="setView('settings')" 
+            class="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+            role="menuitem"
+          >
+            <app-icon name="user" [size]="16" class="text-slate-400" aria-hidden="true"></app-icon>
+            <span>Profile Settings</span>
+          </button>
+          <div class="h-px bg-slate-100" aria-hidden="true"></div>
+          <button 
+            (click)="openLogoutModal()" 
+            class="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
+            role="menuitem"
+          >
+            <app-icon name="log-out" [size]="16" class="text-red-500" aria-hidden="true"></app-icon>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+</nav>
+
+<!-- Logout Confirmation Modal -->
+@if (showLogoutModal()) {
+  <div 
+    class="fixed inset-0 z-[100] flex items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="logout-title"
+  >
+    <!-- Backdrop -->
+    <div 
+      class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm animate-fade-in"
+      (click)="closeLogoutModal()"
+    ></div>
+    
+    <!-- Modal Content -->
+    <div class="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-scale-in">
+      <!-- Icon -->
+      <div class="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+        <app-icon name="log-out" [size]="28" class="text-red-600"></app-icon>
+      </div>
+      
+      <!-- Title -->
+      <h2 id="logout-title" class="text-xl font-bold text-slate-800 text-center mb-2">
+        Sign Out?
+      </h2>
+      
+      <!-- Description -->
+      <p class="text-sm text-slate-500 text-center mb-6">
+        Are you sure you want to sign out of your account? You'll need to sign in again to access your data.
+      </p>
+      
+      <!-- Actions -->
+      <div class="flex gap-3">
+        <button 
+          (click)="closeLogoutModal()"
+          class="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+          [disabled]="isLoggingOut()"
+        >
+          Cancel
+        </button>
+        <button 
+          (click)="confirmLogout()"
+          class="flex-1 px-4 py-2.5 rounded-lg bg-red-600 text-sm font-medium text-white hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+          [disabled]="isLoggingOut()"
+        >
+          @if (isLoggingOut()) {
+            <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+            <span>Signing out...</span>
+          } @else {
+            <span>Sign Out</span>
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Click outside handler for user menu -->
+@if (showUserMenu()) {
+  <div class="fixed inset-0 z-40" (click)="closeUserMenu()"></div>
+}

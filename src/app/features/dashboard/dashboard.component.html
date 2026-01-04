@@ -1,132 +1,257 @@
-﻿
-    <div class="h-full flex flex-col gap-6 animate-fade-in overflow-y-auto pr-2">
-      <header class="flex justify-between items-center mb-2 shrink-0">
-        <div>
-          <h2 class="text-2xl font-light tracking-tight text-slate-800">Dashboard</h2>
-          <p class="text-sm text-slate-500 font-light mt-1">{{ store.activeBranch().name }} â€¢ <span class="text-teal-500">Live</span></p>
+<div class="h-full flex flex-col gap-6 animate-fade-in overflow-y-auto pr-2" role="main" aria-label="Dashboard">
+  
+  <!-- Header -->
+  <header class="flex justify-between items-center mb-2 shrink-0">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight text-slate-800">Dashboard</h1>
+      <p class="text-sm text-slate-500 font-normal mt-1">
+        @if (store.activeBranch(); as branch) {
+          {{ branch.name }} • <span class="text-teal-600 font-medium">Live</span>
+        } @else {
+          <span class="text-amber-600">No branch configured</span>
+        }
+      </p>
+    </div>
+    
+    @if (!store.isFirstTimeUser()) {
+      <div class="flex gap-2">
+        <button 
+          class="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 rounded-lg text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+          aria-label="Export dashboard report"
+        >
+          Export Report
+        </button>
+      </div>
+    }
+  </header>
+
+  <!-- Setup Guide (Always show for new users until complete) -->
+  @if (store.showSetupGuide() && store.setupCompletion() < 100) {
+    <section 
+      class="glass-panel p-0 rounded-xl mb-2 border-l-4 border-l-teal-500 relative overflow-hidden animate-slide-in shrink-0"
+      aria-labelledby="setup-guide-title"
+      role="region"
+    >
+      <div class="p-4 border-b border-slate-100 bg-white/50 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 text-white flex items-center justify-center shadow-lg shadow-teal-500/20">
+            <app-icon name="rocket" [size]="20"></app-icon>
+          </div>
+          <div>
+            <h2 id="setup-guide-title" class="font-semibold text-slate-800 text-lg">
+              Welcome to {{ store.tenant()?.name || 'Thuraya Pharmacy' }}!
+            </h2>
+            <p class="text-sm text-slate-500">Complete these steps to get started.</p>
+          </div>
         </div>
-        <div class="flex gap-2">
-          <button class="px-4 py-2 bg-white/50 hover:bg-white border border-slate-200 text-slate-600 rounded-lg text-sm transition-all duration-300">
-            Export Report
+        <div class="flex items-center gap-4">
+          <div class="flex items-center gap-2">
+            <div class="w-24 h-2 bg-slate-200 rounded-full overflow-hidden">
+              <div 
+                class="h-full bg-gradient-to-r from-teal-400 to-teal-600 transition-all duration-500" 
+                [style.width.%]="store.setupCompletion()"
+                role="progressbar"
+                [attr.aria-valuenow]="store.setupCompletion()"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              ></div>
+            </div>
+            <span class="text-sm font-bold text-teal-600">{{ store.setupCompletion() }}%</span>
+          </div>
+          <button 
+            (click)="store.dismissSetupGuide()" 
+            class="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+            aria-label="Dismiss setup guide"
+          >
+            <app-icon name="x" [size]="18"></app-icon>
           </button>
         </div>
-      </header>
-
-      <!-- Setup Guide (For New Tenants) -->
-      @if (store.showSetupGuide() && store.setupCompletion() < 100) {
-        <div class="glass-panel p-0 rounded-xl mb-2 border-l-4 border-l-teal-500 relative overflow-hidden animate-slide-in shrink-0">
-           <div class="p-4 border-b border-slate-100 bg-white/50 flex justify-between items-center">
-             <div class="flex items-center gap-3">
-               <div class="w-8 h-8 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center">
-                 <app-icon name="check" [size]="16"></app-icon>
-               </div>
-               <div>
-                 <h3 class="font-medium text-slate-800">Welcome to {{ store.tenant()?.name || 'Thuraya' }}!</h3>
-                 <p class="text-xs text-slate-500">Complete these steps to get your pharmacy fully operational.</p>
-               </div>
-             </div>
-             <div class="flex items-center gap-4">
-               <div class="text-xs font-bold text-teal-600">{{ store.setupCompletion() }}% Complete</div>
-               <button (click)="store.dismissSetupGuide()" class="text-slate-400 hover:text-slate-600">
-                 <app-icon name="x" [size]="18"></app-icon>
-               </button>
-             </div>
-           </div>
-           
-           <div class="p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
-             @for (step of store.setupProgress(); track step.id) {
-               <div class="flex items-start gap-3 p-3 rounded-lg border transition-all" 
-                    [class.bg-emerald-50]="step.done" [class.border-emerald-100]="step.done"
-                    [class.bg-white]="!step.done" [class.border-slate-100]="!step.done"
-                    [class.opacity-50]="!step.done && !step.action"
-                >
-                  <div class="mt-0.5">
-                    @if (step.done) {
-                      <div class="text-emerald-500"><app-icon name="check-square" [size]="18"></app-icon></div>
-                    } @else {
-                      <div class="text-slate-300"><app-icon name="square" [size]="18"></app-icon></div>
-                    }
-                  </div>
-                  <div>
-                    <div class="text-sm font-medium" [class.text-emerald-700]="step.done" [class.text-slate-700]="!step.done">{{ step.label }}</div>
-                    @if (!step.done && step.action) {
-                      <button (click)="store.setView(step.action)" class="text-xs text-teal-600 font-medium hover:underline mt-1 flex items-center gap-1">
-                        Complete Now <app-icon name="chevron-right" [size]="12"></app-icon>
-                      </button>
-                    }
-                  </div>
-               </div>
-             }
-           </div>
-           
-           <!-- Progress Bar Bottom -->
-           <div class="h-1 w-full bg-slate-100">
-             <div class="h-full bg-teal-500 transition-all duration-1000" [style.width.%]="store.setupCompletion()"></div>
-           </div>
-        </div>
-      }
-
-      <!-- Stats Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
-        <div class="glass-panel p-5 rounded-xl flex flex-col justify-between group hover:border-teal-300/50 transition-colors duration-300">
-          <div class="flex justify-between items-start">
-            <div class="p-2 bg-teal-50 rounded-lg text-teal-600 group-hover:scale-110 transition-transform">
-              <app-icon name="trending-up" [size]="20"></app-icon>
+      </div>
+      
+      <div class="p-4 grid grid-cols-1 md:grid-cols-5 gap-3" role="list" aria-label="Setup steps">
+        @for (step of store.setupProgress(); track step.id; let i = $index) {
+          <div 
+            class="flex items-start gap-3 p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer group" 
+            [class.bg-teal-50]="step.done" 
+            [class.border-teal-200]="step.done"
+            [class.bg-white]="!step.done" 
+            [class.border-slate-100]="!step.done && step.action"
+            [class.border-dashed]="!step.done && !step.action"
+            [class.opacity-50]="!step.done && !step.action"
+            [class.hover:border-teal-300]="!step.done && step.action"
+            (click)="step.action && !step.done && store.setView(step.action)"
+            [attr.role]="step.action && !step.done ? 'button' : 'listitem'"
+            [attr.tabindex]="step.action && !step.done ? 0 : -1"
+          >
+            <div class="mt-0.5 shrink-0">
+              @if (step.done) {
+                <div class="w-6 h-6 rounded-full bg-teal-600 text-white flex items-center justify-center">
+                  <app-icon name="check" [size]="14"></app-icon>
+                </div>
+              } @else {
+                <div class="w-6 h-6 rounded-full border-2 border-slate-300 text-slate-400 flex items-center justify-center font-semibold text-xs group-hover:border-teal-500 group-hover:text-teal-500 transition-colors">
+                  {{ i + 1 }}
+                </div>
+              }
             </div>
-            <span class="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">+12.5%</span>
-          </div>
-          <div class="mt-4">
-            <h3 class="text-3xl font-light text-slate-800">243,500 <span class="text-sm text-slate-400">YER</span></h3>
-            <p class="text-xs text-slate-500 mt-1">Total Sales Today</p>
-          </div>
-        </div>
-
-        <div class="glass-panel p-5 rounded-xl flex flex-col justify-between group hover:border-blue-300/50 transition-colors duration-300">
-          <div class="flex justify-between items-start">
-            <div class="p-2 bg-blue-50 rounded-lg text-blue-600 group-hover:scale-110 transition-transform">
-              <app-icon name="package" [size]="20"></app-icon>
+            <div class="flex-1 min-w-0">
+              <div 
+                class="text-sm font-semibold truncate" 
+                [class.text-teal-700]="step.done" 
+                [class.text-slate-700]="!step.done"
+              >
+                {{ step.label }}
+              </div>
+              @if (!step.done && step.action) {
+                <span class="text-xs text-teal-600 font-medium mt-1 flex items-center gap-1 group-hover:underline">
+                  Get started <app-icon name="arrow-right" [size]="12"></app-icon>
+                </span>
+              } @else if (step.done) {
+                <span class="text-xs text-teal-600">Completed</span>
+              }
             </div>
           </div>
-          <div class="mt-4">
-            <h3 class="text-3xl font-light text-slate-800">{{ store.totalStockValue() | number }} <span class="text-sm text-slate-400">YER</span></h3>
-            <p class="text-xs text-slate-500 mt-1">Total Stock Value</p>
-          </div>
-        </div>
+        }
+      </div>
+    </section>
+  }
 
-        <div class="glass-panel p-5 rounded-xl flex flex-col justify-between group hover:border-red-300/50 transition-colors duration-300">
-          <div class="flex justify-between items-start">
-            <div class="p-2 bg-red-50 rounded-lg text-red-600 group-hover:scale-110 transition-transform">
-              <app-icon name="alert-circle" [size]="20"></app-icon>
-            </div>
-            @if (store.lowStockItems().length > 0) {
-              <span class="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-full">{{ store.lowStockItems().length }} Items</span>
-            }
-          </div>
-          <div class="mt-4">
-            <h3 class="text-3xl font-light text-slate-800">Low Stock</h3>
-            <p class="text-xs text-slate-500 mt-1">Needs attention</p>
-          </div>
+  <!-- First Time User: Welcome State -->
+  @if (store.isFirstTimeUser() && store.setupCompletion() >= 100) {
+    <section class="flex-1 glass-panel rounded-xl flex items-center justify-center p-12" aria-label="Getting started">
+      <div class="text-center max-w-lg">
+        <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center shadow-xl shadow-teal-500/20">
+          <app-icon name="check" [size]="40" class="text-white"></app-icon>
         </div>
-
-        <div class="glass-panel p-5 rounded-xl flex flex-col justify-between group hover:border-purple-300/50 transition-colors duration-300">
-          <div class="flex justify-between items-start">
-            <div class="p-2 bg-purple-50 rounded-lg text-purple-600 group-hover:scale-110 transition-transform">
-              <app-icon name="users" [size]="20"></app-icon>
-            </div>
-          </div>
-          <div class="mt-4">
-            <h3 class="text-3xl font-light text-slate-800">4</h3>
-            <p class="text-xs text-slate-500 mt-1">Active Staff</p>
-          </div>
+        <h2 class="text-2xl font-semibold text-slate-800 mb-2">You're all set!</h2>
+        <p class="text-slate-500 mb-6 leading-relaxed">
+          Your pharmacy is ready to go. Start by adding your first products and suppliers to begin managing your inventory.
+        </p>
+        <div class="flex flex-wrap gap-3 justify-center">
+          <button 
+            (click)="store.setView('inventory')"
+            class="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+          >
+            <app-icon name="package" [size]="18"></app-icon>
+            Add Products
+          </button>
+          <button 
+            (click)="store.setView('procurement-suppliers')"
+            class="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-700 border border-slate-200 rounded-xl font-medium hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+          >
+            <app-icon name="truck" [size]="18"></app-icon>
+            Add Suppliers
+          </button>
         </div>
       </div>
+    </section>
+  }
+  
+  <!-- Stats Grid (only show if has data) -->
+  @if (!store.isFirstTimeUser() || store.setupCompletion() < 100) {
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0" role="group" aria-label="Key metrics">
+      
+      <!-- Sales Today -->
+      <article class="glass-panel p-5 rounded-xl flex flex-col justify-between group hover:border-teal-300/50 transition-colors duration-300">
+        <div class="flex justify-between items-start">
+          <div class="p-2.5 bg-teal-50 rounded-xl text-teal-600 group-hover:scale-110 transition-transform">
+            <app-icon name="trending-up" [size]="20"></app-icon>
+          </div>
+          @if (!store.isFirstTimeUser()) {
+            <span class="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">+12.5%</span>
+          }
+        </div>
+        <div class="mt-4">
+          @if (store.isFirstTimeUser()) {
+            <h3 class="text-2xl font-semibold text-slate-400">--</h3>
+            <p class="text-sm text-slate-400 mt-1">No sales yet</p>
+          } @else {
+            <h3 class="text-2xl font-semibold text-slate-800">243,500 <span class="text-sm font-normal text-slate-400">YER</span></h3>
+            <p class="text-sm text-slate-500 mt-1">Total Sales Today</p>
+          }
+        </div>
+      </article>
 
-      <!-- Main Chart Area -->
-      <div class="flex-1 glass-panel rounded-xl p-6 flex flex-col min-h-[300px]">
-        <h3 class="text-lg font-light text-slate-800 mb-4">Revenue Trend (7 Days)</h3>
+      <!-- Stock Value -->
+      <article class="glass-panel p-5 rounded-xl flex flex-col justify-between group hover:border-blue-300/50 transition-colors duration-300">
+        <div class="flex justify-between items-start">
+          <div class="p-2.5 bg-blue-50 rounded-xl text-blue-600 group-hover:scale-110 transition-transform">
+            <app-icon name="package" [size]="20"></app-icon>
+          </div>
+        </div>
+        <div class="mt-4">
+          @if (store.products().length === 0) {
+            <h3 class="text-2xl font-semibold text-slate-400">--</h3>
+            <p class="text-sm text-slate-400 mt-1">No inventory</p>
+          } @else {
+            <h3 class="text-2xl font-semibold text-slate-800">{{ store.totalStockValue() | number }} <span class="text-sm font-normal text-slate-400">YER</span></h3>
+            <p class="text-sm text-slate-500 mt-1">Total Stock Value</p>
+          }
+        </div>
+      </article>
+
+      <!-- Low Stock -->
+      <article class="glass-panel p-5 rounded-xl flex flex-col justify-between group hover:border-amber-300/50 transition-colors duration-300">
+        <div class="flex justify-between items-start">
+          <div class="p-2.5 bg-amber-50 rounded-xl text-amber-600 group-hover:scale-110 transition-transform">
+            <app-icon name="alert-circle" [size]="20"></app-icon>
+          </div>
+          @if (store.lowStockItems().length > 0) {
+            <span class="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+              {{ store.lowStockItems().length }} {{ store.lowStockItems().length === 1 ? 'Item' : 'Items' }}
+            </span>
+          }
+        </div>
+        <div class="mt-4">
+          @if (store.products().length === 0) {
+            <h3 class="text-2xl font-semibold text-slate-400">--</h3>
+            <p class="text-sm text-slate-400 mt-1">Add inventory first</p>
+          } @else if (store.lowStockItems().length === 0) {
+            <h3 class="text-2xl font-semibold text-emerald-600">All Good</h3>
+            <p class="text-sm text-slate-500 mt-1">Stock levels healthy</p>
+          } @else {
+            <h3 class="text-2xl font-semibold text-amber-600">Low Stock</h3>
+            <p class="text-sm text-slate-500 mt-1">Needs attention</p>
+          }
+        </div>
+      </article>
+
+      <!-- Team Members -->
+      <article class="glass-panel p-5 rounded-xl flex flex-col justify-between group hover:border-purple-300/50 transition-colors duration-300">
+        <div class="flex justify-between items-start">
+          <div class="p-2.5 bg-purple-50 rounded-xl text-purple-600 group-hover:scale-110 transition-transform">
+            <app-icon name="users" [size]="20"></app-icon>
+          </div>
+        </div>
+        <div class="mt-4">
+          <h3 class="text-2xl font-semibold text-slate-800">{{ store.users().length || 1 }}</h3>
+          <p class="text-sm text-slate-500 mt-1">Team {{ store.users().length === 1 ? 'Member' : 'Members' }}</p>
+        </div>
+      </article>
+    </div>
+
+    <!-- Main Chart Area -->
+    <section class="flex-1 glass-panel rounded-xl p-6 flex flex-col min-h-[300px]" aria-labelledby="revenue-chart-title">
+      <h3 id="revenue-chart-title" class="text-lg font-semibold text-slate-800 mb-4">Revenue Trend (7 Days)</h3>
+      
+      @if (store.isFirstTimeUser()) {
+        <!-- Empty Chart State -->
+        <div class="flex-1 flex items-center justify-center">
+          <div class="text-center">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-100 flex items-center justify-center">
+              <app-icon name="trending-up" [size]="32" class="text-slate-400"></app-icon>
+            </div>
+            <h4 class="text-lg font-medium text-slate-600 mb-1">No sales data yet</h4>
+            <p class="text-sm text-slate-400 max-w-xs">
+              Start making sales to see your revenue trends and analytics here.
+            </p>
+          </div>
+        </div>
+      } @else {
         <div class="flex-1 w-full">
           <app-sales-chart></app-sales-chart>
         </div>
-      </div>
-    </div>
-  
+      }
+    </section>
+  }
+</div>

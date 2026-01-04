@@ -1,16 +1,36 @@
-﻿
-    <div class="h-full flex flex-col animate-fade-in relative">
+<div class="h-full flex flex-col animate-fade-in relative" role="main" aria-label="Team Management">
       <header class="flex justify-between items-center mb-6">
         <div>
-          <h2 class="text-2xl font-light tracking-tight text-slate-800">Team & Roles</h2>
-          <p class="text-sm text-slate-500 font-light mt-1">Manage access for {{ store.tenant()?.name || 'Organization' }}</p>
+          <h1 class="text-2xl font-semibold tracking-tight text-slate-800">Team & Roles</h1>
+          <p class="text-sm text-slate-500 mt-1">Manage access for {{ store.tenant()?.name || 'your organization' }}</p>
         </div>
-        <button (click)="showInviteModal.set(true)" class="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white shadow-lg shadow-teal-500/30 rounded-lg text-sm transition-all flex items-center gap-2">
+        <button (click)="showInviteModal.set(true)" class="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white shadow-lg shadow-teal-500/30 rounded-lg text-sm transition-all flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2">
           <app-icon name="plus" [size]="16"></app-icon>
           Invite Member
         </button>
       </header>
 
+      <!-- Empty State for Users -->
+      @if (store.users().length === 0) {
+        <div class="flex-1 flex items-center justify-center">
+          <div class="text-center max-w-md">
+            <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-purple-50 flex items-center justify-center">
+              <app-icon name="users" [size]="40" class="text-purple-500"></app-icon>
+            </div>
+            <h2 class="text-xl font-semibold text-slate-800 mb-2">Just You For Now</h2>
+            <p class="text-slate-500 mb-6 leading-relaxed">
+              You're the only team member. Invite colleagues to collaborate and manage different areas of your pharmacy.
+            </p>
+            <button 
+              (click)="showInviteModal.set(true)"
+              class="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+            >
+              <app-icon name="plus" [size]="18"></app-icon>
+              Invite First Team Member
+            </button>
+          </div>
+        </div>
+      } @else {
       <!-- Users Grid -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto pb-4">
         @for (user of store.users(); track user.id) {
@@ -56,6 +76,7 @@
           </div>
         }
       </div>
+      } <!-- End of else block for users grid -->
 
       <!-- Invite Modal -->
       @if (showInviteModal()) {

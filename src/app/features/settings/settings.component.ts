@@ -5,7 +5,7 @@
  * @updated 2026-01-03
  */
 
-import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { StoreService, Role } from '@core/services/store.service';
 import { IconComponent } from '@shared/components/icons/icons.component';
@@ -16,26 +16,9 @@ type SettingsTab = 'general' | 'branches' | 'team' | 'security' | 'data';
 /**
  * @component SettingsComponent
  * @description System settings and configuration interface
+ * Production-ready with proper state management
  * 
- * @features
- * - General application settings
- * - Branch management
- * - Team and access control
- * - Security preferences
- * - Data management and exports
- * 
- * @dependencies
- * - StoreService: Settings and configuration state
- * 
- * @example
- * <app-settings></app-settings>
- * 
- * @architecture
- * - OnPush change detection
- * - Tab-based navigation
- * - Signal-based state
- * 
- * @since 1.0.0
+ * @version 2.0.0
  */
 @Component({
   selector: 'app-settings',
@@ -48,6 +31,19 @@ export class SettingsComponent {
   store = inject(StoreService);
   activeTab = signal<SettingsTab>('general');
 
+  // Computed values for current organization data
+  orgName = computed(() => this.store.tenant()?.name || '');
+  orgCountry = computed(() => this.store.tenant()?.country || 'Saudi Arabia');
+  orgCurrency = computed(() => this.store.tenant()?.currency || 'SAR');
+  orgLanguage = computed(() => this.store.tenant()?.language || 'en');
+
+  // Form state for editing
+  editedName = signal('');
+  editedCountry = signal('');
+  editedCurrency = signal('');
+  isSaving = signal(false);
+  saveSuccess = signal(false);
+
   newEmployee = {
     name: '',
     email: '',
@@ -55,16 +51,42 @@ export class SettingsComponent {
     branchId: ''
   };
 
-  updateOrg(field: string, value: any) {
-    this.store.updateTenant({ [field]: value });
+  constructor() {
+    // Initialize edit fields with current values when component loads
+    // Using setTimeout to ensure store is populated
+    setTimeout(() => this.resetEditFields(), 0);
   }
 
-  getBranchName(branchId?: string) {
+  resetEditFields(): void {
+    this.editedName.set(this.orgName());
+    this.editedCountry.set(this.orgCountry());
+    this.editedCurrency.set(this.orgCurrency());
+  }
+
+  updateOrg(field: string, value: string): void {
+    // Update local signal immediately for responsive UI
+    if (field === 'name') this.editedName.set(value);
+    if (field === 'country') this.editedCountry.set(value);
+    if (field === 'currency') this.editedCurrency.set(value);
+    
+    // Update store
+    this.store.updateTenant({ [field]: value });
+    
+    // Show save feedback
+    this.showSaveSuccess();
+  }
+
+  private showSaveSuccess(): void {
+    this.saveSuccess.set(true);
+    setTimeout(() => this.saveSuccess.set(false), 2000);
+  }
+
+  getBranchName(branchId?: string): string {
     if (!branchId) return 'Global (All Branches)';
     return this.store.branches().find(b => b.id === branchId)?.name || 'Unknown';
   }
 
-  addEmployee() {
+  addEmployee(): void {
     this.store.inviteUser(this.newEmployee.email, this.newEmployee.role, this.newEmployee.branchId);
     // Reset form
     this.newEmployee = {

@@ -225,155 +225,33 @@ export type ViewState =
   providedIn: 'root'
 })
 export class StoreService {
+  // View state - always starts at 'auth', auth service determines where to go
   currentView = signal<ViewState>('auth'); 
 
   // --- Multi-Tenancy Data ---
   tenant = signal<Tenant | null>(null);
   
-  branches = signal<Branch[]>([
-    { id: 'b1', name: "Sana'a Central", code: 'SAN-01', location: "Hadda St, Sana'a", isOfflineEnabled: true, licenseCount: 5 },
-    { id: 'b2', name: "Aden Seaside", code: 'ADE-01', location: "Main St, Aden", isOfflineEnabled: true, licenseCount: 3 }
-  ]);
+  // Start with empty arrays - data comes from backend or is created during onboarding
+  branches = signal<Branch[]>([]);
+  users = signal<User[]>([]);
+  
+  // Current user starts as null until authenticated
+  currentUser = signal<User | null>(null);
 
-  users = signal<User[]>([
-    { id: 'u1', name: 'Dr. Ahmed Al-Yemeni', email: 'ahmed@thuraya.pharmacy', role: 'super_admin', branchId: 'b1', status: 'active', avatar: 'https://picsum.photos/seed/u1/32/32' },
-    { id: 'u2', name: 'Sarah Ali', email: 'sarah@thuraya.pharmacy', role: 'branch_admin', branchId: 'b1', status: 'active', avatar: 'https://picsum.photos/seed/u2/32/32' },
-    { id: 'u3', name: 'Omar Khaled', email: 'omar@thuraya.pharmacy', role: 'branch_admin', branchId: 'b2', status: 'active', avatar: 'https://picsum.photos/seed/u3/32/32' }
-  ]);
+  // --- Procurement State (empty for first-time users) ---
+  suppliers = signal<Supplier[]>([]);
+  purchaseOrders = signal<PurchaseOrder[]>([]);
+  bills = signal<PurchaseBill[]>([]);
 
-  currentUser = signal<User>(this.users()[0]);
+  // --- Inventory State (empty for first-time users) ---
+  products = signal<Product[]>([]);
 
-  // --- Procurement State ---
-  suppliers = signal<Supplier[]>([
-    { 
-      id: 's1', code: 'SUP-001', name: 'Pharma Yemen Ltd', contactPerson: 'Khaled Al-Qadi', email: 'orders@pharmayemen.com', phone: '+967 777 111 222', 
-      address: 'Industrial Zone', city: "Sana'a", state: 'Amanat Al Asimah', country: 'Yemen', zipCode: '12345', paymentTerms: 'Net 30', 
-      creditLimit: 5000000, currentBalance: 450000, rating: 5, status: 'Active', category: 'Pharmaceuticals', website: '', bankDetails: '', createdDate: '2024-01-01'
-    },
-    {
-      id: 's2', code: 'SUP-002', name: 'Al-Amal Medical Supplies', contactPerson: 'Dr. Fatima', email: 'sales@alamal.com', phone: '+967 770 555 666',
-      address: 'Hadda Street', city: "Sana'a", state: 'Amanat Al Asimah', country: 'Yemen', zipCode: '12346', paymentTerms: 'Immediate',
-      creditLimit: 2000000, currentBalance: 0, rating: 4, status: 'Active', category: 'Equipment', website: '', bankDetails: '', createdDate: '2024-02-15'
-    },
-    {
-      id: 's3', code: 'SUP-003', name: 'Yemen Drug Store', contactPerson: 'Omar Saeed', email: 'info@yemendrugs.com', phone: '+967 771 999 888',
-      address: 'Taiz Street', city: "Ibb", state: 'Ibb', country: 'Yemen', zipCode: '44556', paymentTerms: 'Net 60',
-      creditLimit: 10000000, currentBalance: 1250000, rating: 5, status: 'Active', category: 'Pharmaceuticals', website: '', bankDetails: '', createdDate: '2024-01-20'
-    }
-  ]);
+  // --- Sales & CRM State (empty for first-time users) ---
+  customers = signal<Customer[]>([]);
+  invoices = signal<Invoice[]>([]);
 
-  purchaseOrders = signal<PurchaseOrder[]>([
-    { 
-      id: 'PO-2025-001', supplierId: 's1', branchId: 'b1', date: '2025-01-15', expectedDeliveryDate: '2025-01-20', status: 'Closed', 
-      subTotal: 450000, tax: 0, discount: 0, grandTotal: 450000, createdBy: 'u1', assignedTo: 'u1', 
-      items: [{ productId: '1', quantity: 300, unitCost: 1200 }, { productId: '2', quantity: 36, unitCost: 2500 }]
-    },
-    // Billed & Pending (Eligible for Import) - For Branch 1
-    {
-      id: 'PO-2025-002', supplierId: 's1', branchId: 'b1', date: '2025-02-10', expectedDeliveryDate: '2025-02-15', status: 'Sent',
-      subTotal: 600000, tax: 0, discount: 0, grandTotal: 600000, createdBy: 'u1', assignedTo: 'u2',
-      items: [
-        { productId: '3', quantity: 500, unitCost: 800 }, // Cipro
-        { productId: '4', quantity: 1000, unitCost: 200 } // Omeprazole
-      ]
-    },
-    // Unbilled (Not Eligible for Import) - For Branch 2
-    {
-      id: 'PO-2025-003', supplierId: 's3', branchId: 'b2', date: '2025-02-18', expectedDeliveryDate: '2025-02-25', status: 'Sent',
-      subTotal: 250000, tax: 0, discount: 0, grandTotal: 250000, createdBy: 'u1', assignedTo: 'u3',
-      items: [
-        { productId: '5', quantity: 250, unitCost: 1000 } // Vitamin C
-      ]
-    },
-    // Draft - For Branch 1
-    {
-      id: 'PO-2025-004', supplierId: 's2', branchId: 'b1', date: '2025-02-20', expectedDeliveryDate: '', status: 'Draft',
-      subTotal: 150000, tax: 0, discount: 0, grandTotal: 150000, createdBy: 'u2', assignedTo: 'u2',
-      items: [
-        { productId: '6', quantity: 10, unitCost: 15000 } // Glucometer
-      ]
-    }
-  ]);
-
-  bills = signal<PurchaseBill[]>([
-    {
-      id: 'BILL-001', poId: 'PO-2025-001', supplierId: 's1', billNumber: 'INV-998877',
-      billDate: '2025-01-15', dueDate: '2025-02-15', receivedDate: '2025-01-15',
-      totalAmount: 450000, paidAmount: 450000, status: 'Paid',
-      payments: [{ id: 'PAY-1', date: '2025-01-20', amount: 450000, method: 'Bank Transfer', reference: 'TRX-123' }],
-      createdDate: '2025-01-15', createdBy: 'u1', assignedTo: 'u1'
-    },
-    {
-      id: 'BILL-002', poId: 'PO-2025-002', supplierId: 's1', billNumber: 'INV-223344',
-      billDate: '2025-02-12', dueDate: '2025-03-12', receivedDate: '2025-02-12',
-      totalAmount: 600000, paidAmount: 0, status: 'Unpaid', payments: [],
-      createdDate: '2025-02-12', createdBy: 'u1', assignedTo: 'u2'
-    }
-  ]);
-
-  // --- Inventory State (Distributed per Branch) ---
-  products = signal<Product[]>([
-    // Branch 1 Inventory (Sana'a)
-    { 
-      id: '1', branchId: 'b1', name: 'Panadol Extra', genericName: 'Paracetamol', sku: 'PAN-001', price: 1500, cost: 1200, margin: 25, stock: 124, 
-      category: 'Analgesic', expiryDate: '2026-05-20', supplierId: 's1', minStock: 50, location: 'Shelf A1',
-      batches: [
-        { id: 'b_1', poRef: 'PO-2024-001', batchNumber: 'LOT-99A', quantity: 100, cost: 1200, expiryDate: '2026-05-20', receivedDate: '2024-01-01' },
-        { id: 'b_2', poRef: 'PO-2024-055', batchNumber: 'LOT-99B', quantity: 24, cost: 1250, expiryDate: '2026-08-01', receivedDate: '2024-06-01' }
-      ]
-    },
-    { 
-      id: '2', branchId: 'b1', name: 'Amoclan', genericName: 'Amoxicillin', sku: 'AMO-500', price: 3200, cost: 2500, margin: 28, stock: 80, 
-      category: 'Antibiotic', expiryDate: '2025-11-10', supplierId: 's2', minStock: 20, location: 'Shelf B3',
-      batches: []
-    },
-    // Branch 2 Inventory (Aden) - Same products, different stock/location
-    { 
-      id: '1_b2', branchId: 'b2', name: 'Panadol Extra', genericName: 'Paracetamol', sku: 'PAN-001', price: 1600, cost: 1200, margin: 33, stock: 45, 
-      category: 'Analgesic', expiryDate: '2026-05-20', supplierId: 's1', minStock: 50, location: 'Bin 12',
-      batches: [
-        { id: 'b_1_2', poRef: 'OPENING', batchNumber: 'LOT-99A', quantity: 45, cost: 1200, expiryDate: '2026-05-20', receivedDate: '2024-01-01' }
-      ]
-    },
-    
-    // New Products (Pending Import) - placeholders usually created when PO is drafted
-    {
-        id: '3', branchId: 'b1', name: 'Cipro 500mg', genericName: 'Ciprofloxacin', sku: 'CIP-500', price: 0, cost: 800, margin: 0, stock: 0,
-        category: 'Antibiotic', expiryDate: '', supplierId: 's1', minStock: 30, location: 'Warehouse', batches: []
-    },
-    {
-        id: '4', branchId: 'b1', name: 'Omeprazole 20mg', genericName: 'Omeprazole', sku: 'OME-20', price: 0, cost: 200, margin: 0, stock: 0,
-        category: 'Gastrointestinal', expiryDate: '', supplierId: 's1', minStock: 100, location: 'Shelf C1', batches: []
-    },
-    {
-        id: '5', branchId: 'b2', name: 'Vitamin C 1000mg', genericName: 'Ascorbic Acid', sku: 'VIT-C-1G', price: 0, cost: 1000, margin: 0, stock: 0,
-        category: 'Supplement', expiryDate: '', supplierId: 's3', minStock: 20, location: 'Shelf D1', batches: []
-    },
-    {
-        id: '6', branchId: 'b1', name: 'Glucometer Accu-Chek', genericName: 'Blood Glucose Meter', sku: 'ACCU-01', price: 25000, cost: 15000, margin: 66, stock: 5,
-        category: 'Equipment', expiryDate: '', supplierId: 's2', minStock: 2, location: 'Display 1', batches: []
-    }
-  ]);
-
-  // --- Sales & CRM State ---
-  customers = signal<Customer[]>([
-    { id: 'c1', name: 'Walk-in Customer', phone: '', type: 'Standard', creditLimit: 0, balance: 0 },
-    { id: 'c2', name: 'Al-Amal Hospital', companyName: 'Al-Amal Medical Group', phone: '+967 1 202020', email: 'procurement@amal.hospital', type: 'Corporate', creditLimit: 1000000, balance: 150000, city: "Sana'a", country: 'Yemen' },
-    { id: 'c3', name: 'Mohammed Ali', phone: '+967 777 000 111', type: 'Premium', creditLimit: 50000, balance: 12000, city: "Aden", state: 'Aden', country: 'Yemen', billingAddress: 'Main St' },
-    { id: 'c4', name: 'Al-Hayat Insurance', phone: '+967 1 444 555', type: 'Insurance', creditLimit: 5000000, balance: 450000, city: "Sana'a", country: 'Yemen' }
-  ]);
-
-  invoices = signal<Invoice[]>([
-    { id: 'INV-1001', customerId: 'c1', branchId: 'b1', date: '2025-01-20', status: 'Paid', total: 4500, items: [] },
-    { id: 'INV-1002', customerId: 'c2', branchId: 'b1', date: '2025-02-01', status: 'Pending', total: 150000, items: [] },
-    { id: 'INV-1003', customerId: 'c3', branchId: 'b2', date: '2025-02-10', status: 'Overdue', total: 12000, items: [] }
-  ]);
-
-  // --- Finance State ---
-  expenses = signal<Expense[]>([
-    { id: 'e1', category: 'Rent', amount: 150000, date: '2025-02-01', description: 'Monthly Branch Rent' },
-    { id: 'e2', category: 'Utilities', amount: 45000, date: '2025-02-05', description: 'Electricity Bill' }
-  ]);
+  // --- Finance State (empty for first-time users) ---
+  expenses = signal<Expense[]>([]);
 
   // Cart State (POS)
   cart = signal<CartItem[]>([]);
@@ -385,31 +263,72 @@ export class StoreService {
   // Active Branch Logic (Defaults to user's branch or first available)
   activeBranch = computed(() => {
     const u = this.currentUser();
+    if (!u) return this.branches()[0] || null;
     const branch = this.branches().find(b => b.id === u.branchId);
-    return branch || this.branches()[0];
+    return branch || this.branches()[0] || null;
   });
 
-  lowStockItems = computed(() => this.products().filter(p => p.branchId === this.activeBranch().id && p.stock < (p.minStock || 20)));
-  totalStockValue = computed(() => this.products().filter(p => p.branchId === this.activeBranch().id).reduce((val, p) => val + (p.cost * p.stock), 0)); 
+  lowStockItems = computed(() => {
+    const branch = this.activeBranch();
+    if (!branch) return [];
+    return this.products().filter(p => p.branchId === branch.id && p.stock < (p.minStock || 20));
+  });
+  
+  totalStockValue = computed(() => {
+    const branch = this.activeBranch();
+    if (!branch) return 0;
+    return this.products().filter(p => p.branchId === branch.id).reduce((val, p) => val + (p.cost * p.stock), 0);
+  }); 
 
-  // Setup / Onboarding Tracking
+  // Setup / Onboarding Tracking - helps guide first-time users
   showSetupGuide = signal(true);
   setupProgress = computed(() => [
       { id: 'tenant', label: 'Create Organization', done: !!this.tenant(), action: null },
       { id: 'branch', label: 'Setup First Branch', done: this.branches().length > 0, action: null },
-      { id: 'inventory', label: 'Add Inventory', done: this.products().length > 0, action: 'inventory' as ViewState }, 
-      { id: 'suppliers', label: 'Add Suppliers', done: this.suppliers().length > 0, action: 'procurement-suppliers' as ViewState },
-      { id: 'team', label: 'Invite Team Members', done: this.users().length > 3, action: 'users' as ViewState }
+      { id: 'suppliers', label: 'Add Your First Supplier', done: this.suppliers().length > 0, action: 'procurement-suppliers' as ViewState },
+      { id: 'inventory', label: 'Add Products', done: this.products().length > 0, action: 'inventory' as ViewState }, 
+      { id: 'customers', label: 'Add Customers', done: this.customers().length > 0, action: 'sales-customers' as ViewState }
   ]);
   setupCompletion = computed(() => {
     const total = this.setupProgress().length;
     const done = this.setupProgress().filter(s => s.done).length;
     return Math.round((done / total) * 100);
   });
+  
+  // Check if this is a first-time user with no data
+  isFirstTimeUser = computed(() => 
+    this.products().length === 0 && 
+    this.suppliers().length === 0 && 
+    this.customers().length === 0
+  );
 
   // Actions
-  setView(view: ViewState) { this.currentView.set(view); }
+  setView(view: ViewState) { 
+    this.currentView.set(view);
+  }
   dismissSetupGuide() { this.showSetupGuide.set(false); }
+
+  // Clear all store data (used on logout)
+  clearAll(): void {
+    this.tenant.set(null);
+    this.branches.set([]);
+    this.users.set([]);
+    this.currentUser.set(null);
+    this.suppliers.set([]);
+    this.purchaseOrders.set([]);
+    this.bills.set([]);
+    this.products.set([]);
+    this.customers.set([]);
+    this.invoices.set([]);
+    this.expenses.set([]);
+    this.cart.set([]);
+    this.showSetupGuide.set(true);
+  }
+
+  // Set tenant from backend data
+  setTenant(tenant: Tenant): void {
+    this.tenant.set(tenant);
+  }
 
   // Tenant / Onboarding Actions
   createTenant(data: Partial<Tenant>) {
@@ -422,6 +341,22 @@ export class StoreService {
     const id = 'b_' + Math.random().toString(36).substr(2, 9);
     this.branches.update(b => [...b, { id, name: data.name!, code: data.code || 'BR-01', location: data.location || '', isOfflineEnabled: data.isOfflineEnabled || false, licenseCount: data.licenseCount || 1 }]);
     return id;
+  }
+
+  // Add branch from API response (uses real ID from backend)
+  addBranchFromApi(branch: Branch): void {
+    this.branches.update(b => {
+      // Avoid duplicates
+      if (b.some(existing => existing.id === branch.id)) {
+        return b;
+      }
+      return [...b, branch];
+    });
+  }
+
+  // Set branches from API (replaces all)
+  setBranches(branches: Branch[]): void {
+    this.branches.set(branches);
   }
   inviteUser(email: string, role: Role, branchId?: string, sectionId?: string) {
     const newUser: User = { id: 'u_' + Math.random().toString(36).substr(2, 9), name: email.split('@')[0], email, role, branchId, sectionId, status: 'invited', avatar: `https://picsum.photos/seed/${Math.random()}/32/32` };
@@ -474,10 +409,14 @@ export class StoreService {
   deleteSupplier(id: string) { this.suppliers.update(curr => curr.filter(s => s.id !== id)); }
 
   createPO(data: Partial<PurchaseOrder>) {
+    const user = this.currentUser();
+    const userId = user?.id || 'system';
+    const branchId = data.branchId || this.activeBranch()?.id || '';
+    
     const po: PurchaseOrder = {
       id: 'PO-' + new Date().getFullYear() + '-' + Math.floor(Math.random()*1000), 
       supplierId: data.supplierId!, 
-      branchId: data.branchId || this.activeBranch().id, // Default to current if not specified
+      branchId,
       date: data.date || new Date().toISOString().split('T')[0],
       expectedDeliveryDate: data.expectedDeliveryDate, 
       status: 'Draft', 
@@ -485,8 +424,8 @@ export class StoreService {
       tax: data.tax || 0, 
       discount: data.discount || 0,
       grandTotal: data.grandTotal || 0, 
-      createdBy: this.currentUser().id, 
-      assignedTo: data.assignedTo || this.currentUser().id,
+      createdBy: userId, 
+      assignedTo: data.assignedTo || userId,
       items: data.items || [], 
       termsConditions: data.termsConditions || '',
       shippingAddress: data.shippingAddress || '', 
@@ -507,6 +446,7 @@ export class StoreService {
     if (currentPO.status === 'Closed') return; // Already billed
 
     // 1. Create the Bill Record
+    const userId = this.currentUser()?.id || 'system';
     const newBill: PurchaseBill = {
       id: 'BILL-' + Math.floor(Math.random() * 100000),
       poId: currentPO.id,
@@ -520,8 +460,8 @@ export class StoreService {
       status: 'Unpaid',
       payments: [],
       createdDate: new Date().toISOString(),
-      createdBy: this.currentUser().id,
-      assignedTo: data.assignedTo || this.currentUser().id,
+      createdBy: userId,
+      assignedTo: data.assignedTo || userId,
       attachmentName: data.attachmentName,
       attachmentUrl: data.attachmentUrl
     };

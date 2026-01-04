@@ -1,8 +1,9 @@
 /**
  * @fileoverview Navigation sidebar with route management
+ * Production-ready with accessibility, logout confirmation, and clean UX
+ * 
  * @author Thuraya Systems
- * @created 2026-01-03
- * @updated 2026-01-03
+ * @version 2.0.0
  */
 
 import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
@@ -11,29 +12,6 @@ import { StoreService, ViewState } from '@core/services/store.service';
 import { AuthService } from '@core/services/auth.service';
 import { IconComponent } from '@shared/components/icons/icons.component';
 
-/**
- * @component SidebarComponent
- * @description Navigation sidebar with tab switching and state management
- * 
- * @features
- * - Tab-based navigation
- * - Active tab highlighting
- * - Badge indicators for notifications
- * - Responsive collapsible design
- * - Branch context display
- * 
- * @dependencies
- * - StoreService: Global state and navigation
- * 
- * @example
- * <app-sidebar></app-sidebar>
- * 
- * @architecture
- * - OnPush change detection
- * - Signal-based active state
- * 
- * @since 1.0.0
- */
 @Component({
   selector: 'app-sidebar',
   standalone: true,
@@ -61,6 +39,20 @@ import { IconComponent } from '@shared/components/icons/icons.component';
     .animate-slide-down {
       animation: slideDown 0.2s ease-out forwards;
     }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.15s ease-out forwards;
+    }
+    .animate-scale-in {
+      animation: scaleIn 0.15s ease-out forwards;
+    }
   `]
 })
 export class SidebarComponent {
@@ -72,6 +64,49 @@ export class SidebarComponent {
     'procurement': true,
     'sales': true
   });
+
+  // Logout confirmation modal
+  showLogoutModal = signal(false);
+  isLoggingOut = signal(false);
+
+  // User menu dropdown
+  showUserMenu = signal(false);
+
+  // Get user initials for avatar fallback
+  get userInitials(): string {
+    const name = this.store.currentUser()?.name || 'U';
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  }
+
+  // Get organization display name
+  get organizationName(): string {
+    return this.store.tenant()?.name || 'Organization';
+  }
+
+  // Get user display name
+  get userName(): string {
+    return this.store.currentUser()?.name || 'User';
+  }
+
+  // Get user avatar
+  get userAvatar(): string | null {
+    return this.store.currentUser()?.avatar || null;
+  }
+
+  // Get user role for display
+  get userRole(): string {
+    const role = this.store.currentUser()?.role;
+    switch (role) {
+      case 'super_admin': return 'Administrator';
+      case 'branch_admin': return 'Branch Manager';
+      case 'section_admin': return 'Staff';
+      default: return 'User';
+    }
+  }
 
   // Determines if a specific sub-view is active
   isActive(view: ViewState): boolean {
@@ -106,9 +141,38 @@ export class SidebarComponent {
 
   setView(view: ViewState) {
     this.store.setView(view);
+    this.showUserMenu.set(false);
   }
 
-  logout(): void {
-    this.auth.logout();
+  // Toggle user menu
+  toggleUserMenu(): void {
+    this.showUserMenu.update(v => !v);
+  }
+
+  // Close user menu when clicking outside
+  closeUserMenu(): void {
+    this.showUserMenu.set(false);
+  }
+
+  // Open logout confirmation modal
+  openLogoutModal(): void {
+    this.showUserMenu.set(false);
+    this.showLogoutModal.set(true);
+  }
+
+  // Close logout confirmation modal
+  closeLogoutModal(): void {
+    this.showLogoutModal.set(false);
+  }
+
+  // Confirm logout
+  confirmLogout(): void {
+    this.isLoggingOut.set(true);
+    // Small delay for visual feedback
+    setTimeout(() => {
+      this.auth.logout();
+      this.showLogoutModal.set(false);
+      this.isLoggingOut.set(false);
+    }, 300);
   }
 }

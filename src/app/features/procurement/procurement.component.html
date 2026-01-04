@@ -11,6 +11,47 @@
   @switch (currentView()) {
     @case ('procurement-orders') {
       <!-- Orders View Inline -->
+      @if (store.suppliers().length === 0) {
+        <!-- Empty State - Need suppliers first -->
+        <div class="glass-panel rounded-xl flex-1 flex items-center justify-center p-12" aria-label="Add suppliers first">
+          <div class="text-center max-w-md">
+            <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-amber-50 flex items-center justify-center">
+              <app-icon name="truck" [size]="40" class="text-amber-500"></app-icon>
+            </div>
+            <h2 class="text-xl font-semibold text-slate-800 mb-2">Add Suppliers First</h2>
+            <p class="text-slate-500 mb-6 leading-relaxed">
+              Before creating purchase orders, you need to add at least one supplier to your system.
+            </p>
+            <button 
+              (click)="store.setView('procurement-suppliers')"
+              class="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+            >
+              <app-icon name="plus" [size]="18"></app-icon>
+              Add Suppliers
+            </button>
+          </div>
+        </div>
+      } @else if (store.purchaseOrders().length === 0) {
+        <!-- Empty State - No orders yet -->
+        <div class="glass-panel rounded-xl flex-1 flex items-center justify-center p-12" aria-label="Create first order">
+          <div class="text-center max-w-md">
+            <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-xl shadow-blue-500/20">
+              <app-icon name="file-text" [size]="40" class="text-white"></app-icon>
+            </div>
+            <h2 class="text-2xl font-semibold text-slate-800 mb-2">Create Your First Order</h2>
+            <p class="text-slate-500 mb-6 leading-relaxed">
+              Purchase orders help you track what you're buying from suppliers. Create an order to start managing your procurement.
+            </p>
+            <button 
+              (click)="openPOModal()"
+              class="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+            >
+              <app-icon name="plus" [size]="18"></app-icon>
+              Create First Order
+            </button>
+          </div>
+        </div>
+      } @else {
       <div class="glass-panel rounded-xl flex-1 flex flex-col overflow-hidden animate-fade-in">
         <div class="p-4 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white/50">
            <div class="flex flex-wrap items-center gap-3 w-full xl:w-auto">
@@ -57,7 +98,7 @@
              </thead>
              <tbody class="text-sm divide-y divide-slate-50">
                @if (filteredPOs().length === 0) {
-                  <tr><td colspan="8" class="p-12 text-center text-slate-400">No orders found for {{ getBranchName(selectedBranchId()) }}.</td></tr>
+                  <tr><td colspan="8" class="p-12 text-center text-slate-400">No orders match your search criteria.</td></tr>
                }
                @for (po of filteredPOs(); track po.id) {
                  <tr class="hover:bg-slate-50 transition-colors group">
@@ -87,6 +128,7 @@
            </table>
         </div>
       </div>
+      }
     }
     @case ('procurement-bills') {
       <!-- Bills View Inline -->
@@ -174,6 +216,27 @@
     }
     @case ('procurement-suppliers') {
       <!-- Suppliers View Inline -->
+      @if (store.suppliers().length === 0) {
+        <!-- Empty State for Suppliers -->
+        <div class="glass-panel rounded-xl flex-1 flex items-center justify-center p-12" aria-label="Add your first supplier">
+          <div class="text-center max-w-md">
+            <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center shadow-xl shadow-teal-500/20">
+              <app-icon name="truck" [size]="40" class="text-white"></app-icon>
+            </div>
+            <h2 class="text-2xl font-semibold text-slate-800 mb-2">Add Your First Supplier</h2>
+            <p class="text-slate-500 mb-6 leading-relaxed">
+              Suppliers are the foundation of your procurement workflow. Add your pharmaceutical distributors and vendors to start creating purchase orders.
+            </p>
+            <button 
+              (click)="openSupplierModal()"
+              class="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+            >
+              <app-icon name="plus" [size]="18"></app-icon>
+              Add First Supplier
+            </button>
+          </div>
+        </div>
+      } @else {
       <div class="glass-panel rounded-xl flex-1 flex flex-col overflow-hidden animate-fade-in">
         <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-white/50">
            <div class="relative group w-full sm:w-64">
@@ -199,7 +262,7 @@
               </thead>
               <tbody class="text-sm divide-y divide-slate-50">
                  @if (filteredSuppliers().length === 0) {
-                    <tr><td colspan="6" class="p-12 text-center text-slate-400">No suppliers found.</td></tr>
+                    <tr><td colspan="6" class="p-12 text-center text-slate-400">No suppliers match your search.</td></tr>
                  }
                  @for (s of filteredSuppliers(); track s.id) {
                     <tr class="hover:bg-slate-50 transition-colors">
@@ -219,6 +282,7 @@
            </table>
         </div>
       </div>
+      }
     }
     @default {
       <!-- Default fallback to orders -->

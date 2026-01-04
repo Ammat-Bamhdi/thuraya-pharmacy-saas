@@ -1,12 +1,53 @@
-﻿
+
 @let currentTab = activeTab();
 @let isCustomersTab = currentTab === 'sales-customers';
 
-<div class="h-full flex flex-col animate-fade-in relative" (click)="closeActionMenu(); showBranchMenu.set(false)">
+<div class="h-full flex flex-col animate-fade-in relative" (click)="closeActionMenu(); showBranchMenu.set(false)" role="main" aria-label="Sales Management">
   
   <!-- Header Component -->
   <ng-container [ngTemplateOutlet]="salesHeader" />
 
+  <!-- Empty State for Customers Tab -->
+  @if (currentTab === 'sales-customers' && store.customers().length === 0) {
+    <div class="glass-panel rounded-xl flex-1 flex items-center justify-center p-12" aria-label="Add your first customer">
+      <div class="text-center max-w-md">
+        <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center shadow-xl shadow-purple-500/20">
+          <app-icon name="users" [size]="40" class="text-white"></app-icon>
+        </div>
+        <h2 class="text-2xl font-semibold text-slate-800 mb-2">Add Your First Customer</h2>
+        <p class="text-slate-500 mb-6 leading-relaxed">
+          Build your customer database to track sales, manage credit, and provide personalized service.
+        </p>
+        <button 
+          (click)="openCustomerModal()"
+          class="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+        >
+          <app-icon name="plus" [size]="18"></app-icon>
+          Add First Customer
+        </button>
+      </div>
+    </div>
+  } @else if (currentTab === 'sales-invoices' && store.invoices().length === 0) {
+    <!-- Empty State for Invoices Tab -->
+    <div class="glass-panel rounded-xl flex-1 flex items-center justify-center p-12" aria-label="No invoices yet">
+      <div class="text-center max-w-md">
+        <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-slate-100 flex items-center justify-center">
+          <app-icon name="file-text" [size]="40" class="text-slate-400"></app-icon>
+        </div>
+        <h2 class="text-xl font-semibold text-slate-800 mb-2">No Invoices Yet</h2>
+        <p class="text-slate-500 mb-6 leading-relaxed">
+          Invoices are created automatically when you complete sales in the POS system.
+        </p>
+        <button 
+          (click)="store.setView('pos')"
+          class="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+        >
+          <app-icon name="shopping-cart" [size]="18"></app-icon>
+          Go to POS
+        </button>
+      </div>
+    </div>
+  } @else {
   <div class="glass-panel rounded-xl flex-1 flex flex-col overflow-hidden animate-fade-in">
     <!-- Toolbar Component -->
     <ng-container [ngTemplateOutlet]="salesToolbar" />
@@ -26,6 +67,7 @@
     <!-- Pagination Component -->
     <ng-container [ngTemplateOutlet]="salesPagination" />
   </div>
+  }
 
   <!-- Add/Edit Customer Modal with @defer for lazy loading -->
   @defer (when showCustomerModal()) {

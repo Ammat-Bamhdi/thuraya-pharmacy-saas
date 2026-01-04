@@ -43,6 +43,7 @@ export interface AuthResponse {
 
 export interface GoogleAuthResponse extends AuthResponse {
   isNewUser: boolean;        // True if this is first login (needs onboarding)
+  tenant: AuthTenant | null; // Tenant info for immediate UI update
 }
 
 export interface ApiResponse<T> {
@@ -60,5 +61,18 @@ export interface TokenPayload {
   branchId: string;
   exp: number;
   iat: number;
+}
+
+export interface AuthTenant {
+  id: string;
+  name: string;
+  country: string;
+  currency: string;
+  language: string;
+}
+
+export interface MeResponse {
+  user: AuthUser;
+  tenant: AuthTenant | null;
 }
 

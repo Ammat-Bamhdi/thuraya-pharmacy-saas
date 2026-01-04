@@ -453,7 +453,7 @@ export class ProcurementComponent {
       const defaultBranch = this.selectedBranchId() || this.store.branches()[0]?.id || '';
       this.selectedBranchIdForPO.set(defaultBranch);
       
-      const userId = this.store.currentUser().id;
+      const userId = this.store.currentUser()?.id || '';
       this.poForm.reset({
         date: this.today,
         status: 'Draft',
@@ -790,7 +790,7 @@ export class ProcurementComponent {
       billDate: this.today,
       dueDate: this.today,
       receivedDate: this.today,
-      assignedTo: this.store.currentUser().id,
+      assignedTo: this.store.currentUser()?.id || '',
       attachmentName: '',
       attachmentUrl: ''
     });

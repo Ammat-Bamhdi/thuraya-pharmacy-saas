@@ -23,6 +23,11 @@ public class User : TenantEntity
     public string? GoogleId { get; set; }
     public bool EmailVerified { get; set; } = false;
     
+    // Security & tracking
+    public int? FailedLoginAttempts { get; set; } = 0;
+    public DateTime? LockoutEndTime { get; set; }
+    public DateTime? LastLoginAt { get; set; }
+    
     // Navigation
     public virtual Branch? Branch { get; set; }
 }
