@@ -3,10 +3,10 @@
  * Production-ready with accessibility, logout confirmation, and clean UX
  * 
  * @author Thuraya Systems
- * @version 2.0.0
+ * @version 2.1.0 - Converted getters to computed signals
  */
 
-import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { StoreService, ViewState } from '@core/services/store.service';
 import { AuthService } from '@core/services/auth.service';
@@ -72,33 +72,37 @@ export class SidebarComponent {
   // User menu dropdown
   showUserMenu = signal(false);
 
-  // Get user initials for avatar fallback
-  get userInitials(): string {
+  // ============================================================================
+  // COMPUTED SIGNALS (replacing getters for better reactivity with OnPush)
+  // ============================================================================
+
+  /** User initials for avatar fallback */
+  readonly userInitials = computed(() => {
     const name = this.store.currentUser()?.name || 'U';
     const parts = name.split(' ');
     if (parts.length >= 2) {
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
     return name.substring(0, 2).toUpperCase();
-  }
+  });
 
-  // Get organization display name
-  get organizationName(): string {
-    return this.store.tenant()?.name || 'Organization';
-  }
+  /** Organization display name */
+  readonly organizationName = computed(() => 
+    this.store.tenant()?.name || 'Organization'
+  );
 
-  // Get user display name
-  get userName(): string {
-    return this.store.currentUser()?.name || 'User';
-  }
+  /** User display name */
+  readonly userName = computed(() => 
+    this.store.currentUser()?.name || 'User'
+  );
 
-  // Get user avatar
-  get userAvatar(): string | null {
-    return this.store.currentUser()?.avatar || null;
-  }
+  /** User avatar URL */
+  readonly userAvatar = computed(() => 
+    this.store.currentUser()?.avatar || null
+  );
 
-  // Get user role for display
-  get userRole(): string {
+  /** User role for display */
+  readonly userRole = computed(() => {
     const role = this.store.currentUser()?.role;
     switch (role) {
       case 'super_admin': return 'Administrator';
@@ -106,14 +110,21 @@ export class SidebarComponent {
       case 'section_admin': return 'Staff';
       default: return 'User';
     }
-  }
+  });
 
-  // Determines if a specific sub-view is active
+  /** Current active view */
+  readonly currentView = computed(() => this.store.currentView());
+
+  // ============================================================================
+  // NAVIGATION METHODS
+  // ============================================================================
+
+  /** Determines if a specific sub-view is active */
   isActive(view: ViewState): boolean {
     return this.store.currentView() === view;
   }
 
-  // Visual helper: Parent is "active" if one of its children is currently viewed
+  /** Visual helper: Parent is "active" if one of its children is currently viewed */
   isParentActive(group: string): boolean {
     const view = this.store.currentView();
     if (group === 'procurement') return view.startsWith('procurement-');
@@ -125,8 +136,8 @@ export class SidebarComponent {
     return this.expandedGroups()[group];
   }
 
-  // Handle Parent Click: Toggle Group + Default Navigation
-  handleGroupClick(group: 'procurement' | 'sales') {
+  /** Handle Parent Click: Toggle Group + Default Navigation */
+  handleGroupClick(group: 'procurement' | 'sales'): void {
     const wasOpen = this.expandedGroups()[group];
     
     // Toggle state
@@ -139,33 +150,41 @@ export class SidebarComponent {
     }
   }
 
-  setView(view: ViewState) {
+  setView(view: ViewState): void {
     this.store.setView(view);
     this.showUserMenu.set(false);
   }
 
-  // Toggle user menu
+  // ============================================================================
+  // USER MENU METHODS
+  // ============================================================================
+
+  /** Toggle user menu */
   toggleUserMenu(): void {
     this.showUserMenu.update(v => !v);
   }
 
-  // Close user menu when clicking outside
+  /** Close user menu when clicking outside */
   closeUserMenu(): void {
     this.showUserMenu.set(false);
   }
 
-  // Open logout confirmation modal
+  // ============================================================================
+  // LOGOUT METHODS
+  // ============================================================================
+
+  /** Open logout confirmation modal */
   openLogoutModal(): void {
     this.showUserMenu.set(false);
     this.showLogoutModal.set(true);
   }
 
-  // Close logout confirmation modal
+  /** Close logout confirmation modal */
   closeLogoutModal(): void {
     this.showLogoutModal.set(false);
   }
 
-  // Confirm logout
+  /** Confirm logout */
   confirmLogout(): void {
     this.isLoggingOut.set(true);
     // Small delay for visual feedback

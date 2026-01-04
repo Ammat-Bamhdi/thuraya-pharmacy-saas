@@ -198,7 +198,7 @@
           <app-icon name="building" [size]="14" class="text-teal-600"></app-icon>
         </div>
         <div class="flex-1 min-w-0">
-          <p class="text-xs font-semibold text-slate-700 truncate">{{ organizationName }}</p>
+          <p class="text-xs font-semibold text-slate-700 truncate">{{ organizationName() }}</p>
           <p class="text-[10px] text-slate-400">Organization</p>
         </div>
       </div>
@@ -215,17 +215,17 @@
       >
         <!-- Avatar -->
         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 overflow-hidden border-2 border-white shadow-md shrink-0 flex items-center justify-center">
-          @if (userAvatar) {
-            <img [src]="userAvatar" [alt]="userName" class="object-cover w-full h-full" loading="lazy" />
+          @if (userAvatar()) {
+            <img [src]="userAvatar()" [alt]="userName()" class="object-cover w-full h-full" loading="lazy" />
           } @else {
-            <span class="text-white font-semibold text-sm">{{ userInitials }}</span>
+            <span class="text-white font-semibold text-sm">{{ userInitials() }}</span>
           }
         </div>
         
         <!-- User Info -->
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-semibold text-slate-700 truncate group-hover:text-slate-900">{{ userName }}</p>
-          <p class="text-xs text-slate-400 truncate">{{ userRole }}</p>
+          <p class="text-sm font-semibold text-slate-700 truncate group-hover:text-slate-900">{{ userName() }}</p>
+          <p class="text-xs text-slate-400 truncate">{{ userRole() }}</p>
         </div>
         
         <!-- Chevron -->
