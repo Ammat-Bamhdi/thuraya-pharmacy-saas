@@ -1,266 +1,123 @@
+/**
+ * @fileoverview Global Application State Store
+ * @description Centralized state management using Angular signals
+ * @author Thuraya Systems
+ * @version 2.0.0
+ */
 
 import { Injectable, signal, computed } from '@angular/core';
 
-// --- Domain Interfaces ---
+// Import all models from consolidated model files
+import { Branch, Tenant } from '@core/models/branch.model';
+import { User, Role } from '@core/models/user.model';
+import { Product, ProductBatch, CartItem } from '@core/models/product.model';
+import { Customer, Invoice, CustomerType } from '@core/models/sales.model';
+import { 
+  Supplier, 
+  PurchaseOrder, 
+  POStatus, 
+  PurchaseBill, 
+  PaymentRecord 
+} from '@core/models/procurement.model';
+import { Expense } from '@core/models/finance.model';
+import { ViewState, SetupProgressItem } from '@core/models/ui.model';
 
-export interface ProductBatch {
-  id: string;
-  poRef: string;        // Reference to the Purchase Order
-  batchNumber: string;  // Manufacturer Batch/Lot Number
-  quantity: number;     // Current remaining quantity
-  cost: number;         // Cost for this specific batch
-  expiryDate: string;
-  receivedDate: string;
-}
-
-export interface Product {
-  id: string;
-  branchId: string; // NEW: Inventory is strictly scoped to a branch
-  name: string;
-  genericName: string;
-  sku: string;
-  price: number; 
-  cost: number;  
-  margin: number; 
-  stock: number; 
-  expiryDate: string; 
-  category: string;
-  supplierId: string; 
-  minStock: number; 
-  location?: string; 
-  batches: ProductBatch[];
-}
-
-export interface CartItem extends Product {
-  quantity: number;
-}
-
-export type Role = 'super_admin' | 'branch_admin' | 'section_admin';
-
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: Role;
-  branchId?: string; // The branch this user is currently operating in
-  sectionId?: string;
-  status: 'active' | 'invited' | 'suspended';
-  avatar?: string;
-}
-
-export interface Branch {
-  id: string;
-  name: string;
-  code: string;
-  location: string;
-  isOfflineEnabled: boolean;
-  licenseCount: number;
-  managerId?: string;
-}
-
-export interface Tenant {
-  id: string;
-  name: string;
-  country: string;
-  currency: string;
-  language: 'en' | 'ar';
-}
-
-// --- Procurement Interfaces ---
-
-export interface Supplier {
-  id: string;
-  code: string;
-  name: string;
-  contactPerson: string;
-  email: string;
-  phone: string;
-  address: string;
-  city: string;
-  state: string;
-  country: string;
-  zipCode: string;
-  paymentTerms: string;
-  creditLimit: number;
-  currentBalance: number;
-  rating: number;
-  status: 'Active' | 'Inactive';
-  category: string;
-  website: string;
-  bankDetails: string;
-  createdDate: string;
-  lastOrderDate?: string;
-}
-
-export type POStatus = 'Draft' | 'Sent' | 'Closed' | 'Cancelled';
-
-export interface PurchaseOrder {
-  id: string;
-  supplierId: string;
-  branchId: string; // NEW: Which branch is this order for?
-  date: string; 
-  expectedDeliveryDate?: string;
-  status: POStatus;
-  
-  // Financials (Expected)
-  subTotal: number;
-  tax: number;
-  discount: number;
-  grandTotal: number;
-  
-  // Details
-  termsConditions?: string;
-  shippingAddress?: string;
-  attachmentName?: string;
-  
-  // Audit
-  createdBy: string; // User ID
-  assignedTo?: string; // User ID
-  
-  items: { productId: string; quantity: number; unitCost: number; batchNumber?: string; expiryDate?: string }[];
-}
-
-export interface PaymentRecord {
-  id: string;
-  date: string;
-  amount: number;
-  method: 'Bank Transfer' | 'Cash' | 'Check' | 'Credit';
-  reference?: string; // Check # or Transaction ID
-  attachmentName?: string; // Mock for PDF/Image
-  note?: string;
-  fileUrl?: string; // In-memory URL for demo purposes
-}
-
-// The Real Financial Document
-export interface PurchaseBill {
-  id: string;
-  poId: string;           // Link to PO
-  supplierId: string;
-  billNumber: string;     // Supplier's Invoice #
-  billDate: string;
-  dueDate: string;
-  receivedDate: string;
-  
-  totalAmount: number;
-  paidAmount: number;
-  status: 'Unpaid' | 'Partial' | 'Paid';
-  
-  payments: PaymentRecord[]; // History
-  note?: string;
-  
-  // Bill Attachment (PDF/Image)
-  attachmentName?: string;
-  attachmentUrl?: string;
-
-  // Audit & Assignment
-  createdDate: string;
-  createdBy: string;      // User ID or Name
-  assignedTo?: string;    // User ID who owns this task
-}
-
-// --- Sales & CRM Interfaces ---
-export type CustomerType = 'Standard' | 'Premium' | 'VIP' | 'Corporate' | 'Insurance';
-
-export interface Customer {
-  id: string;
-  name: string; 
-  companyName?: string;
-  email?: string;
-  phone: string;
-  billingAddress?: string;
-  city?: string;
-  state?: string;
-  country?: string;
-  type: CustomerType;
-  paymentTerms?: string; 
-  creditLimit: number;
-  balance: number;
-  priceGroup?: 'Retail' | 'Wholesale' | 'Distributor';
-  bankAccount?: string;
-  assignedSalesRep?: string; 
-  source?: string;
-  communicationPrefs?: string[]; 
-  notes?: string;
-}
-
-export interface Invoice {
-  id: string;
-  customerId: string;
-  branchId: string; // NEW: Scoped to branch
-  date: string;
-  status: 'Paid' | 'Pending' | 'Overdue';
-  total: number;
-  items: { productId: string; quantity: number; price: number }[];
-}
-
-// --- Finance Interfaces ---
-export interface Expense {
-  id: string;
-  category: 'Rent' | 'Utilities' | 'Salaries' | 'Supplies' | 'Marketing';
-  amount: number;
-  date: string;
-  description: string;
-}
-
-// Expanded ViewState for Sidebar Sub-Navigation
-export type ViewState = 
-  | 'auth'
-  | 'onboarding' 
-  | 'dashboard' 
-  | 'inventory' 
-  // Procurement Sub-views
-  | 'procurement-orders' 
-  | 'procurement-bills' 
-  | 'procurement-suppliers' 
-  // Sales Sub-views
-  | 'sales-customers' 
-  | 'sales-invoices' 
-  // Others
-  | 'finance' 
-  | 'pos' 
-  | 'users' 
-  | 'settings';
+// Re-export types for backwards compatibility with existing components
+export type { 
+  Branch, 
+  Tenant, 
+  User, 
+  Role, 
+  Product, 
+  ProductBatch, 
+  CartItem,
+  Customer,
+  Invoice,
+  CustomerType,
+  Supplier,
+  PurchaseOrder,
+  POStatus,
+  PurchaseBill,
+  PaymentRecord,
+  Expense,
+  ViewState
+};
 
 @Injectable({
   providedIn: 'root'
 })
 export class StoreService {
-  // View state - always starts at 'auth', auth service determines where to go
+  // ============================================================================
+  // VIEW STATE
+  // ============================================================================
+  
+  /** Current active view - always starts at 'auth' */
   currentView = signal<ViewState>('auth'); 
 
-  // --- Multi-Tenancy Data ---
+  // ============================================================================
+  // MULTI-TENANCY STATE
+  // ============================================================================
+  
+  /** Current tenant/organization */
   tenant = signal<Tenant | null>(null);
   
-  // Start with empty arrays - data comes from backend or is created during onboarding
+  /** All branches in the system */
   branches = signal<Branch[]>([]);
+  
+  /** All users in the system */
   users = signal<User[]>([]);
   
-  // Current user starts as null until authenticated
+  /** Currently authenticated user */
   currentUser = signal<User | null>(null);
 
-  // --- Procurement State (empty for first-time users) ---
+  // ============================================================================
+  // PROCUREMENT STATE
+  // ============================================================================
+  
   suppliers = signal<Supplier[]>([]);
   purchaseOrders = signal<PurchaseOrder[]>([]);
   bills = signal<PurchaseBill[]>([]);
 
-  // --- Inventory State (empty for first-time users) ---
+  // ============================================================================
+  // INVENTORY STATE
+  // ============================================================================
+  
   products = signal<Product[]>([]);
 
-  // --- Sales & CRM State (empty for first-time users) ---
+  // ============================================================================
+  // SALES & CRM STATE
+  // ============================================================================
+  
   customers = signal<Customer[]>([]);
   invoices = signal<Invoice[]>([]);
 
-  // --- Finance State (empty for first-time users) ---
+  // ============================================================================
+  // FINANCE STATE
+  // ============================================================================
+  
   expenses = signal<Expense[]>([]);
 
-  // Cart State (POS)
+  // ============================================================================
+  // POS STATE
+  // ============================================================================
+  
   cart = signal<CartItem[]>([]);
   
-  // Computed State
-  cartTotal = computed(() => this.cart().reduce((total, item) => total + (item.price * item.quantity), 0));
-  cartCount = computed(() => this.cart().reduce((count, item) => count + item.quantity, 0));
+  // ============================================================================
+  // COMPUTED STATE
+  // ============================================================================
   
-  // Active Branch Logic (Defaults to user's branch or first available)
+  /** Total cart value */
+  cartTotal = computed(() => 
+    this.cart().reduce((total, item) => total + (item.price * item.quantity), 0)
+  );
+  
+  /** Total items in cart */
+  cartCount = computed(() => 
+    this.cart().reduce((count, item) => count + item.quantity, 0)
+  );
+  
+  /** Active branch (user's branch or first available) */
   activeBranch = computed(() => {
     const u = this.currentUser();
     if (!u) return this.branches()[0] || null;
@@ -268,47 +125,62 @@ export class StoreService {
     return branch || this.branches()[0] || null;
   });
 
+  /** Products below minimum stock level */
   lowStockItems = computed(() => {
     const branch = this.activeBranch();
     if (!branch) return [];
     return this.products().filter(p => p.branchId === branch.id && p.stock < (p.minStock || 20));
   });
   
+  /** Total inventory value */
   totalStockValue = computed(() => {
     const branch = this.activeBranch();
     if (!branch) return 0;
-    return this.products().filter(p => p.branchId === branch.id).reduce((val, p) => val + (p.cost * p.stock), 0);
+    return this.products()
+      .filter(p => p.branchId === branch.id)
+      .reduce((val, p) => val + (p.cost * p.stock), 0);
   }); 
 
-  // Setup / Onboarding Tracking - helps guide first-time users
+  // ============================================================================
+  // ONBOARDING & SETUP STATE
+  // ============================================================================
+  
   showSetupGuide = signal(true);
-  setupProgress = computed(() => [
-      { id: 'tenant', label: 'Create Organization', done: !!this.tenant(), action: null },
-      { id: 'branch', label: 'Setup First Branch', done: this.branches().length > 0, action: null },
-      { id: 'suppliers', label: 'Add Your First Supplier', done: this.suppliers().length > 0, action: 'procurement-suppliers' as ViewState },
-      { id: 'inventory', label: 'Add Products', done: this.products().length > 0, action: 'inventory' as ViewState }, 
-      { id: 'customers', label: 'Add Customers', done: this.customers().length > 0, action: 'sales-customers' as ViewState }
+  
+  setupProgress = computed<SetupProgressItem[]>(() => [
+    { id: 'tenant', label: 'Create Organization', done: !!this.tenant(), action: null },
+    { id: 'branch', label: 'Setup First Branch', done: this.branches().length > 0, action: null },
+    { id: 'suppliers', label: 'Add Your First Supplier', done: this.suppliers().length > 0, action: 'procurement-suppliers' },
+    { id: 'inventory', label: 'Add Products', done: this.products().length > 0, action: 'inventory' }, 
+    { id: 'customers', label: 'Add Customers', done: this.customers().length > 0, action: 'sales-customers' }
   ]);
+  
   setupCompletion = computed(() => {
     const total = this.setupProgress().length;
     const done = this.setupProgress().filter(s => s.done).length;
     return Math.round((done / total) * 100);
   });
   
-  // Check if this is a first-time user with no data
+  /** Check if this is a first-time user with no data */
   isFirstTimeUser = computed(() => 
     this.products().length === 0 && 
     this.suppliers().length === 0 && 
     this.customers().length === 0
   );
 
-  // Actions
-  setView(view: ViewState) { 
+  // ============================================================================
+  // VIEW ACTIONS
+  // ============================================================================
+  
+  setView(view: ViewState): void { 
     this.currentView.set(view);
   }
-  dismissSetupGuide() { this.showSetupGuide.set(false); }
+  
+  dismissSetupGuide(): void { 
+    this.showSetupGuide.set(false); 
+  }
 
-  // Clear all store data (used on logout)
+  /** Clear all store data (used on logout) */
   clearAll(): void {
     this.tenant.set(null);
     this.branches.set([]);
