@@ -11,7 +11,7 @@ import { Observable, debounceTime, distinctUntilChanged, map } from 'rxjs';
  */
 export function debouncedSignal<T>(
   source: Signal<T>,
-  delayMs: number = 300
+  delayMs = 300
 ): Signal<T | undefined> {
   const observable$ = toObservable(source).pipe(
     debounceTime(delayMs),
@@ -107,7 +107,7 @@ export function searchSignal<T>(
 export function loadingSignal<T>(
   observable: Observable<T>
 ): Signal<{ data: T | null; loading: boolean; error: Error | null }> {
-  type LoadingState = { data: T | null; loading: boolean; error: Error | null };
+  interface LoadingState { data: T | null; loading: boolean; error: Error | null }
   
   const result$ = observable.pipe(
     map((data): LoadingState => ({ data, loading: false, error: null }))

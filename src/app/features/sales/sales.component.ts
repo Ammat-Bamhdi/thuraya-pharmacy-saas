@@ -443,7 +443,7 @@ export class SalesComponent {
 
     const buttonRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const menuWidth = 192; 
-    let x = buttonRect.right - menuWidth;
+    const x = buttonRect.right - menuWidth;
     let y = buttonRect.bottom + 5;
     if (y + 100 > window.innerHeight) y = buttonRect.top - 100;
 

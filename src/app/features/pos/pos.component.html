@@ -193,7 +193,7 @@
         <!-- Cashier Info (Simplified) -->
         <div class="flex items-center gap-2 border-l border-slate-100 pl-4">
            @if (store.currentUser()?.avatar) {
-             <img [src]="store.currentUser()!.avatar" class="w-8 h-8 rounded-full bg-slate-200 border border-white shadow-sm">
+             <img [src]="store.currentUser()!.avatar" [alt]="store.currentUser()?.name || 'User avatar'" class="w-8 h-8 rounded-full bg-slate-200 border border-white shadow-sm">
            } @else {
              <div class="w-8 h-8 rounded-full bg-teal-100 border border-white shadow-sm flex items-center justify-center text-teal-600 font-semibold text-sm">
                {{ (store.currentUser()?.name || 'U')[0].toUpperCase() }}

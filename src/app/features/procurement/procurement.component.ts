@@ -389,7 +389,11 @@ export class ProcurementComponent {
     const data = { ...val, status };
     
     const id = this.editingId();
-    id ? this.store.updateSupplier(id, data) : this.store.addSupplier(data);
+    if (id) {
+      this.store.updateSupplier(id, data);
+    } else {
+      this.store.addSupplier(data);
+    }
     this.closeSupplierModal();
   }
 

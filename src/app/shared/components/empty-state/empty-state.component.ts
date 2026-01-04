@@ -91,15 +91,15 @@ export interface EmptyStateAction {
   `]
 })
 export class EmptyStateComponent {
-  @Input() icon: string = '';
-  @Input() title: string = 'No data yet';
-  @Input() description: string = '';
+  @Input() icon = '';
+  @Input() title = 'No data yet';
+  @Input() description = '';
   @Input() actions: EmptyStateAction[] = [];
-  @Input() fullHeight: boolean = true;
-  @Input() illustration: boolean = false;
+  @Input() fullHeight = true;
+  @Input() illustration = false;
   @Input() variant: 'default' | 'success' | 'warning' | 'info' = 'default';
   
-  @Output() onAction = new EventEmitter<EmptyStateAction>();
+  @Output() actionClick = new EventEmitter<EmptyStateAction>();
   
   get iconBgClass(): string {
     const variants: Record<string, string> = {

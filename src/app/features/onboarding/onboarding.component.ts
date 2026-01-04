@@ -15,7 +15,7 @@ import { BranchNetworkComponent } from '@features/branch-network/branch-network.
 import { FormsModule } from '@angular/forms';
 import { COUNTRIES, CURRENCIES, ONBOARDING_I18N } from '@constants';
 
-declare var XLSX: any;
+declare let XLSX: any;
 
 /**
  * @component OnboardingComponent
@@ -157,7 +157,7 @@ export class OnboardingComponent {
   newMemberName = '';
   newMemberEmail = '';
   newMemberRole: Role = 'branch_admin';
-  newMemberBranchIndex: number = 0;
+  newMemberBranchIndex = 0;
   bulkText = '';
 
   createdBranchIds: string[] = [];

@@ -8,7 +8,7 @@
 import { Component, ElementRef, OnInit, ViewChild, ViewEncapsulation, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-declare var d3: any;
+declare let d3: any;
 
 /**
  * @component SalesChartComponent
