@@ -69,3 +69,5 @@ libpeerconnection.log
 
 # Cursor/AI
 .cursor/
+
+.vercel
