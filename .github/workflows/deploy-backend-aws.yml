@@ -1,11 +1,11 @@
 # AWS Elastic Beanstalk Deployment Workflow
-# Deploys backend to AWS EB when changes are pushed to main branch
+# Deploys backend to AWS EB when changes are pushed to master branch
 
 name: Deploy Backend to AWS
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'backend/**'
       - '.github/workflows/deploy-backend-aws.yml'
