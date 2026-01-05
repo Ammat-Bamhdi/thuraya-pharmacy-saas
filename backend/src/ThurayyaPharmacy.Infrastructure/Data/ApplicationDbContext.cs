@@ -62,6 +62,7 @@ public class ApplicationDbContext : DbContext
         ConfigurePurchaseBill(modelBuilder);
         ConfigureCustomer(modelBuilder);
         ConfigureInvoice(modelBuilder);
+        ConfigureExpense(modelBuilder);
     }
 
     private void ConfigureTenant(ModelBuilder modelBuilder)
@@ -288,6 +289,27 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.Product)
                 .WithMany()
                 .HasForeignKey(e => e.ProductId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+    
+    private void ConfigureExpense(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Expense>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Amount).HasPrecision(18, 2);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.AttachmentUrl).HasMaxLength(500);
+            
+            entity.HasOne(e => e.Tenant)
+                .WithMany()
+                .HasForeignKey(e => e.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+                
+            entity.HasOne(e => e.Branch)
+                .WithMany()
+                .HasForeignKey(e => e.BranchId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }
