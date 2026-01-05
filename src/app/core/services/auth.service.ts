@@ -108,7 +108,7 @@ export class AuthService {
         this._initialized.set(true);
         this.store.setView('auth');
       }
-    } catch (error) {
+    } catch (_error) {
       // Network error or server down - check stored user as fallback
       console.warn('[Auth] Backend unreachable, using cached auth state');
       const storedUser = this.getStoredUser();

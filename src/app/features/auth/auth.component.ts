@@ -1203,7 +1203,7 @@ export class AuthComponent implements OnInit, OnDestroy {
             this.emailExistsMessage.set(null);
           }
         }
-      } catch (e) {
+      } catch (_e) {
         // Silently fail - not critical
       } finally {
         this.checkingEmail.set(false);
@@ -1358,7 +1358,7 @@ export class AuthComponent implements OnInit, OnDestroy {
           });
         }
       });
-    } catch (e) {
+    } catch (_e) {
       clearTimeout(timeoutId);
       this.googleLoading.set(false);
       this.auth.setError('Google Sign-In is temporarily unavailable. Please use email.');
@@ -1422,7 +1422,7 @@ export class AuthComponent implements OnInit, OnDestroy {
         }
       });
       client.requestCode();
-    } catch (e) {
+    } catch (_e) {
       clearTimeout(popupTimeoutId);
       this.ngZone.run(() => {
         this.googleLoading.set(false);
