@@ -33,6 +33,17 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Secrets - Never commit these
+**/appsettings.Development.json
+**/appsettings.Local.json
+**/secrets.json
+*.secrets.json
+
+# AWS credentials
+.aws/
+credentials
+aws-credentials.json
+
 # Logs
 logs/
 *.log

@@ -1,0 +1,98 @@
+# AWS Elastic Beanstalk Deployment Workflow
+# Deploys backend to AWS EB when changes are pushed to main branch
+
+name: Deploy Backend to AWS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend-aws.yml'
+  workflow_dispatch: # Allow manual trigger
+
+env:
+  AWS_REGION: us-east-1
+  EB_APPLICATION_NAME: thuraya-pharmacy-api
+  EB_ENVIRONMENT_NAME: production
+  DOTNET_VERSION: '10.0.x'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        working-directory: backend
+        run: dotnet restore
+
+      - name: Build
+        working-directory: backend
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Run tests
+        working-directory: backend
+        run: dotnet test --no-restore --verbosity normal
+        continue-on-error: true # Remove this when you have tests
+
+      - name: Publish
+        working-directory: backend
+        run: dotnet publish src/ThurayyaPharmacy.API -c Release -o ./publish
+
+      - name: Create deployment package
+        working-directory: backend/publish
+        run: zip -r ../deploy-${{ github.sha }}.zip .
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload to S3
+        run: |
+          aws s3 cp backend/deploy-${{ github.sha }}.zip s3://${{ secrets.AWS_S3_BUCKET }}/deployments/
+
+      - name: Create new EB application version
+        run: |
+          aws elasticbeanstalk create-application-version \
+            --application-name ${{ env.EB_APPLICATION_NAME }} \
+            --version-label ${{ github.sha }} \
+            --source-bundle S3Bucket=${{ secrets.AWS_S3_BUCKET }},S3Key=deployments/deploy-${{ github.sha }}.zip \
+            --description "Deployment from GitHub commit ${{ github.sha }}"
+
+      - name: Deploy to Elastic Beanstalk
+        run: |
+          aws elasticbeanstalk update-environment \
+            --application-name ${{ env.EB_APPLICATION_NAME }} \
+            --environment-name ${{ env.EB_ENVIRONMENT_NAME }} \
+            --version-label ${{ github.sha }}
+
+      - name: Wait for deployment
+        run: |
+          aws elasticbeanstalk wait environment-updated \
+            --application-name ${{ env.EB_APPLICATION_NAME }} \
+            --environment-name ${{ env.EB_ENVIRONMENT_NAME }}
+
+      - name: Verify deployment
+        run: |
+          HEALTH=$(aws elasticbeanstalk describe-environment-health \
+            --environment-name ${{ env.EB_ENVIRONMENT_NAME }} \
+            --attribute-names HealthStatus \
+            --query 'HealthStatus' \
+            --output text)
+          echo "Environment health: $HEALTH"
+          if [ "$HEALTH" != "Ok" ] && [ "$HEALTH" != "Info" ]; then
+            echo "Deployment may have issues. Health status: $HEALTH"
+            exit 1
+          fi
+

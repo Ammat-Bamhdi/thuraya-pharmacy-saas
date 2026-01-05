@@ -1,0 +1,26 @@
+{
+  "_comment": "COPY THIS FILE TO appsettings.Development.json AND FILL IN YOUR SECRETS",
+  "_warning": "NEVER commit appsettings.Development.json to Git!",
+  "Logging": {
+    "LogLevel": {
+      "Default": "Debug",
+      "Microsoft.AspNetCore": "Information",
+      "Microsoft.EntityFrameworkCore.Database.Command": "Information"
+    }
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=ThurayyaPharmacy;Trusted_Connection=True;MultipleActiveResultSets=true"
+  },
+  "DatabaseProvider": "SqlServer",
+  "Jwt": {
+    "Key": "YOUR_JWT_SECRET_KEY_AT_LEAST_32_CHARACTERS_LONG!",
+    "Issuer": "ThurayyaPharmacy",
+    "Audience": "ThurayyaPharmacyApp",
+    "ExpiryHours": 8
+  },
+  "Google": {
+    "ClientId": "YOUR_GOOGLE_CLIENT_ID",
+    "ClientSecret": "YOUR_GOOGLE_CLIENT_SECRET"
+  }
+}
+

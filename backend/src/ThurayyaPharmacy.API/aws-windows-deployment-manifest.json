@@ -1,0 +1,16 @@
+{
+  "manifestVersion": 1,
+  "deployments": {
+    "aspNetCoreWeb": [
+      {
+        "name": "thuraya-pharmacy-api",
+        "parameters": {
+          "appBundle": ".",
+          "iisPath": "/",
+          "iisWebSite": "Default Web Site"
+        }
+      }
+    ]
+  }
+}
+

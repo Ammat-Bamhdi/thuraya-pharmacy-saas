@@ -7,6 +7,16 @@ using ThurayyaPharmacy.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ============================================================================
+// CONFIGURATION SOURCES (in order of precedence):
+// 1. appsettings.json (base configuration)
+// 2. appsettings.{Environment}.json (environment-specific)
+// 3. Environment variables (highest priority - used by AWS EB)
+// ============================================================================
+// AWS Elastic Beanstalk automatically maps Secrets Manager values to 
+// environment variables. No additional SDK required.
+// ============================================================================
+
 // Add services to the container
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -20,16 +30,42 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Database
+// ============================================================================
+// DATABASE CONFIGURATION
+// ============================================================================
+// Supports both SQL Server (development) and PostgreSQL (production AWS RDS)
+// Set "DatabaseProvider" to "PostgreSQL" or "SqlServer" in configuration
+// ============================================================================
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-        ?? "Server=(localdb)\\mssqllocaldb;Database=ThurayyaPharmacy;Trusted_Connection=True;MultipleActiveResultSets=true";
-    options.UseSqlServer(connectionString);
+        ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is required");
+    
+    var databaseProvider = builder.Configuration["DatabaseProvider"] ?? "SqlServer";
+    
+    if (databaseProvider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase))
+    {
+        options.UseNpgsql(connectionString);
+    }
+    else
+    {
+        options.UseSqlServer(connectionString);
+    }
 });
 
-// JWT Authentication
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "ThurayyaPharmacySecretKey2026SuperSecure!@#$%";
+// JWT Authentication - Fail fast if not configured
+var jwtKey = builder.Configuration["Jwt:Key"] 
+    ?? throw new InvalidOperationException(
+        "Jwt:Key is required. " +
+        "Development: Use 'dotnet user-secrets set Jwt:Key <your-key>'. " +
+        "Production: Use AWS Secrets Manager via environment variables.");
+
+if (jwtKey.Length < 32)
+{
+    throw new InvalidOperationException(
+        "Jwt:Key must be at least 32 characters (256 bits) for HS256 algorithm.");
+}
+
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "ThurayyaPharmacy";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "ThurayyaPharmacyApp";
 
@@ -51,22 +87,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// CORS for Angular frontend
+// CORS for frontend - configurable for different environments
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? new[] { "http://localhost:3000", "http://localhost:4200" };
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAngular", policy =>
+    options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:3000",
-                "http://localhost:4200",
-                "https://localhost:3000",
-                "https://localhost:4200"
-            )
+        policy.WithOrigins(allowedOrigins)
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
     });
 });
+
+// ============================================================================
+// HEALTH CHECK ENDPOINT (Required for AWS Elastic Beanstalk Load Balancer)
+// ============================================================================
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
@@ -81,18 +120,33 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// Health check endpoint for AWS ELB health checks
+app.MapHealthChecks("/health");
+
 app.UseHttpsRedirection();
-app.UseCors("AllowAngular");
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// Auto-create database in development
-if (app.Environment.IsDevelopment())
+// Initialize database schema on startup
+// EnsureCreated() creates the schema if it doesn't exist (works with any provider)
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    db.Database.EnsureCreated();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    
+    try
+    {
+        logger.LogInformation("Ensuring database schema exists...");
+        db.Database.EnsureCreated();
+        logger.LogInformation("Database schema initialized successfully.");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "An error occurred while initializing the database.");
+        throw; // Fail fast - can't run without database
+    }
 }
 
 app.Run();

@@ -1,0 +1,2 @@
+web: dotnet ThurayyaPharmacy.API.dll --urls http://0.0.0.0:5000
+
