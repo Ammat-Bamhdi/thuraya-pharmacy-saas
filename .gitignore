@@ -12,6 +12,8 @@ out-tsc/
 backend/**/bin/
 backend/**/obj/
 backend/.vs/
+backend/publish/
+backend/deploy.zip
 *.user
 
 # IDE
