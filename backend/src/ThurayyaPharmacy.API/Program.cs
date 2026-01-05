@@ -58,7 +58,7 @@ var jwtKey = builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException(
         "Jwt:Key is required. " +
         "Development: Use 'dotnet user-secrets set Jwt:Key <your-key>'. " +
-        "Production: Use AWS Secrets Manager via environment variables.");
+        "Production: Use AWS Secrets Manager or Azure Key Vault via environment variables.");
 
 if (jwtKey.Length < 32)
 {
@@ -108,6 +108,36 @@ builder.Services.AddCors(options =>
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+// Global exception handler - MUST be first in pipeline
+app.UseExceptionHandler(options =>
+{
+    options.Run(async context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/json";
+        
+        var exceptionFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+        var exception = exceptionFeature?.Error;
+        
+        // Log the exception
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(exception, "Unhandled exception occurred: {Message}", exception?.Message);
+        
+        // Return sanitized error response (never expose stack traces in production)
+        var response = new
+        {
+            success = false,
+            data = (object?)null,
+            message = app.Environment.IsDevelopment() 
+                ? exception?.Message 
+                : "An unexpected error occurred. Please try again later.",
+            errors = (object?)null
+        };
+        
+        await context.Response.WriteAsJsonAsync(response);
+    });
+});
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())

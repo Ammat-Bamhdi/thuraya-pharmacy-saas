@@ -8,10 +8,9 @@ using ThurayyaPharmacy.Infrastructure.Data;
 
 namespace ThurayyaPharmacy.API.Controllers;
 
-[ApiController]
 [Route("api/purchase-orders")]
 [Authorize]
-public class PurchaseOrdersController : ControllerBase
+public class PurchaseOrdersController : BaseApiController
 {
     private readonly ApplicationDbContext _db;
 
@@ -19,8 +18,6 @@ public class PurchaseOrdersController : ControllerBase
     {
         _db = db;
     }
-
-    private Guid GetTenantId() => Guid.Parse(User.FindFirst("tenantId")?.Value ?? throw new UnauthorizedAccessException());
 
     [HttpGet]
     public async Task<ActionResult<ApiResponse<IEnumerable<PurchaseOrderDto>>>> GetAll([FromQuery] Guid? branchId)
