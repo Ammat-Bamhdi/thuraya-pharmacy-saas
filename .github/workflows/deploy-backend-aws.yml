@@ -12,9 +12,9 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 env:
-  AWS_REGION: us-east-1
+  AWS_REGION: eu-north-1
   EB_APPLICATION_NAME: thuraya-pharmacy-api
-  EB_ENVIRONMENT_NAME: production
+  EB_ENVIRONMENT_NAME: thuraya
   DOTNET_VERSION: '10.0.x'
 
 jobs:
