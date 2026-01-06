@@ -12,6 +12,7 @@ public static class CorsExtensions
     {
         "http://localhost:3000",
         "http://localhost:4200",
+        "http://localhost:5173", // Vite default
         "https://thuraya-pharmacy-saas.vercel.app",
         "https://d1duu60y0sihvr.cloudfront.net"
     };

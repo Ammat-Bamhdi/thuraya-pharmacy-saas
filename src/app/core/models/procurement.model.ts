@@ -24,7 +24,6 @@ export interface Supplier {
   category: string;
   website: string;
   bankDetails: string;
-  createdDate: string;
   lastOrderDate?: string;
 }
 

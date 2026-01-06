@@ -13,7 +13,9 @@ public record SupplierDto(
     string? Phone,
     string? Address,
     string? City,
+    string? State,
     string? Country,
+    string? ZipCode,
     string? PaymentTerms,
     decimal CreditLimit,
     decimal CurrentBalance,
@@ -74,6 +76,14 @@ public record UpdateSupplierRequest(
     int? Rating,
     SupplierStatus? Status,
     string? Category
+);
+
+public record SupplierStatsDto(
+    int TotalSuppliers,
+    int ActiveSuppliers,
+    int InactiveSuppliers,
+    decimal TotalBalance,
+    int TotalCategories
 );
 
 // Purchase Order DTOs

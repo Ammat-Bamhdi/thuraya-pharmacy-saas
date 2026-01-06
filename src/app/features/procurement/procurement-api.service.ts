@@ -5,61 +5,59 @@
  */
 
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { PurchaseOrder, Supplier } from '../../models';
-import { environment } from '../../environments/environment';
+import { ApiService, PaginatedResponse, QueryParams } from '../../core/services/api.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ProcurementApiService {
-  private readonly http = inject(HttpClient);
-  private readonly baseUrl = environment.apiUrl;
+  private readonly api = inject(ApiService);
 
   // Purchase Order operations
-  getAllPurchaseOrders(): Observable<PurchaseOrder[]> {
-    return this.http.get<PurchaseOrder[]>(`${this.baseUrl}/purchase-orders`);
+  getAllPurchaseOrders(params?: QueryParams): Observable<PaginatedResponse<PurchaseOrder>> {
+    return this.api.get<PaginatedResponse<PurchaseOrder>>('purchase-orders', params);
   }
 
   getPurchaseOrderById(id: string): Observable<PurchaseOrder> {
-    return this.http.get<PurchaseOrder>(`${this.baseUrl}/purchase-orders/${id}`);
+    return this.api.get<PurchaseOrder>(`purchase-orders/${id}`);
   }
 
   createPurchaseOrder(po: Omit<PurchaseOrder, 'id'>): Observable<PurchaseOrder> {
-    return this.http.post<PurchaseOrder>(`${this.baseUrl}/purchase-orders`, po);
+    return this.api.post<PurchaseOrder>('purchase-orders', po);
   }
 
   updatePurchaseOrder(id: string, po: Partial<PurchaseOrder>): Observable<PurchaseOrder> {
-    return this.http.put<PurchaseOrder>(`${this.baseUrl}/purchase-orders/${id}`, po);
+    return this.api.put<PurchaseOrder>(`purchase-orders/${id}`, po);
   }
 
   approvePurchaseOrder(id: string): Observable<PurchaseOrder> {
-    return this.http.post<PurchaseOrder>(`${this.baseUrl}/purchase-orders/${id}/approve`, {});
+    return this.api.post<PurchaseOrder>(`purchase-orders/${id}/approve`, {});
   }
 
   receivePurchaseOrder(id: string): Observable<PurchaseOrder> {
-    return this.http.post<PurchaseOrder>(`${this.baseUrl}/purchase-orders/${id}/receive`, {});
+    return this.api.post<PurchaseOrder>(`purchase-orders/${id}/receive`, {});
   }
 
   // Supplier operations
-  getAllSuppliers(): Observable<Supplier[]> {
-    return this.http.get<Supplier[]>(`${this.baseUrl}/suppliers`);
+  getAllSuppliers(params?: QueryParams): Observable<PaginatedResponse<Supplier>> {
+    return this.api.get<PaginatedResponse<Supplier>>('suppliers', params);
   }
 
   getSupplierById(id: string): Observable<Supplier> {
-    return this.http.get<Supplier>(`${this.baseUrl}/suppliers/${id}`);
+    return this.api.get<Supplier>(`suppliers/${id}`);
   }
 
   createSupplier(supplier: Omit<Supplier, 'id'>): Observable<Supplier> {
-    return this.http.post<Supplier>(`${this.baseUrl}/suppliers`, supplier);
+    return this.api.post<Supplier>('suppliers', supplier);
   }
 
   updateSupplier(id: string, supplier: Partial<Supplier>): Observable<Supplier> {
-    return this.http.put<Supplier>(`${this.baseUrl}/suppliers/${id}`, supplier);
+    return this.api.put<Supplier>(`suppliers/${id}`, supplier);
   }
 
-  deleteSupplier(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.baseUrl}/suppliers/${id}`);
+  deleteSupplier(id: string): Observable<boolean> {
+    return this.api.delete<boolean>(`suppliers/${id}`);
   }
 }

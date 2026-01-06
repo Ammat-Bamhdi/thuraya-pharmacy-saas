@@ -36,7 +36,7 @@ public class PurchaseBill : TenantEntity
 /// <summary>
 /// Payment Record
 /// </summary>
-public class PaymentRecord : BaseEntity
+public class PaymentRecord : TenantEntity
 {
     public Guid PurchaseBillId { get; set; }
     public DateTime Date { get; set; }

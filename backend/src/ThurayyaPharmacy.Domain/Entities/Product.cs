@@ -28,7 +28,7 @@ public class Product : BranchEntity
 /// <summary>
 /// Product batch for tracking
 /// </summary>
-public class ProductBatch : BaseEntity
+public class ProductBatch : BranchEntity
 {
     public Guid ProductId { get; set; }
     public string? PoRef { get; set; }

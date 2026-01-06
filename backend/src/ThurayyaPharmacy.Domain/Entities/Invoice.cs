@@ -23,7 +23,7 @@ public class Invoice : BranchEntity
 /// <summary>
 /// Invoice Line Item
 /// </summary>
-public class InvoiceItem : BaseEntity
+public class InvoiceItem : BranchEntity
 {
     public Guid InvoiceId { get; set; }
     public Guid ProductId { get; set; }

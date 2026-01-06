@@ -1,6 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\ThurayyaPharmacy.Domain\ThurayyaPharmacy.Domain.csproj" />
     <ProjectReference Include="..\ThurayyaPharmacy.Application\ThurayyaPharmacy.Application.csproj" />
   </ItemGroup>

@@ -16,9 +16,17 @@ public abstract class BaseEntity
 }
 
 /// <summary>
+/// Interface for entities that belong to a tenant.
+/// </summary>
+public interface ITenantEntity
+{
+    Guid TenantId { get; set; }
+}
+
+/// <summary>
 /// Base entity scoped to a tenant
 /// </summary>
-public abstract class TenantEntity : BaseEntity
+public abstract class TenantEntity : BaseEntity, ITenantEntity
 {
     public Guid TenantId { get; set; }
     public virtual Tenant Tenant { get; set; } = null!;

@@ -57,7 +57,8 @@ public enum InvoiceStatus
 {
     Paid,
     Pending,
-    Overdue
+    Overdue,
+    Cancelled
 }
 
 public enum ExpenseCategory

@@ -14,10 +14,19 @@ public static class ServiceExtensions
     /// </summary>
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
+        // Infrastructure services
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentTenantService, CurrentTenantService>();
+
         // Singleton services (thread-safe, one instance)
         services.AddSingleton<ICacheService, CacheService>();
 
         // Scoped services (one per request)
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IProductService, ProductService>();
+        services.AddScoped<IInvoiceService, InvoiceService>();
+        services.AddScoped<IBranchService, BranchService>();
+        services.AddScoped<ISupplierService, SupplierService>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IPasswordService, PasswordService>();
         services.AddScoped<IValidationService, ValidationService>();

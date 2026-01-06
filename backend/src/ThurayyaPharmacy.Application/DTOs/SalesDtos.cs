@@ -93,6 +93,24 @@ public record InvoiceItemDto(
     decimal Price
 );
 
+public record InvoiceStatsDto(
+    decimal TotalSales,
+    int TotalInvoices,
+    decimal AverageInvoiceValue,
+    decimal TotalTax,
+    decimal TotalDiscount,
+    int PendingInvoices,
+    int PaidInvoices,
+    int CancelledInvoices
+);
+
+public record TodaySalesDto(
+    decimal TodayTotal,
+    int TodayCount,
+    decimal PreviousDayTotal,
+    double GrowthPercentage
+);
+
 public record CreateInvoiceRequest(
     Guid CustomerId,
     Guid BranchId,
