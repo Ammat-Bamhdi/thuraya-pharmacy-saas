@@ -106,6 +106,11 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Email).IsRequired().HasMaxLength(200);
             entity.HasIndex(e => e.Email).IsUnique();
             
+            // Performance indexes
+            entity.HasIndex(e => e.TenantId);
+            entity.HasIndex(e => e.RefreshToken);
+            entity.HasIndex(e => new { e.TenantId, e.BranchId });
+            
             entity.HasOne(e => e.Tenant)
                 .WithMany(t => t.Users)
                 .HasForeignKey(e => e.TenantId)
@@ -128,6 +133,13 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Price).HasPrecision(18, 2);
             entity.Property(e => e.Cost).HasPrecision(18, 2);
             entity.Property(e => e.Margin).HasPrecision(18, 2);
+            
+            // Performance indexes for frequently queried fields
+            entity.HasIndex(e => e.Sku);
+            entity.HasIndex(e => new { e.TenantId, e.BranchId });
+            entity.HasIndex(e => new { e.TenantId, e.Category });
+            entity.HasIndex(e => e.ExpiryDate);
+            entity.HasIndex(e => new { e.Stock, e.MinStock }); // For low stock queries
             
             entity.HasOne(e => e.Branch)
                 .WithMany(b => b.Products)
@@ -162,6 +174,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Code).IsRequired().HasMaxLength(20);
             entity.Property(e => e.CreditLimit).HasPrecision(18, 2);
             entity.Property(e => e.CurrentBalance).HasPrecision(18, 2);
+            
+            // Performance indexes
+            entity.HasIndex(e => new { e.TenantId, e.Code }).IsUnique();
+            entity.HasIndex(e => new { e.TenantId, e.Status });
             
             entity.HasOne(e => e.Tenant)
                 .WithMany()
@@ -249,6 +265,11 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Phone).IsRequired().HasMaxLength(20);
             entity.Property(e => e.CreditLimit).HasPrecision(18, 2);
             entity.Property(e => e.Balance).HasPrecision(18, 2);
+            
+            // Performance indexes
+            entity.HasIndex(e => e.TenantId);
+            entity.HasIndex(e => new { e.TenantId, e.Phone });
+            entity.HasIndex(e => new { e.TenantId, e.Type });
             
             entity.HasOne(e => e.Tenant)
                 .WithMany()

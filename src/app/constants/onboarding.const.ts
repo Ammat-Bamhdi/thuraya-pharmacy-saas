@@ -5,6 +5,7 @@
 
 export interface OnboardingTranslations {
   steps: { 1: string; 2: string; 3: string; 4: string };
+  logout: string;
   org: {
     title: string;
     subtitle: string;
@@ -84,6 +85,7 @@ export interface OnboardingTranslations {
 export const ONBOARDING_I18N: Record<'en' | 'ar', OnboardingTranslations> = {
   en: {
     steps: { 1: 'Organization', 2: 'Branch Network', 3: 'Build Team', 4: 'Provisioning' },
+    logout: 'Sign Out',
     org: {
       title: 'Create your Organization',
       subtitle: 'Set up your pharmacy chain details.',
@@ -161,6 +163,7 @@ export const ONBOARDING_I18N: Record<'en' | 'ar', OnboardingTranslations> = {
   },
   ar: {
     steps: { 1: 'المؤسسة', 2: 'شبكة الفروع', 3: 'فريق العمل', 4: 'التجهيز' },
+    logout: 'تسجيل الخروج',
     org: {
       title: 'إنشاء المؤسسة',
       subtitle: 'قم بإعداد تفاصيل سلسلة الصيدليات الخاصة بك.',

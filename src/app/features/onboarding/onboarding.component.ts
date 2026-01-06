@@ -80,19 +80,19 @@ export class OnboardingComponent {
   dir = computed(() => this.isRtl() ? 'rtl' : 'ltr');
   t = computed(() => ONBOARDING_I18N[this.language() as 'en' | 'ar']);
 
-  countriesList = signal(COUNTRIES);
-  currenciesList = signal(CURRENCIES);
+  // Cache these as signals to avoid recreating arrays
+  readonly countriesList = COUNTRIES;
+  readonly currenciesList = CURRENCIES;
 
   // Get authenticated user info for pre-filling
   readonly currentUser = computed(() => this.auth.user());
 
   constructor() {
+    // Use allowSignalWrites: true for DOM manipulation in effects
     effect(() => {
-      const dir = this.dir();
-      const lang = this.language();
-      document.documentElement.dir = dir;
-      document.documentElement.lang = lang;
-    });
+      document.documentElement.dir = this.dir();
+      document.documentElement.lang = this.language();
+    }, { allowSignalWrites: true });
 
     // Pre-fill tenant name from authenticated user if available
     effect(() => {
@@ -101,22 +101,29 @@ export class OnboardingComponent {
         // Use user's name to suggest organization name
         this.tenantName = user.name ? `${user.name}'s Pharmacy` : '';
       }
-    });
+    }, { allowSignalWrites: true });
   }
 
   // Helper methods for templates
   getStepLabel(stepNum: number): string {
-    const steps = this.t().steps as Record<number, string>;
-    return steps[stepNum] || '';
+    return (this.t().steps as Record<number, string>)[stepNum] || '';
   }
 
   getLocalizedLabel(item: { label: { en: string; ar: string } }): string {
-    const lang = this.language() as 'en' | 'ar';
-    return item.label[lang];
+    return item.label[this.language() as 'en' | 'ar'];
   }
 
   setLang(l: string) {
     this.language.set(l);
+  }
+
+  /**
+   * Logout from onboarding screen
+   */
+  logout(): void {
+    if (confirm('Are you sure you want to sign out? Your onboarding progress will be saved.')) {
+      this.auth.logout();
+    }
   }
 
   // Form Data Step 1
@@ -343,6 +350,13 @@ export class OnboardingComponent {
   }
 
   startProvisioning() {
+    // Validation: Must have at least one branch
+    if (this.branchList().length === 0) {
+      alert('Error: You must create at least one branch to continue.');
+      this.step.set(2); // Go back to branch step
+      return;
+    }
+
     this.step.set(4);
     this.provisionStep.set(1);
 
@@ -370,16 +384,23 @@ export class OnboardingComponent {
         }, 1000);
       },
       error: (error) => {
-        console.error('Onboarding failed:', error);
-        // Still mark as complete but with error handling
-        // In production, you'd show an error message
-        this.provisionStep.set(4);
-        this.provisioningComplete.set(true);
+        console.error('[Onboarding] Setup failed:', error);
+        alert('Setup failed: ' + (error.error?.message || 'Unknown error'));
+        // Go back to first step on error
+        this.step.set(1);
+        this.provisionStep.set(0);
       }
     });
   }
 
   finish() {
+    // Verify requirements before completing
+    if (!this.auth.canAccessDashboard()) {
+      console.error('[Onboarding] Cannot access dashboard - requirements not met');
+      alert('Setup incomplete: Please ensure you are assigned to a branch. Contact support if this issue persists.');
+      return;
+    }
+
     // Mark onboarding complete and navigate to dashboard
     this.auth.completeOnboarding();
   }

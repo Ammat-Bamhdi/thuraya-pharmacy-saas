@@ -247,26 +247,17 @@ declare const google: any;
                   name="email"
                   [ngModel]="email()"
                   (ngModelChange)="onEmailChange($event)"
-                  (blur)="checkEmailExists()"
                   placeholder="you&#64;company.com"
                   required
                   autocomplete="email"
                   class="form-input"
                   [class.error]="email() && !isValidEmail()"
-                  [class.checking]="checkingEmail()"
                 />
-                @if (checkingEmail()) {
-                  <span class="input-indicator" aria-hidden="true">
-                    <span class="spinner-tiny"></span>
-                  </span>
-                }
               </div>
               @if (email() && !isValidEmail()) {
                 <span class="field-hint error">Please enter a valid email address</span>
               }
-              @if (emailExistsMessage()) {
-                <span class="field-hint info">{{ emailExistsMessage() }}</span>
-              }
+
             </div>
 
             <!-- Password Field -->
@@ -867,9 +858,19 @@ declare const google: any;
     .field-hint {
       font-size: var(--font-size-xs);
       margin-top: 0.25rem;
+      display: block;
     }
     .field-hint.error { color: var(--color-error); }
-    .field-hint.info { color: var(--color-info); }
+    .field-hint.info { 
+      color: var(--color-info);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .link-button:active {
+      transform: translateY(0);
+    }
 
     .form-select {
       appearance: none;
@@ -1066,8 +1067,6 @@ export class AuthComponent implements OnInit, OnDestroy {
   readonly language = signal<'en' | 'ar'>('en');
   readonly successMessage = signal<string | null>(null);
   readonly googleLoading = signal(false);
-  readonly checkingEmail = signal(false);
-  readonly emailExistsMessage = signal<string | null>(null);
 
   // Form fields
   readonly name = signal('');
@@ -1111,7 +1110,6 @@ export class AuthComponent implements OnInit, OnDestroy {
   };
 
   private readonly googleClientId = environment.googleClientId || '';
-  private emailCheckTimeout: any;
 
   /**
    * Password validation checks
@@ -1154,9 +1152,7 @@ export class AuthComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.emailCheckTimeout) {
-      clearTimeout(this.emailCheckTimeout);
-    }
+    // Cleanup if needed
   }
 
   isValidEmail(): boolean {
@@ -1167,48 +1163,6 @@ export class AuthComponent implements OnInit, OnDestroy {
   onEmailChange(value: string): void {
     this.email.set(value);
     this.auth.clearError();
-    this.emailExistsMessage.set(null);
-    
-    // Debounce email check
-    if (this.emailCheckTimeout) {
-      clearTimeout(this.emailCheckTimeout);
-    }
-  }
-
-  checkEmailExists(): void {
-    const email = this.email().trim();
-    if (!email || !this.isValidEmail()) return;
-
-    // Clear any pending checks
-    if (this.emailCheckTimeout) {
-      clearTimeout(this.emailCheckTimeout);
-    }
-
-    this.emailCheckTimeout = setTimeout(async () => {
-      this.checkingEmail.set(true);
-      try {
-        const response = await fetch(`${environment.apiUrl}/auth/check-email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
-        });
-        const data = await response.json();
-        
-        if (data.success && data.data) {
-          if (data.data.exists && !this.isLogin()) {
-            this.emailExistsMessage.set('This email is already registered. Sign in instead?');
-          } else if (!data.data.exists && this.isLogin()) {
-            this.emailExistsMessage.set('No account found. Create one?');
-          } else {
-            this.emailExistsMessage.set(null);
-          }
-        }
-      } catch (_e) {
-        // Silently fail - not critical
-      } finally {
-        this.checkingEmail.set(false);
-      }
-    }, 500);
   }
 
   onCountryChange(value: string): void {
@@ -1223,7 +1177,6 @@ export class AuthComponent implements OnInit, OnDestroy {
     this.isLogin.set(!this.isLogin());
     this.auth.clearError();
     this.successMessage.set(null);
-    this.emailExistsMessage.set(null);
     this.resetForm();
   }
 
@@ -1243,8 +1196,10 @@ export class AuthComponent implements OnInit, OnDestroy {
   }
 
   private login(): void {
+    const email = this.email().trim().toLowerCase();
+    
     this.auth.login({
-      email: this.email().trim().toLowerCase(),
+      email,
       password: this.password()
     }).subscribe({
       next: () => this.auth.navigateAfterAuth()
@@ -1252,9 +1207,11 @@ export class AuthComponent implements OnInit, OnDestroy {
   }
 
   private register(): void {
+    const email = this.email().trim().toLowerCase();
+    
     this.auth.register({
       name: this.name().trim(),
-      email: this.email().trim().toLowerCase(),
+      email,
       password: this.password(),
       tenantName: this.pharmacyName().trim(),
       country: this.country(),

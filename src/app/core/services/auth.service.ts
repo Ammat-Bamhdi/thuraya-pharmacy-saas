@@ -8,7 +8,7 @@
 
 import { Injectable, inject, signal, computed, Injector, runInInjectionContext } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, throwError, firstValueFrom } from 'rxjs';
+import { Observable, throwError, firstValueFrom, of } from 'rxjs';
 import { map, catchError, tap, finalize } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { 
@@ -86,7 +86,6 @@ export class AuthService {
 
     // Check if token is expired locally first
     if (this.isTokenExpired(token)) {
-      console.log('[Auth] Token expired locally, clearing auth');
       this.clearAllStorage();
       this._initialized.set(true);
       this.store.setView('auth');
@@ -99,24 +98,39 @@ export class AuthService {
       
       if (isValid) {
         // User exists in database, proceed
+        // Load initial data first
+        await firstValueFrom(this.dataService.loadInitialData());
+        
         this._initialized.set(true);
         this.navigateAfterAuth();
+        
+        // Enforce access rules after navigation (handles page refresh)
+        this.enforceAccessRules();
       } else {
         // User doesn't exist in database (401), clear everything
-        console.log('[Auth] Backend validation failed, clearing auth');
         this.clearAllStorage();
         this._initialized.set(true);
         this.store.setView('auth');
       }
     } catch (_error) {
       // Network error or server down - check stored user as fallback
-      console.warn('[Auth] Backend unreachable, using cached auth state');
       const storedUser = this.getStoredUser();
       if (storedUser) {
         this._user.set(storedUser);
         this.syncUserToStore(storedUser);
+        
+        // Try to load initial data even in offline mode
+        try {
+          await firstValueFrom(this.dataService.loadInitialData());
+        } catch (_e) {
+          // Silent fail - app can work with cached data
+        }
+        
         this._initialized.set(true);
         this.navigateAfterAuth();
+        
+        // Enforce access rules
+        this.enforceAccessRules();
       } else {
         this.clearAllStorage();
         this._initialized.set(true);
@@ -130,17 +144,13 @@ export class AuthService {
    */
   private async validateWithBackend(): Promise<boolean> {
     try {
-      console.log('[Auth] Validating with backend...');
       const response = await firstValueFrom(
         this.http.get<ApiResponse<MeResponse>>(`${this.apiUrl}/auth/me`)
       );
       
-      console.log('[Auth] Backend response:', response);
-      
       if (response.success && response.data) {
         // Update local state with fresh data from backend
         const { user, tenant } = response.data;
-        console.log('[Auth] User:', user?.name, 'Tenant:', tenant?.name);
         
         this._user.set(user);
         localStorage.setItem(USER_KEY, JSON.stringify(user));
@@ -149,15 +159,11 @@ export class AuthService {
         // Also sync tenant to store
         if (tenant) {
           this.syncTenantToStore(tenant);
-        } else {
-          console.warn('[Auth] No tenant data in response');
         }
         return true;
       }
-      console.warn('[Auth] Backend validation failed - no data');
       return false;
     } catch (error: any) {
-      console.error('[Auth] Backend validation error:', error);
       if (error.status === 401) {
         // Token invalid or user doesn't exist
         return false;
@@ -265,12 +271,171 @@ export class AuthService {
   }
 
   /**
+   * Refresh access token using refresh token
+   * Should be called when access token is about to expire
+   * Includes retry logic for network failures
+   */
+  refreshToken(): Observable<AuthResponse> {
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+    
+    if (!refreshToken) {
+      console.warn('[Auth] No refresh token available');
+      return throwError(() => new Error('No refresh token available'));
+    }
+
+    return this.http.post<ApiResponse<AuthResponse>>(`${this.apiUrl}/auth/refresh`, {
+      refreshToken
+    }).pipe(
+      map(response => {
+        if (!response.success || !response.data) {
+          throw new Error(response.message || 'Token refresh failed');
+        }
+        return response.data;
+      }),
+      tap(authResponse => {
+        // Update tokens without marking as first login
+        localStorage.setItem(TOKEN_KEY, authResponse.accessToken);
+        localStorage.setItem(REFRESH_TOKEN_KEY, authResponse.refreshToken);
+        localStorage.setItem(USER_KEY, JSON.stringify(authResponse.user));
+        this._user.set(authResponse.user);
+      }),
+      catchError(error => {
+        // If refresh fails, logout
+        console.warn('[Auth] Token refresh failed, logging out');
+        this.logout();
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * Check if current token needs refresh (expires within 5 minutes)
+   */
+  shouldRefreshToken(): boolean {
+    const token = this.getToken();
+    if (!token) return false;
+
+    try {
+      const payload = this.decodeToken(token);
+      if (!payload?.exp) return false;
+      
+      // Refresh if token expires within 5 minutes
+      const expiresAt = payload.exp * 1000;
+      const fiveMinutes = 5 * 60 * 1000;
+      return expiresAt - Date.now() < fiveMinutes;
+    } catch {
+      return false;
+    }
+  }
+
+  // Prevent multiple logout calls
+  private _isLoggingOut = false;
+
+  /**
    * Logout and clear all auth data
+   * 
+   * Production-grade logout flow:
+   * 1. Guard against double-logout
+   * 2. Set loading state
+   * 3. Call backend to invalidate refresh token (security best practice)
+   * 4. Clear all local storage
+   * 5. Clear all service caches
+   * 6. Reset all signals/state
+   * 7. Navigate to auth view
+   * 
+   * Always completes logout even if backend call fails (fail-safe)
    */
   logout(): void {
+    // Guard: prevent multiple simultaneous logout calls
+    if (this._isLoggingOut) return;
+
+    this._isLoggingOut = true;
+    this._isLoading.set(true);
+
+    const token = this.getToken();
+    
+    // If we have a token, try to invalidate it on the backend
+    if (token) {
+      this.http.post<{ success: boolean }>(`${this.apiUrl}/auth/logout`, {})
+        .pipe(
+          catchError(() => of({ success: true })), // Continue anyway on error
+          finalize(() => this.executeLogoutCleanup())
+        )
+        .subscribe();
+    } else {
+      // No token, just do client-side cleanup
+      this.executeLogoutCleanup();
+    }
+  }
+
+  /**
+   * Execute the actual logout cleanup
+   * Separated to ensure it always runs, regardless of backend response
+   */
+  private executeLogoutCleanup(): void {
+    // 1. Clear all auth data from localStorage
     this.clearAllStorage();
+
+    // 2. Clear the data service cache
+    try {
+      this.dataService.clearCache();
+    } catch (e) {
+      // Silent fail - not critical
+    }
+
+    // 3. Clear the store (clears all reactive state)
     this.store.clearAll();
+
+    // 4. Clear any pending errors
+    this._error.set(null);
+
+    // 5. Reset loading state
+    this._isLoading.set(false);
+
+    // 6. Reset logout guard
+    this._isLoggingOut = false;
+
+    // 7. Keep initialized as true (auth service is ready, just logged out)
+    // Note: Do NOT set initialized to false or app will show loading screen forever
+
+    // 8. Navigate to auth view
     this.store.setView('auth');
+  }
+
+  /**
+   * Force logout without backend call
+   * Use for scenarios like token expiration or invalid token
+   */
+  forceLogout(): void {
+    this._isLoggingOut = false; // Reset guard in case it's stuck
+    this.executeLogoutCleanup();
+  }
+
+  /**
+   * Check if user can access dashboard (production-grade guard)
+   * 
+   * Requirements:
+   * 1. Organization (tenant) must exist
+   * 2. At least one branch must be created
+   * 3. User must be assigned to at least one branch
+   * 
+   * @returns true if all requirements met, false otherwise
+   */
+  canAccessDashboard(): boolean {
+    const tenant = this.store.tenant();
+    const branches = this.store.branches();
+    const user = this.store.currentUser();
+
+    // Rule 1: Must have organization setup
+    if (!tenant) return false;
+
+    // Rule 2: Must have at least one branch
+    if (branches.length === 0) return false;
+
+    // Rule 3: User must be assigned to a branch (as branch manager)
+    if (!user?.branchId) return false;
+
+    return true;
   }
 
   /**
@@ -278,17 +443,32 @@ export class AuthService {
    */
   completeOnboarding(): void {
     localStorage.removeItem(FIRST_LOGIN_KEY);
-    this.loadDataAndNavigate('dashboard');
+    
+    // Verify dashboard access before navigating
+    if (this.canAccessDashboard()) {
+      this.loadDataAndNavigate('dashboard');
+    } else {
+      console.warn('[Auth] Cannot complete onboarding - requirements not met');
+      this.store.setView('onboarding');
+    }
   }
 
   /**
-   * Navigate user based on auth state
+   * Navigate user based on auth state and dashboard access requirements
    */
   navigateAfterAuth(): void {
+    // First-time users always go to onboarding
     if (this.isFirstLogin()) {
       this.store.setView('onboarding');
-    } else {
+      return;
+    }
+
+    // Check if user meets dashboard access requirements
+    if (this.canAccessDashboard()) {
       this.loadDataAndNavigate('dashboard');
+    } else {
+      // User needs to complete onboarding (missing org/branch/assignment)
+      this.store.setView('onboarding');
     }
   }
 
@@ -301,11 +481,36 @@ export class AuthService {
   }
 
   /**
-   * Navigate directly to dashboard
+   * Navigate directly to dashboard (with access guard)
    */
   goToDashboard(): void {
     localStorage.removeItem(FIRST_LOGIN_KEY);
-    this.loadDataAndNavigate('dashboard');
+    
+    if (this.canAccessDashboard()) {
+      this.loadDataAndNavigate('dashboard');
+    } else {
+      console.warn('[Auth] Cannot access dashboard - requirements not met');
+      this.store.setView('onboarding');
+    }
+  }
+
+  /**
+   * Enforce dashboard access rules (called after data load or page refresh)
+   * Redirects to onboarding if requirements not met
+   */
+  enforceAccessRules(): void {
+    const currentView = this.store.currentView();
+    
+    // Only enforce if user is trying to access dashboard or main app
+    if (currentView === 'auth' || currentView === 'onboarding') {
+      return; // Already on allowed screens
+    }
+
+    // Check if user still meets dashboard requirements
+    if (!this.canAccessDashboard()) {
+      console.warn('[Auth] Access rules violated - redirecting to onboarding');
+      this.store.setView('onboarding');
+    }
   }
 
   /**
@@ -326,10 +531,35 @@ export class AuthService {
   }
 
   /**
-   * Get current access token
+   * Get current access token with validation
+   * Validates token format to prevent XSS attacks
    */
   getToken(): string | null {
-    return localStorage.getItem(TOKEN_KEY);
+    try {
+      const token = localStorage.getItem(TOKEN_KEY);
+      if (!token) return null;
+      
+      // Validate JWT format (header.payload.signature)
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        console.warn('[Auth] Invalid token format detected, clearing');
+        this.clearAllStorage();
+        return null;
+      }
+      
+      // Basic XSS check - JWT should only contain base64 chars and dots
+      if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token)) {
+        console.warn('[Auth] Token contains invalid characters, clearing');
+        this.clearAllStorage();
+        return null;
+      }
+      
+      return token;
+    } catch (error) {
+      console.error('[Auth] Error reading token:', error);
+      this.clearAllStorage();
+      return null;
+    }
   }
 
   /**
@@ -347,8 +577,19 @@ export class AuthService {
 
   /**
    * Save auth data to localStorage and update state
+   * Includes token validation for security
    */
   private saveAuthData(authResponse: AuthResponse, isFirstLogin: boolean): void {
+    // Validate tokens before saving
+    if (!authResponse.accessToken || !authResponse.refreshToken) {
+      throw new Error('Invalid auth response: missing tokens');
+    }
+    
+    // Validate token format to prevent XSS
+    if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(authResponse.accessToken)) {
+      throw new Error('Invalid access token format');
+    }
+    
     // Save to localStorage
     localStorage.setItem(TOKEN_KEY, authResponse.accessToken);
     localStorage.setItem(REFRESH_TOKEN_KEY, authResponse.refreshToken);
@@ -397,7 +638,7 @@ export class AuthService {
       language: normalizedLanguage
     });
     
-    console.log('[Auth] Tenant synced to store:', tenant.name);
+    
   }
 
   /**
@@ -477,26 +718,140 @@ export class AuthService {
   }
 
   /**
-   * Handle HTTP errors with user-friendly messages
+   * Handle HTTP errors with detailed user-friendly messages
+   * Includes special handling for rate limiting and security events
    */
-  private handleError(error: HttpErrorResponse): Observable<never> {
-    let message = 'An unexpected error occurred. Please try again.';
+  private handleError(error: any): Observable<never> {
+    // Check if this is a NormalizedError from the interceptor
+    if (error.message && error.description && !error.error) {
+      // Log security-relevant errors
+      if (error.status === 401 || error.status === 403) {
+        console.warn('[Auth Security]', error.message, error.description);
+      }
+      
+      // Special handling for rate limiting
+      if (error.status === 429 || error.isRateLimited) {
+        console.warn('[Auth] Rate limit exceeded');
+        this._error.set('Too many attempts. Please wait a moment.');
+        return throwError(() => error);
+      }
+      
+      this._error.set(error.message);
+      return throwError(() => error);
+    }
     
-    if (error.error instanceof ErrorEvent) {
-      message = 'Network error. Please check your connection.';
-    } else if (error.status === 0) {
-      message = 'Unable to connect to server. Please check if the server is running.';
-    } else if (error.status === 400) {
-      message = error.error?.message || 'Invalid request. Please check your input.';
-    } else if (error.status === 401) {
-      message = 'Invalid email or password.';
-    } else if (error.status === 409) {
-      message = 'This email is already registered.';
-    } else if (error.error?.message) {
-      message = error.error.message;
+    // Otherwise treat as HttpErrorResponse
+    const { message, description } = this.getAuthErrorDetails(error);
+    
+    // Log auth failures for security monitoring
+    if (error.status === 401 || error.status === 403) {
+      console.warn('[Auth Security]', message, error.url);
     }
     
     this._error.set(message);
-    return throwError(() => new Error(message));
+    return throwError(() => ({ message, description, status: error.status }));
+  }
+
+  /**
+   * Get detailed authentication error information
+   */
+  private getAuthErrorDetails(error: HttpErrorResponse): { message: string; description: string } {
+    if (error.error instanceof ErrorEvent) {
+      return {
+        message: 'Network Connection Error',
+        description: 'Unable to reach the authentication server. Please check your internet connection and try again.'
+      };
+    }
+    
+    switch (error.status) {
+      case 0:
+        return {
+          message: 'Server Unavailable',
+          description: 'Unable to connect to the server. Please check your internet connection or try again later.'
+        };
+      
+      case 400:
+        // Handle validation errors
+        if (error.error?.errors) {
+          const errorFields = Object.keys(error.error.errors);
+          const firstError = error.error.errors[errorFields[0]]?.[0];
+          return {
+            message: 'Invalid Information',
+            description: firstError || 'Please check the information you entered and try again.'
+          };
+        }
+        return {
+          message: 'Invalid Request',
+          description: error.error?.message || 'The information provided is invalid. Please review and try again.'
+        };
+      
+      case 401:
+        // For 401 errors, prefer backend message if available
+        const backendMessage = error.error?.message;
+        
+        // Distinguish between login, register, and session expiry
+        const requestUrl = error.url || '';
+        if (requestUrl.includes('/auth/login') || requestUrl.includes('login')) {
+          return {
+            message: 'Invalid Credentials',
+            description: backendMessage || 'The email or password you entered is incorrect. Please check your credentials and try again.'
+          };
+        }
+        if (requestUrl.includes('/auth/register') || requestUrl.includes('register')) {
+          return {
+            message: 'Registration Failed',
+            description: backendMessage || 'Unable to create your account. Please try again or contact support.'
+          };
+        }
+        return {
+          message: 'Session Expired',
+          description: 'Your session has expired. Please sign in again to continue.'
+        };
+      
+      case 403:
+        return {
+          message: 'Access Denied',
+          description: 'Your account does not have permission to access this resource. Contact your administrator for help.'
+        };
+      
+      case 404:
+        return {
+          message: 'Account Not Found',
+          description: 'No account exists with this email address. Would you like to create a new account?'
+        };
+      
+      case 409:
+        return {
+          message: 'Email Already Registered',
+          description: 'An account with this email already exists. Please sign in or use a different email address.'
+        };
+      
+      case 422:
+        return {
+          message: 'Validation Failed',
+          description: error.error?.message || 'Please ensure all required fields are filled correctly.'
+        };
+      
+      case 429:
+        return {
+          message: 'Too Many Attempts',
+          description: 'You have made too many login attempts. Please wait a few minutes before trying again.'
+        };
+      
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        return {
+          message: 'Server Error',
+          description: 'We are experiencing technical difficulties. Please try again in a few minutes.'
+        };
+      
+      default:
+        return {
+          message: 'Authentication Failed',
+          description: error.error?.message || 'An unexpected error occurred. Please try again.'
+        };
+    }
   }
 }

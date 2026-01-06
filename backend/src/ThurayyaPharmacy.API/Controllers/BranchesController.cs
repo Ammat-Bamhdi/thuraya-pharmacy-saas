@@ -28,7 +28,8 @@ public class BranchesController : BaseApiController
         [FromQuery] int pageSize = 50,
         [FromQuery] string? search = null,
         [FromQuery] string? sortBy = "Name",
-        [FromQuery] string sortOrder = "asc")
+        [FromQuery] string sortOrder = "asc",
+        CancellationToken ct = default)
     {
         try
         {
@@ -92,7 +93,7 @@ public class BranchesController : BaseApiController
     /// Get a specific branch by ID
     /// </summary>
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<ApiResponse<BranchDto>>> GetById(Guid id)
+    public async Task<ActionResult<ApiResponse<BranchDto>>> GetById(Guid id, CancellationToken ct)
     {
         try
         {

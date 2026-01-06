@@ -33,7 +33,8 @@ public class ProductsController : BaseApiController
         [FromQuery] bool? lowStock = null,
         [FromQuery] bool? expiringSoon = null,
         [FromQuery] string? sortBy = "Name",
-        [FromQuery] string sortOrder = "asc")
+        [FromQuery] string sortOrder = "asc",
+        CancellationToken ct = default)
     {
         try
         {
@@ -142,7 +143,7 @@ public class ProductsController : BaseApiController
     /// Get a specific product by ID
     /// </summary>
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<ApiResponse<ProductDto>>> GetById(Guid id)
+    public async Task<ActionResult<ApiResponse<ProductDto>>> GetById(Guid id, CancellationToken ct)
     {
         try
         {
