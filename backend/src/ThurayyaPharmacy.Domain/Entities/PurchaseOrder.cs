@@ -38,7 +38,7 @@ public class PurchaseOrder : BranchEntity
 /// <summary>
 /// Purchase Order Line Item
 /// </summary>
-public class PurchaseOrderItem : BaseEntity
+public class PurchaseOrderItem : BranchEntity
 {
     public Guid PurchaseOrderId { get; set; }
     public Guid ProductId { get; set; }

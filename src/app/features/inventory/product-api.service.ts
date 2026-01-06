@@ -5,50 +5,46 @@
  */
 
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Product } from '../../models';
-import { environment } from '../../environments/environment';
+import { ApiService, PaginatedResponse, QueryParams } from '../../core/services/api.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ProductApiService {
-  private readonly http = inject(HttpClient);
-  private readonly apiUrl = `${environment.apiUrl}/products`;
+  private readonly api = inject(ApiService);
+  private readonly endpoint = 'products';
 
-  // TODO: Connect to real backend
-  getAll(): Observable<Product[]> {
-    return this.http.get<Product[]>(this.apiUrl);
+  getAll(params?: QueryParams): Observable<PaginatedResponse<Product>> {
+    return this.api.get<PaginatedResponse<Product>>(this.endpoint, params);
   }
 
   getById(id: string): Observable<Product> {
-    return this.http.get<Product>(`${this.apiUrl}/${id}`);
+    return this.api.get<Product>(`${this.endpoint}/${id}`);
   }
 
   create(product: Omit<Product, 'id'>): Observable<Product> {
-    return this.http.post<Product>(this.apiUrl, product);
+    return this.api.post<Product>(this.endpoint, product);
   }
 
   update(id: string, product: Partial<Product>): Observable<Product> {
-    return this.http.put<Product>(`${this.apiUrl}/${id}`, product);
+    return this.api.put<Product>(`${this.endpoint}/${id}`, product);
   }
 
-  delete(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  delete(id: string): Observable<boolean> {
+    return this.api.delete<boolean>(`${this.endpoint}/${id}`);
   }
 
   search(query: string): Observable<Product[]> {
-    return this.http.get<Product[]>(`${this.apiUrl}/search`, {
-      params: { q: query }
-    });
+    return this.api.get<Product[]>(`${this.endpoint}/search`, { q: query });
   }
 
   getLowStock(): Observable<Product[]> {
-    return this.http.get<Product[]>(`${this.apiUrl}/low-stock`);
+    return this.api.get<Product[]>(`${this.endpoint}/low-stock`);
   }
 
   getExpiringSoon(): Observable<Product[]> {
-    return this.http.get<Product[]>(`${this.apiUrl}/expiring-soon`);
+    return this.api.get<Product[]>(`${this.endpoint}/expiring-soon`);
   }
 }

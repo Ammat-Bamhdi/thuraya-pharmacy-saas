@@ -274,7 +274,11 @@ export class StoreService {
 
   // Procurement Actions
   addSupplier(data: Partial<Supplier>) {
-    const s: Supplier = { ...data as Supplier, id: 's_' + Math.random().toString(36).substr(2,9), code: data.code || 'SUP-' + Math.floor(Math.random() * 1000), createdDate: new Date().toISOString().split('T')[0] };
+    const s: Supplier = { 
+      ...data as Supplier, 
+      id: 's_' + Math.random().toString(36).substr(2,9), 
+      code: data.code || 'SUP-' + Math.floor(Math.random() * 1000)
+    };
     this.suppliers.update(curr => [...curr, s]);
   }
   updateSupplier(id: string, data: Partial<Supplier>) { this.suppliers.update(curr => curr.map(s => s.id === id ? { ...s, ...data } : s)); }

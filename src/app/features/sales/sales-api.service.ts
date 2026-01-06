@@ -5,60 +5,56 @@
  */
 
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Invoice, Customer } from '../../models';
-import { environment } from '../../environments/environment';
+import { ApiService, PaginatedResponse, QueryParams } from '../../core/services/api.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class SalesApiService {
-  private readonly http = inject(HttpClient);
-  private readonly baseUrl = environment.apiUrl;
+  private readonly api = inject(ApiService);
 
   // Invoice operations
-  getAllInvoices(): Observable<Invoice[]> {
-    return this.http.get<Invoice[]>(`${this.baseUrl}/invoices`);
+  getAllInvoices(params?: QueryParams): Observable<PaginatedResponse<Invoice>> {
+    return this.api.get<PaginatedResponse<Invoice>>('invoices', params);
   }
 
   getInvoiceById(id: string): Observable<Invoice> {
-    return this.http.get<Invoice>(`${this.baseUrl}/invoices/${id}`);
+    return this.api.get<Invoice>(`invoices/${id}`);
   }
 
   createInvoice(invoice: Omit<Invoice, 'id'>): Observable<Invoice> {
-    return this.http.post<Invoice>(`${this.baseUrl}/invoices`, invoice);
+    return this.api.post<Invoice>('invoices', invoice);
   }
 
   updateInvoice(id: string, invoice: Partial<Invoice>): Observable<Invoice> {
-    return this.http.put<Invoice>(`${this.baseUrl}/invoices/${id}`, invoice);
+    return this.api.put<Invoice>(`invoices/${id}`, invoice);
   }
 
   // Customer operations
-  getAllCustomers(): Observable<Customer[]> {
-    return this.http.get<Customer[]>(`${this.baseUrl}/customers`);
+  getAllCustomers(params?: QueryParams): Observable<PaginatedResponse<Customer>> {
+    return this.api.get<PaginatedResponse<Customer>>('customers', params);
   }
 
   getCustomerById(id: string): Observable<Customer> {
-    return this.http.get<Customer>(`${this.baseUrl}/customers/${id}`);
+    return this.api.get<Customer>(`customers/${id}`);
   }
 
   createCustomer(customer: Omit<Customer, 'id'>): Observable<Customer> {
-    return this.http.post<Customer>(`${this.baseUrl}/customers`, customer);
+    return this.api.post<Customer>('customers', customer);
   }
 
   updateCustomer(id: string, customer: Partial<Customer>): Observable<Customer> {
-    return this.http.put<Customer>(`${this.baseUrl}/customers/${id}`, customer);
+    return this.api.put<Customer>(`customers/${id}`, customer);
   }
 
-  deleteCustomer(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.baseUrl}/customers/${id}`);
+  deleteCustomer(id: string): Observable<boolean> {
+    return this.api.delete<boolean>(`customers/${id}`);
   }
 
   // Customer search
   searchCustomers(query: string): Observable<Customer[]> {
-    return this.http.get<Customer[]>(`${this.baseUrl}/customers/search`, {
-      params: { q: query }
-    });
+    return this.api.get<Customer[]>('customers/search', { q: query });
   }
 }

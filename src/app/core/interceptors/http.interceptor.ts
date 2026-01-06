@@ -209,11 +209,13 @@ function normalizeError(error: HttpErrorResponse): NormalizedError {
     baseError.description = 'Unable to reach the server. Please check your internet connection and try again.';
     baseError.isNetworkError = true;
     baseError.actionRequired = 'Check your internet connection';
+    console.error(`[Network Error] URL: ${error.url}`, error);
   } else if (error.status === 0) {
     baseError.message = 'Server Unreachable';
-    baseError.description = 'The server is not responding. This could be due to network issues or server maintenance.';
+    baseError.description = 'The server is not responding. This could be due to network issues, CORS configuration, or server maintenance.';
     baseError.isNetworkError = true;
     baseError.actionRequired = 'Wait a moment and try again';
+    console.error(`[Server Unreachable] URL: ${error.url}. Check if backend is running and CORS is allowed for ${window.location.origin}`);
   } else if (error.status === 400) {
     // Validation errors from backend
     baseError.message = 'Invalid Request';
@@ -245,6 +247,13 @@ function normalizeError(error: HttpErrorResponse): NormalizedError {
     baseError.message = 'Access Denied';
     baseError.description = 'You do not have the required permissions to perform this action. Contact your administrator if you believe this is an error.';
     baseError.actionRequired = 'Contact your administrator';
+    
+    // Check if this is a Google Auth related 403
+    if (error.url?.includes('accounts.google.com')) {
+      baseError.message = 'Google Auth Error';
+      baseError.description = 'Google authentication is currently unavailable or misconfigured. Please use email/password instead.';
+      baseError.actionRequired = 'Use email/password login';
+    }
   } else if (error.status === 404) {
     baseError.message = 'Resource Not Found';
     baseError.description = 'The item you are looking for does not exist or may have been deleted.';

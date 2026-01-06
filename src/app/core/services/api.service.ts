@@ -88,7 +88,7 @@ export class ApiService {
   
   // Cache storage
   private readonly cache = new Map<string, CacheEntry<unknown>>();
-  private readonly DEFAULT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  private readonly DEFAULT_CACHE_TTL = 30 * 1000; // Reduced to 30 seconds for dynamic pharmacy data
   
   // Loading state management
   private readonly _activeRequests = signal(0);
@@ -279,7 +279,7 @@ export class ApiService {
             0, 
             'Request failed', 
             response.message || 'The request could not be completed',
-            response.errors ?? undefined
+            response.errors || undefined
           );
         }
         return response.data as T;

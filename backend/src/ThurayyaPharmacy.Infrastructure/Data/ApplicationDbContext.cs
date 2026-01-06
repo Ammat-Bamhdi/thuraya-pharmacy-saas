@@ -5,8 +5,13 @@ namespace ThurayyaPharmacy.Infrastructure.Data;
 
 public class ApplicationDbContext : DbContext
 {
-    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
+    private readonly ThurayyaPharmacy.Application.Interfaces.ICurrentTenantService _currentTenantService;
+
+    public ApplicationDbContext(
+        DbContextOptions<ApplicationDbContext> options,
+        ThurayyaPharmacy.Application.Interfaces.ICurrentTenantService currentTenantService) : base(options)
     {
+        _currentTenantService = currentTenantService;
     }
 
     // Core
@@ -33,13 +38,44 @@ public class ApplicationDbContext : DbContext
     // Finance
     public DbSet<Expense> Expenses => Set<Expense>();
 
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        var tenantId = _currentTenantService.TenantId ?? Guid.Empty;
+        var userId = _currentTenantService.UserId?.ToString();
+
+        foreach (var entry in ChangeTracker.Entries<ThurayyaPharmacy.Domain.Common.BaseEntity>())
+        {
+            switch (entry.State)
+            {
+                case EntityState.Added:
+                    entry.Entity.CreatedAt = DateTime.UtcNow;
+                    entry.Entity.CreatedBy = userId;
+                    
+                    if (entry.Entity is ThurayyaPharmacy.Domain.Common.ITenantEntity tenantEntity && tenantEntity.TenantId == Guid.Empty)
+                    {
+                        tenantEntity.TenantId = tenantId;
+                    }
+                    break;
+                case EntityState.Modified:
+                    entry.Entity.ModifiedAt = DateTime.UtcNow;
+                    entry.Entity.ModifiedBy = userId;
+                    break;
+            }
+        }
+
+        return await base.SaveChangesAsync(cancellationToken);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
         
-        // Apply global query filter for soft delete
+        // Apply global query filters
+        var tenantId = _currentTenantService.TenantId ?? Guid.Empty;
+
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
+            // Soft delete filter
             if (entityType.ClrType.GetProperty("IsDeleted") != null)
             {
                 var parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
@@ -48,6 +84,20 @@ public class ApplicationDbContext : DbContext
                 var lambda = System.Linq.Expressions.Expression.Lambda(
                     System.Linq.Expressions.Expression.Equal(property, falseConstant),
                     parameter);
+                modelBuilder.Entity(entityType.ClrType).HasQueryFilter(lambda);
+            }
+
+            // Multi-tenancy filter
+            if (typeof(ThurayyaPharmacy.Domain.Common.ITenantEntity).IsAssignableFrom(entityType.ClrType))
+            {
+                var parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
+                var property = System.Linq.Expressions.Expression.Property(parameter, "TenantId");
+                var tenantIdConstant = System.Linq.Expressions.Expression.Constant(tenantId);
+                var equalExpression = System.Linq.Expressions.Expression.Equal(property, tenantIdConstant);
+                
+                // If the user is not logged in (e.g., during registration), we might want to skip this filter or handle it differently.
+                // But for now, using Guid.Empty will ensure no data is leaked.
+                var lambda = System.Linq.Expressions.Expression.Lambda(equalExpression, parameter);
                 modelBuilder.Entity(entityType.ClrType).HasQueryFilter(lambda);
             }
         }

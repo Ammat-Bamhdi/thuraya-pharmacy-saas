@@ -98,3 +98,12 @@ public record UpdateProductRequest(
     DateTime? ExpiryDate
 );
 
+public record ProductStatsDto(
+    int TotalProducts,
+    int LowStockCount,
+    int ExpiringSoonCount,
+    decimal TotalInventoryValue,
+    int TotalCategories,
+    int TotalSuppliers
+);
+

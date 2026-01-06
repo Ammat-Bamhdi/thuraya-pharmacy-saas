@@ -235,7 +235,18 @@ export class AuthService {
           return response.data;
         }),
         tap(authResponse => {
-          this.saveAuthData(authResponse, authResponse.isNewUser);
+          if (authResponse.accessToken) {
+            this.saveAuthData(authResponse, authResponse.isNewUser);
+          } else if (authResponse.isNewUser) {
+            // New user without tokens yet (needs onboarding)
+            // Save basic user info if needed or just mark as first login
+            localStorage.setItem(FIRST_LOGIN_KEY, 'true');
+            if (authResponse.user) {
+              localStorage.setItem(USER_KEY, JSON.stringify(authResponse.user));
+              this._user.set(authResponse.user);
+              this.syncUserToStore(authResponse.user);
+            }
+          }
         }),
         catchError(error => this.handleError(error)),
         finalize(() => this._isLoading.set(false))
@@ -249,7 +260,7 @@ export class AuthService {
     this._isLoading.set(true);
     this._error.set(null);
 
-    return this.http.post<ApiResponse<GoogleAuthResponse>>(`${this.apiUrl}/auth/google/code`, { code })
+    return this.http.post<ApiResponse<GoogleAuthResponse>>(`${this.apiUrl}/auth/google-code`, { code })
       .pipe(
         map(response => {
           if (!response.success || !response.data) {
@@ -258,7 +269,17 @@ export class AuthService {
           return response.data;
         }),
         tap(authResponse => {
-          this.saveAuthData(authResponse, authResponse.isNewUser);
+          if (authResponse.accessToken) {
+            this.saveAuthData(authResponse, authResponse.isNewUser);
+          } else if (authResponse.isNewUser) {
+            // New user without tokens yet (needs onboarding)
+            localStorage.setItem(FIRST_LOGIN_KEY, 'true');
+            if (authResponse.user) {
+              localStorage.setItem(USER_KEY, JSON.stringify(authResponse.user));
+              this._user.set(authResponse.user);
+              this.syncUserToStore(authResponse.user);
+            }
+          }
           
           // Immediately sync tenant to store for UI update
           if (authResponse.tenant) {
