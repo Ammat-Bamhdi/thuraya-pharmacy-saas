@@ -42,8 +42,11 @@ export interface PaginatedResponse<T> {
 export interface ApiError {
   status: number;
   message: string;
+  description: string;
   errors?: Record<string, string[]>;
   timestamp: Date;
+  actionRequired?: string;
+  correlationId?: string;
 }
 
 export interface QueryParams {
@@ -66,6 +69,7 @@ export interface RequestConfig {
   cacheTtl?: number; // milliseconds
   retries?: number;
   showLoading?: boolean;
+  skipRateLimitRetry?: boolean; // Skip automatic retry on rate limit
 }
 
 // ============================================================================
@@ -93,6 +97,10 @@ export class ApiService {
   // Error state
   private readonly _lastError = signal<ApiError | null>(null);
   readonly lastError = this._lastError.asReadonly();
+
+  // Rate limit state
+  private readonly _isRateLimited = signal(false);
+  readonly isRateLimited = this._isRateLimited.asReadonly();
 
   // ============================================================================
   // Core HTTP Methods
@@ -237,6 +245,24 @@ export class ApiService {
       retry({
         count: retries,
         delay: (error, retryCount) => {
+          // Handle rate limiting (429)
+          if (error.status === 429) {
+            this._isRateLimited.set(true);
+            
+            if (config?.skipRateLimitRetry) {
+              return throwError(() => error);
+            }
+            
+            // Get retry-after from error or use default 1 second
+            const retryAfter = (error as any).retryAfter || 1000;
+            console.warn(`Rate limited. Retrying in ${retryAfter}ms...`);
+            
+            // Reset rate limit flag after delay
+            setTimeout(() => this._isRateLimited.set(false), retryAfter);
+            
+            return timer(retryAfter);
+          }
+          
           // Only retry on network errors or 5xx
           if (error.status && error.status < 500 && error.status !== 0) {
             return throwError(() => error);
@@ -249,7 +275,12 @@ export class ApiService {
       }),
       map(response => {
         if (!response.success) {
-          throw this.createApiError(0, response.message || 'Request failed', response.errors || undefined);
+          throw this.createApiError(
+            0, 
+            'Request failed', 
+            response.message || 'The request could not be completed',
+            response.errors ?? undefined
+          );
         }
         return response.data as T;
       }),
@@ -270,50 +301,138 @@ export class ApiService {
     let apiError: ApiError;
     
     if (error instanceof HttpErrorResponse) {
+      const { message, description, actionRequired } = this.getErrorDetails(error);
       apiError = this.createApiError(
         error.status,
-        this.getErrorMessage(error),
-        error.error?.errors
+        message,
+        description,
+        error.error?.errors,
+        actionRequired
       );
     } else {
       apiError = error;
     }
     
     this._lastError.set(apiError);
-    console.error('API Error:', apiError);
+    
+    // Only log in development
+    if (!environment.production) {
+      console.error('API Error:', apiError);
+    }
     
     return throwError(() => apiError);
   }
 
-  private createApiError(status: number, message: string, errors?: Record<string, string[]>): ApiError {
+  private createApiError(
+    status: number, 
+    message: string, 
+    description: string,
+    errors?: Record<string, string[]>,
+    actionRequired?: string
+  ): ApiError {
     return {
       status,
       message,
+      description,
       errors,
-      timestamp: new Date()
+      timestamp: new Date(),
+      actionRequired
     };
   }
 
-  private getErrorMessage(error: HttpErrorResponse): string {
-    if (error.status === 0) {
-      return 'Unable to connect to server. Please check your internet connection.';
+  /**
+   * Get detailed error information based on HTTP status
+   */
+  private getErrorDetails(error: HttpErrorResponse): { 
+    message: string; 
+    description: string; 
+    actionRequired?: string;
+  } {
+    // Check if this is an auth endpoint error
+    const requestUrl = error.url || '';
+    const isAuthEndpoint = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register');
+    
+    const errorMessages: Record<number, { message: string; description: string; actionRequired?: string }> = {
+      0: {
+        message: 'Connection Failed',
+        description: 'Unable to connect to the server. Please check your internet connection and ensure the server is running.',
+        actionRequired: 'Check your internet connection'
+      },
+      400: {
+        message: 'Invalid Request',
+        description: error.error?.message || 'The request contains invalid data. Please review your input and try again.',
+        actionRequired: 'Review and correct your input'
+      },
+      401: {
+        message: isAuthEndpoint ? 'Authentication Failed' : 'Session Expired',
+        description: error.error?.message || (isAuthEndpoint ? 'Invalid credentials. Please check your email and password.' : 'Your login session has expired. Please sign in again to continue working.'),
+        actionRequired: 'Sign in again'
+      },
+      403: {
+        message: 'Access Denied',
+        description: 'You do not have permission to access this resource. Contact your administrator if you need access.',
+        actionRequired: 'Contact your administrator'
+      },
+      404: {
+        message: 'Not Found',
+        description: 'The requested item could not be found. It may have been moved or deleted.',
+        actionRequired: 'Go back and try again'
+      },
+      409: {
+        message: 'Conflict',
+        description: error.error?.message || 'This operation conflicts with existing data. The item may already exist.',
+        actionRequired: 'Use a different value'
+      },
+      422: {
+        message: 'Validation Error',
+        description: error.error?.message || 'The submitted data failed validation. Please check the required fields.',
+        actionRequired: 'Check required fields'
+      },
+      429: {
+        message: 'Rate Limited',
+        description: 'You are making requests too quickly. Please wait a moment before trying again.',
+        actionRequired: 'Wait and retry'
+      },
+      500: {
+        message: 'Server Error',
+        description: 'An unexpected server error occurred. Our team has been notified. Please try again later.',
+        actionRequired: 'Try again later'
+      },
+      502: {
+        message: 'Bad Gateway',
+        description: 'The server received an invalid response. This is usually temporary. Please try again.',
+        actionRequired: 'Try again in a few seconds'
+      },
+      503: {
+        message: 'Service Unavailable',
+        description: 'The server is temporarily unavailable due to maintenance or high load. Please try again shortly.',
+        actionRequired: 'Try again in a few minutes'
+      },
+      504: {
+        message: 'Gateway Timeout',
+        description: 'The server took too long to respond. This may be due to high load. Please try again.',
+        actionRequired: 'Try again'
+      }
+    };
+
+    // Get matching error or use generic 5xx handler
+    if (errorMessages[error.status]) {
+      return errorMessages[error.status];
     }
-    if (error.status === 401) {
-      return 'Your session has expired. Please log in again.';
-    }
-    if (error.status === 403) {
-      return 'You do not have permission to perform this action.';
-    }
-    if (error.status === 404) {
-      return 'The requested resource was not found.';
-    }
-    if (error.status === 422) {
-      return error.error?.message || 'Validation failed. Please check your input.';
-    }
+    
     if (error.status >= 500) {
-      return 'A server error occurred. Please try again later.';
+      return {
+        message: 'Server Error',
+        description: 'An unexpected server error occurred. Please try again later.',
+        actionRequired: 'Try again later'
+      };
     }
-    return error.error?.message || error.message || 'An unexpected error occurred.';
+
+    return {
+      message: 'Request Failed',
+      description: error.error?.message || error.message || 'An unexpected error occurred while processing your request.',
+      actionRequired: 'Try again'
+    };
   }
 
   // ============================================================================

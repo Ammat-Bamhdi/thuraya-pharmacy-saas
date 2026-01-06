@@ -2,7 +2,14 @@ import { ApplicationConfig } from '@angular/core';
 import { provideHttpClient, withInterceptors, withFetch } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideRouter, withComponentInputBinding, withViewTransitions } from '@angular/router';
-import { authInterceptor, contentTypeInterceptor, errorInterceptor } from '@core/interceptors/http.interceptor';
+import { 
+  authInterceptor, 
+  contentTypeInterceptor, 
+  errorInterceptor,
+  correlationIdInterceptor,
+  rateLimitInterceptor,
+  apiVersionInterceptor
+} from '@core/interceptors/http.interceptor';
 import { environment } from '../environments/environment';
 import { routes } from './app.routes';
 
@@ -20,11 +27,15 @@ export const appConfig: ApplicationConfig = {
     ),
     
     // HTTP Client with modern interceptors
+    // Order matters: correlation ID first, then auth, then others
     provideHttpClient(
       withFetch(), // Use native Fetch API
       withInterceptors([
-        contentTypeInterceptor,
-        authInterceptor,
+        correlationIdInterceptor,   // Add tracking IDs first
+        apiVersionInterceptor,      // Add API version header
+        contentTypeInterceptor,     // Set content type
+        authInterceptor,            // Add JWT token
+        rateLimitInterceptor,       // Handle rate limiting
         ...(environment.production ? [] : [errorInterceptor])
       ])
     ),

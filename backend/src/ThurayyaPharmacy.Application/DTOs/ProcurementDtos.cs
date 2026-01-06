@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using ThurayyaPharmacy.Domain.Enums;
 
 namespace ThurayyaPharmacy.Application.DTOs;
@@ -23,16 +24,40 @@ public record SupplierDto(
 );
 
 public record CreateSupplierRequest(
+    [Required(ErrorMessage = "Supplier code is required")]
+    [StringLength(20, MinimumLength = 2, ErrorMessage = "Code must be between 2 and 20 characters")]
     string Code,
+    
+    [Required(ErrorMessage = "Supplier name is required")]
+    [StringLength(200, MinimumLength = 2, ErrorMessage = "Name must be between 2 and 200 characters")]
     string Name,
+    
+    [StringLength(100)]
     string? ContactPerson,
+    
+    [EmailAddress(ErrorMessage = "Invalid email format")]
     string? Email,
+    
+    [Phone(ErrorMessage = "Invalid phone number")]
+    [StringLength(20)]
     string? Phone,
+    
+    [StringLength(500)]
     string? Address,
+    
+    [StringLength(100)]
     string? City,
+    
+    [StringLength(100)]
     string? Country,
+    
+    [StringLength(200)]
     string? PaymentTerms = null,
+    
+    [Range(0, double.MaxValue, ErrorMessage = "Credit limit must be non-negative")]
     decimal CreditLimit = 0,
+    
+    [StringLength(100)]
     string? Category = null
 );
 

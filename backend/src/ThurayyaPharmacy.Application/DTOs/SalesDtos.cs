@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using ThurayyaPharmacy.Domain.Enums;
 
 namespace ThurayyaPharmacy.Application.DTOs;
@@ -21,16 +22,38 @@ public record CustomerDto(
 );
 
 public record CreateCustomerRequest(
+    [Required(ErrorMessage = "Customer name is required")]
+    [StringLength(200, MinimumLength = 2, ErrorMessage = "Name must be between 2 and 200 characters")]
     string Name,
+    
+    [Required(ErrorMessage = "Phone number is required")]
+    [Phone(ErrorMessage = "Invalid phone number")]
+    [StringLength(20)]
     string Phone,
+    
+    [StringLength(200)]
     string? CompanyName = null,
+    
+    [EmailAddress(ErrorMessage = "Invalid email format")]
     string? Email = null,
+    
+    [StringLength(500)]
     string? BillingAddress = null,
+    
+    [StringLength(100)]
     string? City = null,
+    
+    [StringLength(100)]
     string? Country = null,
+    
     CustomerType Type = CustomerType.Standard,
+    
+    [StringLength(200)]
     string? PaymentTerms = null,
+    
+    [Range(0, double.MaxValue, ErrorMessage = "Credit limit must be non-negative")]
     decimal CreditLimit = 0,
+    
     PriceGroup? PriceGroup = null
 );
 

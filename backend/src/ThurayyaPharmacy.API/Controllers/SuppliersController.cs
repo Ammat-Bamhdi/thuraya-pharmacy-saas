@@ -48,8 +48,8 @@ public class SuppliersController : BaseApiController
                 query = query.Where(s =>
                     s.Name.ToLower().Contains(search) ||
                     s.Code.ToLower().Contains(search) ||
-                    s.ContactPerson.ToLower().Contains(search) ||
-                    s.Email.ToLower().Contains(search));
+                    (s.ContactPerson != null && s.ContactPerson.ToLower().Contains(search)) ||
+                    (s.Email != null && s.Email.ToLower().Contains(search)));
             }
 
             if (status.HasValue)

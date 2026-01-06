@@ -238,35 +238,36 @@
         ></app-icon>
       </button>
 
-      <!-- User Dropdown Menu -->
-      @if (showUserMenu()) {
-        <div 
-          class="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden animate-scale-in z-50"
-          role="menu"
-          aria-label="User options"
-        >
-          <button 
-            (click)="setView('settings')" 
-            class="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
-            role="menuitem"
-          >
-            <app-icon name="user" [size]="16" class="text-slate-400" aria-hidden="true"></app-icon>
-            <span>Profile Settings</span>
-          </button>
-          <div class="h-px bg-slate-100" aria-hidden="true"></div>
-          <button 
-            (click)="openLogoutModal()" 
-            class="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
-            role="menuitem"
-          >
-            <app-icon name="log-out" [size]="16" class="text-red-500" aria-hidden="true"></app-icon>
-            <span>Sign Out</span>
-          </button>
-        </div>
-      }
     </div>
   </div>
 </nav>
+
+<!-- User Dropdown Menu (outside nav for proper z-index stacking) -->
+@if (showUserMenu()) {
+  <div 
+    class="fixed bottom-6 left-6 w-56 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden animate-scale-in z-[60]"
+    role="menu"
+    aria-label="User options"
+  >
+    <button 
+      (click)="setView('settings')" 
+      class="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+      role="menuitem"
+    >
+      <app-icon name="user" [size]="16" class="text-slate-400" aria-hidden="true"></app-icon>
+      <span>Profile Settings</span>
+    </button>
+    <div class="h-px bg-slate-100" aria-hidden="true"></div>
+    <button 
+      (click)="openLogoutModal()" 
+      class="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
+      role="menuitem"
+    >
+      <app-icon name="log-out" [size]="16" class="text-red-500" aria-hidden="true"></app-icon>
+      <span>Sign Out</span>
+    </button>
+  </div>
+}
 
 <!-- Logout Confirmation Modal -->
 @if (showLogoutModal()) {
@@ -327,5 +328,5 @@
 
 <!-- Click outside handler for user menu -->
 @if (showUserMenu()) {
-  <div class="fixed inset-0 z-40" (click)="closeUserMenu()"></div>
+  <div class="fixed inset-0 z-[55]" (click)="closeUserMenu()"></div>
 }

@@ -1,13 +1,39 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace ThurayyaPharmacy.Application.DTOs;
 
-public record LoginRequest(string Email, string Password);
+public record LoginRequest(
+    [Required(ErrorMessage = "Email is required")]
+    [EmailAddress(ErrorMessage = "Invalid email format")]
+    string Email,
+    
+    [Required(ErrorMessage = "Password is required")]
+    string Password
+);
 
 public record RegisterRequest(
+    [Required(ErrorMessage = "Name is required")]
+    [StringLength(200, MinimumLength = 2, ErrorMessage = "Name must be between 2 and 200 characters")]
     string Name,
+    
+    [Required(ErrorMessage = "Email is required")]
+    [EmailAddress(ErrorMessage = "Invalid email format")]
     string Email,
+    
+    [Required(ErrorMessage = "Password is required")]
+    [MinLength(8, ErrorMessage = "Password must be at least 8 characters")]
     string Password,
+    
+    [Required(ErrorMessage = "Organization name is required")]
+    [StringLength(200, MinimumLength = 2, ErrorMessage = "Organization name must be between 2 and 200 characters")]
     string TenantName,
+    
+    [Required(ErrorMessage = "Country is required")]
+    [StringLength(100)]
     string Country,
+    
+    [Required(ErrorMessage = "Currency is required")]
+    [StringLength(10)]
     string Currency
 );
 
@@ -61,13 +87,13 @@ public record MeResponse(
 public class GoogleTokenResponse
 {
     [System.Text.Json.Serialization.JsonPropertyName("access_token")]
-    public string AccessToken { get; set; } = "";
+    public string? AccessToken { get; set; }
     
     [System.Text.Json.Serialization.JsonPropertyName("id_token")]
-    public string IdToken { get; set; } = "";
+    public string? IdToken { get; set; }
     
     [System.Text.Json.Serialization.JsonPropertyName("refresh_token")]
-    public string RefreshToken { get; set; } = "";
+    public string? RefreshToken { get; set; }
     
     [System.Text.Json.Serialization.JsonPropertyName("expires_in")]
     public int ExpiresIn { get; set; }

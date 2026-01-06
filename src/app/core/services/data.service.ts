@@ -12,8 +12,8 @@
  * @version 1.0.0
  */
 
-import { Injectable, inject, signal } from '@angular/core';
-import { Observable, tap, BehaviorSubject } from 'rxjs';
+import { Injectable, inject, signal, computed } from '@angular/core';
+import { Observable, tap, BehaviorSubject, finalize, forkJoin, catchError, of } from 'rxjs';
 import { ApiService, PaginatedResponse, QueryParams } from './api.service';
 import { StoreService } from './store.service';
 
@@ -167,24 +167,42 @@ export class DataService {
   private readonly api = inject(ApiService);
   private readonly store = inject(StoreService);
 
-  // Loading states
+  // Loading states with proper encapsulation
   private readonly _loadingBranches = signal(false);
   private readonly _loadingProducts = signal(false);
   private readonly _loadingSuppliers = signal(false);
   private readonly _loadingCustomers = signal(false);
   private readonly _loadingInvoices = signal(false);
+  private readonly _loadingDashboard = signal(false);
 
   readonly loadingBranches = this._loadingBranches.asReadonly();
   readonly loadingProducts = this._loadingProducts.asReadonly();
   readonly loadingSuppliers = this._loadingSuppliers.asReadonly();
   readonly loadingCustomers = this._loadingCustomers.asReadonly();
   readonly loadingInvoices = this._loadingInvoices.asReadonly();
+  readonly loadingDashboard = this._loadingDashboard.asReadonly();
+
+  // Combined loading state for global loading indicator
+  readonly isLoading = computed(() => 
+    this._loadingBranches() || 
+    this._loadingProducts() || 
+    this._loadingSuppliers() || 
+    this._loadingCustomers() || 
+    this._loadingInvoices() ||
+    this._loadingDashboard()
+  );
 
   // Cache subjects for real-time updates
   private branchesCache$ = new BehaviorSubject<Branch[]>([]);
   private productsCache$ = new BehaviorSubject<Product[]>([]);
   private suppliersCache$ = new BehaviorSubject<Supplier[]>([]);
   private customersCache$ = new BehaviorSubject<Customer[]>([]);
+
+  // Observable streams for components to subscribe
+  readonly branches$ = this.branchesCache$.asObservable();
+  readonly products$ = this.productsCache$.asObservable();
+  readonly suppliers$ = this.suppliersCache$.asObservable();
+  readonly customers$ = this.customersCache$.asObservable();
 
   // ============================================================================
   // Branches
@@ -194,7 +212,6 @@ export class DataService {
     this._loadingBranches.set(true);
     return this.api.get<PaginatedResponse<Branch>>('branches', params).pipe(
       tap(response => {
-        this._loadingBranches.set(false);
         this.branchesCache$.next(response.items);
         // Also update store
         this.store.setBranches(response.items.map(b => ({
@@ -205,7 +222,8 @@ export class DataService {
           isOfflineEnabled: b.isOfflineEnabled,
           licenseCount: b.licenseCount
         })));
-      })
+      }),
+      finalize(() => this._loadingBranches.set(false))
     );
   }
 
@@ -252,9 +270,9 @@ export class DataService {
     this._loadingProducts.set(true);
     return this.api.get<PaginatedResponse<Product>>('products', params).pipe(
       tap(response => {
-        this._loadingProducts.set(false);
         this.productsCache$.next(response.items);
-      })
+      }),
+      finalize(() => this._loadingProducts.set(false))
     );
   }
 
@@ -322,9 +340,9 @@ export class DataService {
     this._loadingSuppliers.set(true);
     return this.api.get<PaginatedResponse<Supplier>>('suppliers', params).pipe(
       tap(response => {
-        this._loadingSuppliers.set(false);
         this.suppliersCache$.next(response.items);
-      })
+      }),
+      finalize(() => this._loadingSuppliers.set(false))
     );
   }
 
@@ -375,9 +393,9 @@ export class DataService {
     this._loadingCustomers.set(true);
     return this.api.get<PaginatedResponse<Customer>>('customers', params).pipe(
       tap(response => {
-        this._loadingCustomers.set(false);
         this.customersCache$.next(response.items);
-      })
+      }),
+      finalize(() => this._loadingCustomers.set(false))
     );
   }
 
@@ -431,7 +449,7 @@ export class DataService {
   getInvoices(params?: QueryParams): Observable<PaginatedResponse<Invoice>> {
     this._loadingInvoices.set(true);
     return this.api.get<PaginatedResponse<Invoice>>('invoices', params).pipe(
-      tap(() => this._loadingInvoices.set(false))
+      finalize(() => this._loadingInvoices.set(false))
     );
   }
 
@@ -470,25 +488,35 @@ export class DataService {
     lowStockProducts: Product[];
     expiringProducts: Product[];
   }> {
-    // This would ideally be a single endpoint, but we can combine multiple calls
-    return new Observable(observer => {
-      Promise.all([
-        this.getProductStats(branchId).toPromise(),
-        this.getTodaySales(branchId).toPromise(),
-        this.getLowStockProducts(branchId).toPromise(),
-        this.getExpiringProducts(branchId, 30).toPromise()
-      ]).then(([productStats, todaySales, lowStockProducts, expiringProducts]) => {
-        observer.next({
-          productStats: productStats!,
-          todaySales: todaySales!,
-          lowStockProducts: lowStockProducts || [],
-          expiringProducts: expiringProducts || []
-        });
-        observer.complete();
-      }).catch(error => {
-        observer.error(error);
-      });
-    });
+    this._loadingDashboard.set(true);
+    
+    // Use forkJoin for parallel requests - much more efficient than sequential
+    return forkJoin({
+      productStats: this.getProductStats(branchId).pipe(
+        catchError(() => of({
+          totalProducts: 0,
+          lowStockCount: 0,
+          expiringCount: 0,
+          totalStockValue: 0,
+          averageMargin: 0
+        } as ProductStats))
+      ),
+      todaySales: this.getTodaySales(branchId).pipe(
+        catchError(() => of({
+          totalSales: 0,
+          transactionCount: 0,
+          averageOrderValue: 0
+        } as TodaySales))
+      ),
+      lowStockProducts: this.getLowStockProducts(branchId).pipe(
+        catchError(() => of([] as Product[]))
+      ),
+      expiringProducts: this.getExpiringProducts(branchId, 30).pipe(
+        catchError(() => of([] as Product[]))
+      )
+    }).pipe(
+      finalize(() => this._loadingDashboard.set(false))
+    );
   }
 
   // ============================================================================

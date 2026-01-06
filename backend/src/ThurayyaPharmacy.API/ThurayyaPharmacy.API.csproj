@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -24,6 +24,12 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />
     <!-- Health checks for AWS ELB -->
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.0-preview.6.24328.4" />
+    <!-- Rate limiting -->
+    <PackageReference Include="AspNetCoreRateLimit" Version="5.0.0" />
+    <!-- API Versioning -->
+    <PackageReference Include="Asp.Versioning.Mvc" Version="8.1.0" />
+    <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="8.1.0" />
   </ItemGroup>
 
   <ItemGroup>
