@@ -5,11 +5,12 @@
  * @updated 2026-01-03
  */
 
-import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IconComponent } from '@shared/components/icons/icons.component';
 import { SalesChartComponent } from '@shared/components/chart/chart.component';
 import { StoreService } from '@core/services/store.service';
+import { SetupService, SetupStatus } from '@core/services/setup.service';
 
 /**
  * @component DashboardComponent
@@ -50,7 +51,43 @@ import { StoreService } from '@core/services/store.service';
     }
   `]
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnInit {
   store = inject(StoreService);
+  private setupService = inject(SetupService);
+
+  /** Setup status for manager assignment card */
+  setupStatus = signal<SetupStatus | null>(null);
+
+  /** Whether the setup card has been dismissed this session */
+  setupCardDismissed = signal(false);
+
+  ngOnInit(): void {
+    // Load setup status on dashboard init
+    this.loadSetupStatus();
+  }
+
+  /**
+   * Loads the setup status from the backend.
+   * Shows the setup card if branches need manager assignment.
+   */
+  private loadSetupStatus(): void {
+    this.setupService.getSetupStatus().subscribe(status => {
+      this.setupStatus.set(status);
+    });
+  }
+
+  /**
+   * Navigates to the manager assignment page.
+   */
+  goToManagerAssignment(): void {
+    this.store.setView('manager-assignment');
+  }
+
+  /**
+   * Dismisses the setup card for this session.
+   */
+  dismissSetupCard(): void {
+    this.setupCardDismissed.set(true);
+  }
 }
 
