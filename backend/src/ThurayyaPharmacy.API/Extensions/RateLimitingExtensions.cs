@@ -42,6 +42,20 @@ public static class RateLimitingExtensions
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst
                     }));
 
+            // Bulk operations: 5 requests per 5 minutes per tenant (prevents abuse)
+            options.AddPolicy("bulk", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: httpContext.User.FindFirst("tenant_id")?.Value 
+                        ?? httpContext.Connection.RemoteIpAddress?.ToString() 
+                        ?? "anonymous",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5,
+                        Window = TimeSpan.FromMinutes(5),
+                        QueueLimit = 1,
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                    }));
+
             options.OnRejected = async (context, token) =>
             {
                 context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;

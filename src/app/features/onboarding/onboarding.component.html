@@ -1,595 +1,435 @@
-﻿<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-100/80 backdrop-blur-sm animate-fade-in" [dir]="dir()">
-      <!-- Background Elements -->
-      <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <div class="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-gradient-to-br from-teal-400/20 to-blue-500/20 rounded-full blur-3xl opacity-50"></div>
-        <div class="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-gradient-to-tr from-purple-400/20 to-pink-500/20 rounded-full blur-3xl opacity-50"></div>
-      </div>
+﻿<div class="onboarding" [dir]="dir()">
+  <!-- Top Bar -->
+  <header class="top-bar">
+    <div class="logo">
+      <div class="logo-icon">T</div>
+      <span>Thurayya</span>
+    </div>
+    <div class="top-actions">
+      <button (click)="logout()" class="icon-btn" title="Sign Out">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </button>
+      <button (click)="setLang(language() === 'en' ? 'ar' : 'en')" class="lang-btn">
+        {{ language() === 'en' ? 'عربي' : 'EN' }}
+      </button>
+    </div>
+  </header>
 
-      <div class="relative z-10 w-full max-w-7xl h-[800px] glass-panel rounded-3xl shadow-2xl flex overflow-hidden border border-white/60">
-        
-        <!-- Sidebar Progress -->
-        <div class="w-72 bg-slate-50/80 border-r border-slate-100 p-8 flex flex-col justify-between backdrop-blur-md hidden md:flex ltr:border-r rtl:border-l">
-          <div>
-            <div class="flex items-center gap-3 mb-10">
-              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-teal-500/20">
-                T
-              </div>
-              <span class="font-bold text-xl text-slate-800 tracking-tight">Thuraya</span>
+  <!-- Progress Dots -->
+  <div class="progress-dots">
+    @for (s of [1,2,3,4]; track s) {
+      <div class="dot" [class.active]="step() === s" [class.completed]="step() > s"></div>
+    }
+  </div>
+
+  <!-- Main Content -->
+  <main class="content">
+    
+    <!-- Step 1: Organization -->
+    @if (step() === 1) {
+      <div class="step-content">
+        <div class="step-header">
+          <h1>{{ t().org.title }}</h1>
+          <p>{{ t().org.subtitle }}</p>
+        </div>
+
+        <div class="form-stack">
+          <div class="field">
+            <label>{{ t().org.name }}</label>
+            <input type="text" [(ngModel)]="tenantName" placeholder="Acme Pharmacy" autofocus>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label>{{ t().org.country }}</label>
+              <select [(ngModel)]="country">
+                @for (c of countriesList; track c.value) {
+                  <option [value]="c.value">{{ getLocalizedLabel(c) }}</option>
+                }
+              </select>
             </div>
+            <div class="field">
+              <label>{{ t().org.currency }}</label>
+              <select [(ngModel)]="currency">
+                @for (c of currenciesList; track c.value) {
+                  <option [value]="c.value">{{ getLocalizedLabel(c) }}</option>
+                }
+              </select>
+            </div>
+          </div>
 
-            <div class="space-y-6 relative">
-              <!-- Connecting Line -->
-              <div class="absolute ltr:left-[15px] rtl:right-[15px] top-4 bottom-4 w-0.5 bg-slate-200 z-0"></div>
+          <button (click)="nextStep()" [disabled]="!tenantName" class="primary-btn">
+            {{ t().org.continue }}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    }
 
-              <!-- Steps -->
-              @for (s of [1,2,3,4]; track s) {
-                <div class="relative z-10 flex items-center gap-4 transition-all duration-300" [class.opacity-50]="step() < s">
-                  <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-300 bg-white"
-                       [class.border-teal-500]="step() >= s" [class.text-teal-600]="step() >= s"
-                       [class.border-slate-300]="step() < s" [class.text-slate-400]="step() < s"
-                       [class.bg-teal-500]="step() > s" [class.text-white]="step() > s"
-                       [class.border-transparent]="step() > s">
-                     @if (step() > s) { <app-icon name="check" [size]="14"></app-icon> } @else { {{s}} }
-                  </div>
-                  <div class="text-sm font-medium" [class.text-slate-800]="step() >= s" [class.text-slate-400]="step() < s">
-                    {{ getStepLabel(s) }}
-                  </div>
+    <!-- Step 2: Branches -->
+    @if (step() === 2) {
+      <div class="step-content">
+        <div class="step-header">
+          <h1>{{ t().branch.title }}</h1>
+          <p>{{ t().branch.subtitle }}</p>
+        </div>
+
+        <div class="tabs">
+          <button (click)="branchBulkMode.set(false)" [class.active]="!branchBulkMode()">{{ t().branch.single }}</button>
+          <button (click)="branchBulkMode.set(true)" [class.active]="branchBulkMode()">{{ t().branch.bulk }}</button>
+        </div>
+
+        <div class="form-stack">
+          @if (!branchBulkMode()) {
+            <div class="field-row">
+              <div class="field">
+                <label>{{ t().branch.name }}</label>
+                <input type="text" [(ngModel)]="inputBranchName" [placeholder]="t().branch.namePH" (keydown.enter)="addLocalBranch()">
+              </div>
+              <div class="field">
+                <label>{{ t().branch.loc }}</label>
+                <input type="text" [(ngModel)]="inputBranchLocation" [placeholder]="t().branch.locPH" 
+                       list="cityList" (keydown.enter)="addLocalBranch()" (input)="validateCity()" [class.error]="cityError()">
+                <datalist id="cityList">
+                  @for (city of availableCities(); track city) {
+                    <option [value]="city"></option>
+                  }
+                </datalist>
+              </div>
+            </div>
+            @if (cityError()) {
+              <p class="error-text">{{ t().branch.invalidCity }}</p>
+            }
+            <button (click)="addLocalBranch()" [disabled]="!inputBranchName || !inputBranchLocation || cityError()" class="secondary-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              {{ t().branch.add }}
+            </button>
+          } @else {
+            <div class="dropzone">
+              <input type="file" (change)="handleBranchFile($event)" accept=".xlsx, .xls, .csv">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <span>{{ t().branch.bulkPH }}</span>
+              <span class="hint">{{ t().branch.bulkColumns }}</span>
+            </div>
+            <button (click)="downloadBranchSample()" class="link-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              {{ t().branch.downloadSample }}
+            </button>
+          }
+
+          <!-- Branch List with Large List Optimization -->
+          @if (branchList().length > 0) {
+            <div class="list-section">
+              <div class="list-header">
+                <span><strong>{{ branchList().length }}</strong> {{ branchList().length === 1 ? 'branch' : 'branches' }} added</span>
+                @if (hasManyBranches()) {
+                  <button class="list-toggle" (click)="showBranchList.set(!showBranchList())">
+                    {{ showBranchList() ? 'Hide list' : 'Show list' }}
+                  </button>
+                }
+              </div>
+              
+              @if (showBranchList()) {
+                <div class="item-list" [class.large]="hasManyBranches()">
+                  @for (branch of branchDisplayList(); track $index) {
+                    <div class="item">
+                      <span class="item-num">{{ $index + 1 }}</span>
+                      <div class="item-content">
+                        <span class="item-name">{{ branch.name }}</span>
+                        <span class="item-meta">{{ branch.location }}</span>
+                      </div>
+                      <button (click)="removeLocalBranch($index)" class="remove-btn">×</button>
+                    </div>
+                  }
+                  @if (branchList().length > 5 && showBranchList()) {
+                    <div class="list-more">
+                      +{{ branchList().length - 5 }} more branches
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div class="list-summary">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                  </svg>
+                  <strong>{{ branchList().length }}</strong> branches ready
                 </div>
               }
             </div>
-          </div>
-
-          <div class="text-xs text-slate-400">
-            {{ t().footer }}
-          </div>
+          } @else {
+            <div class="empty">{{ t().branch.listEmpty }}</div>
+          }
         </div>
 
-        <!-- Main Content Area -->
-        <div class="flex-1 flex flex-col relative bg-white/40">
-           
-           <!-- Top Bar -->
-           <div class="p-6 flex justify-between items-center shrink-0">
-             <div class="md:hidden flex items-center gap-2">
-               <div class="font-bold text-slate-800">Step {{ step() }}/4</div>
-             </div>
-             
-             <div class="flex items-center gap-3 ltr:ml-auto rtl:mr-auto">
-               <!-- Logout Button -->
-               <button 
-                 (click)="logout()" 
-                 class="flex items-center gap-2 text-slate-500 hover:text-red-600 text-sm font-medium px-3 py-1.5 rounded-lg border border-transparent hover:border-red-200 transition-all bg-white/50 hover:bg-red-50/50"
-                 title="Sign Out"
-               >
-                 <app-icon name="log-out" [size]="16"></app-icon>
-                 <span class="hidden sm:inline">{{ t().logout || 'Sign Out' }}</span>
-               </button>
-               
-               <!-- Language Selector -->
-               <div class="relative group z-50">
-                 <button class="flex items-center gap-2 text-slate-500 hover:text-teal-600 text-sm font-medium px-3 py-1.5 rounded-lg border border-transparent hover:border-slate-200 transition-all bg-white/50">
-                   <app-icon name="globe" [size]="16"></app-icon> 
-                   {{ language() === 'en' ? 'English' : 'العربية' }}
-                   <app-icon name="chevron-down" [size]="14"></app-icon>
-                 </button>
-                 <div class="absolute ltr:right-0 rtl:left-0 top-full mt-1 w-32 bg-white rounded-lg shadow-lg border border-slate-100 hidden group-hover:block p-1">
-                   <button (click)="setLang('en')" class="w-full text-left rtl:text-right px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-md">English</button>
-                   <button (click)="setLang('ar')" class="w-full text-left rtl:text-right px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-md">العربية</button>
-                 </div>
-               </div>
-             </div>
-           </div>
-
-           <!-- Content Container -->
-           <div class="flex-1 p-6 md:p-8 overflow-y-auto">
-             
-             <!-- Step 1: Tenant Details -->
-             @if (step() === 1) {
-              <div class="flex flex-col h-full animate-fade-in-right max-w-2xl mx-auto">
-                <div class="mb-8 text-center md:text-start">
-                  <h2 class="text-3xl font-light text-slate-800 mb-2">{{ t().org.title }}</h2>
-                  <p class="text-slate-500 text-lg font-light">{{ t().org.subtitle }}</p>
-                </div>
-
-                <div class="space-y-6">
-                  <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">{{ t().org.name }}</label>
-                    <input type="text" [(ngModel)]="tenantName" class="glass-input w-full px-5 py-4 rounded-xl text-lg bg-white/50 focus:bg-white text-slate-800">
-                  </div>
-
-                  <div class="grid grid-cols-2 gap-6">
-                    <div>
-                      <label class="block text-sm font-medium text-slate-700 mb-1">{{ t().org.country }}</label>
-                      <select [(ngModel)]="country" class="glass-input w-full px-5 py-4 rounded-xl text-base appearance-none bg-white/50 focus:bg-white text-slate-800">
-                        @for (c of countriesList; track c.value) {
-                            <option [value]="c.value">{{ getLocalizedLabel(c) }}</option>
-                        }
-                      </select>
-                    </div>
-                    <div>
-                      <label class="block text-sm font-medium text-slate-700 mb-1">{{ t().org.currency }}</label>
-                      <select [(ngModel)]="currency" class="glass-input w-full px-5 py-4 rounded-xl text-base appearance-none bg-white/50 focus:bg-white text-slate-800">
-                         @for (c of currenciesList; track c.value) {
-                            <option [value]="c.value">{{ getLocalizedLabel(c) }}</option>
-                        }
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="mt-auto pt-10 flex justify-end">
-                  <button 
-                    (click)="nextStep()" 
-                    [disabled]="!tenantName"
-                    class="px-8 py-3 bg-slate-800 text-white rounded-xl font-medium shadow-lg hover:bg-slate-700 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-base"
-                  >
-                    {{ t().org.continue }} 
-                    <app-icon [name]="isRtl() ? 'arrow-left' : 'arrow-right'" [size]="18"></app-icon>
-                  </button>
-                </div>
-              </div>
-             }
-
-             <!-- Step 2: Branch Network Setup -->
-             @if (step() === 2) {
-               <div class="flex flex-col lg:flex-row h-full gap-8 animate-fade-in-right">
-                
-                <!-- Left: Form Input -->
-                <div class="flex-1 flex flex-col min-w-0 max-w-md">
-                   <div class="mb-6">
-                     <h2 class="text-2xl font-light text-slate-800 mb-1">{{ t().branch.title }}</h2>
-                     <p class="text-slate-500 text-sm">{{ t().branch.subtitle }}</p>
-                   </div>
-
-                   <!-- Toggle Single/Bulk for Branches -->
-                   <div class="flex gap-4 mb-4 border-b border-slate-200">
-                     <button (click)="branchBulkMode.set(false)" class="pb-2 text-sm font-medium transition-colors border-b-2" 
-                        [class]="!branchBulkMode() ? 'border-teal-500 text-teal-600' : 'border-transparent text-slate-500 hover:text-slate-700'">
-                        {{ t().branch.single }}
-                     </button>
-                     <button (click)="branchBulkMode.set(true)" class="pb-2 text-sm font-medium transition-colors border-b-2" 
-                        [class]="branchBulkMode() ? 'border-teal-500 text-teal-600' : 'border-transparent text-slate-500 hover:text-slate-700'">
-                        {{ t().branch.bulk }}
-                     </button>
-                   </div>
-
-                   <!-- Branch Form -->
-                   <div class="p-5 bg-white/60 rounded-2xl border border-white shadow-sm mb-6">
-                      @if (!branchBulkMode()) {
-                          <div class="space-y-4">
-                            <div>
-                              <label class="block text-xs font-medium text-slate-500 mb-1">{{ t().branch.name }}</label>
-                              <input type="text" [(ngModel)]="inputBranchName" [placeholder]="t().branch.namePH" 
-                                     (keydown.enter)="addLocalBranch()"
-                                     class="glass-input w-full px-4 py-3 rounded-xl text-sm bg-white text-slate-800">
-                            </div>
-                            <div>
-                              <label class="block text-xs font-medium text-slate-500 mb-1">{{ t().branch.loc }}</label>
-                              <div class="relative">
-                                <app-icon name="map-pin" [size]="16" class="absolute top-1/2 -translate-y-1/2 text-slate-400 ltr:left-3 rtl:right-3"></app-icon>
-                                <input type="text" [(ngModel)]="inputBranchLocation" [placeholder]="t().branch.locPH" 
-                                       list="cityList"
-                                       (keydown.enter)="addLocalBranch()"
-                                       (input)="validateCity()"
-                                       class="glass-input w-full py-3 rounded-xl text-sm bg-white ltr:pl-11 ltr:pr-4 rtl:pr-11 rtl:pl-4 text-slate-800">
-                                
-                                <datalist id="cityList">
-                                    @for (city of availableCities(); track city) {
-                                        <option [value]="city"></option>
-                                    }
-                                </datalist>
-                              </div>
-                              @if (cityError()) {
-                                  <div class="text-xs text-red-500 mt-1 flex items-center gap-1 animate-fade-in">
-                                      <app-icon name="alert-circle" [size]="12"></app-icon> {{ t().branch.invalidCity }}
-                                  </div>
-                              }
-                            </div>
-                            <button (click)="addLocalBranch()" [disabled]="!inputBranchName || cityError() || !inputBranchLocation" class="w-full py-3 bg-slate-800 text-white rounded-xl text-sm font-medium hover:bg-slate-700 transition-all disabled:opacity-50">
-                              {{ t().branch.add }}
-                            </button>
-                          </div>
-                      } @else {
-                          <!-- Branch Bulk Upload -->
-                          <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors relative group">
-                            <input type="file" (change)="handleBranchFile($event)" accept=".xlsx, .xls, .csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                            <app-icon name="upload-cloud" [size]="32" class="text-slate-400 mb-2 group-hover:text-teal-500 transition-colors"></app-icon>
-                            <p class="text-sm font-medium text-slate-700">{{ t().branch.bulkPH }}</p>
-                            <p class="text-xs text-slate-400 mt-1">{{ t().branch.bulkColumns }}</p>
-                            @if (fileProcessing()) {
-                                <div class="absolute inset-0 bg-white/80 flex items-center justify-center z-20">
-                                   <div class="flex items-center gap-2 text-teal-600 font-medium">
-                                      <div class="w-4 h-4 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
-                                      {{ t().branch.addBulk }}
-                                   </div>
-                                </div>
-                            }
-                         </div>
-                         <div class="mt-2 text-center">
-                            <button (click)="downloadBranchSample()" class="text-xs text-teal-600 hover:text-teal-700 hover:underline flex items-center gap-1 justify-center mx-auto">
-                              <app-icon name="download" [size]="14"></app-icon> {{ t().branch.downloadSample }}
-                            </button>
-                         </div>
-                      }
-                   </div>
-
-                   <!-- List of Added Branches -->
-                   <div class="flex-1 overflow-y-auto space-y-2 pr-1">
-                      @if (branchList().length === 0) {
-                        <div class="text-center py-6 border-2 border-dashed border-slate-200 rounded-xl">
-                          <p class="text-slate-400 text-sm">{{ t().branch.listEmpty }}</p>
-                        </div>
-                      }
-                      @for (branch of branchList(); track $index) {
-                        <div class="flex items-center justify-between p-3 bg-white/40 border border-white rounded-xl group hover:border-teal-200 transition-colors">
-                          <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center border border-blue-100 shrink-0">
-                              <span class="text-xs font-bold">{{ $index + 1 }}</span>
-                            </div>
-                            <div class="min-w-0">
-                              <div class="text-sm font-medium text-slate-800 truncate">{{ branch.name }}</div>
-                              <div class="text-xs text-slate-500 truncate">{{ branch.location }}</div>
-                            </div>
-                          </div>
-                          <button (click)="removeLocalBranch($index)" class="p-1.5 text-slate-300 hover:text-red-500 transition-colors">
-                            <app-icon name="trash-2" [size]="16"></app-icon>
-                          </button>
-                        </div>
-                      }
-                   </div>
-
-                   <div class="mt-4 pt-4 border-t border-slate-200 flex justify-between">
-                     <button (click)="step.set(1)" class="text-slate-500 hover:text-slate-800 font-medium text-sm">{{ t().branch.back }}</button>
-                     <button 
-                        (click)="nextStep()" 
-                        [disabled]="branchList().length === 0"
-                        class="px-6 py-2.5 bg-teal-500 text-white rounded-xl font-medium shadow-lg hover:bg-teal-600 transition-all disabled:opacity-50 text-sm flex items-center gap-2"
-                      >
-                        {{ t().branch.next }} <app-icon [name]="isRtl() ? 'arrow-left' : 'arrow-right'" [size]="16"></app-icon>
-                      </button>
-                   </div>
-                </div>
-
-                <!-- Right: Visualizer (Tree) -->
-                <div class="flex-1 hidden lg:flex flex-col gap-4">
-                  <div class="flex-1 glass-panel rounded-2xl p-4 relative shadow-inner">
-                     <app-branch-network 
-                        [tenantName]="tenantName" 
-                        [branches]="branchList()" 
-                        [teamMembers]="teamMembers()"
-                        [isRtl]="isRtl()"
-                        [translations]="t().graph"
-                     ></app-branch-network>
-                  </div>
-                </div>
-               </div>
-             }
-
-             <!-- Step 3: Team Setup (Excel Import) -->
-             @if (step() === 3) {
-               <div class="flex flex-col h-full animate-fade-in-right max-w-4xl mx-auto relative">
-                <div class="mb-6">
-                  <h2 class="text-3xl font-light text-slate-800 mb-2">{{ t().team.title }}</h2>
-                  <p class="text-slate-500 text-lg font-light mb-3">{{ t().team.subtitle }}</p>
-                  
-                  <!-- Info Card -->
-                  <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
-                    <app-icon name="info" [size]="20" class="text-blue-500 shrink-0 mt-0.5"></app-icon>
-                    <div class="text-sm text-blue-700">
-                      <p class="font-medium mb-1">{{ language() === 'en' ? 'Team members are optional' : 'أعضاء الفريق اختياريون' }}</p>
-                      <p class="text-blue-600">{{ language() === 'en' ? 'You can add team members now or skip and add them later from the dashboard.' : 'يمكنك إضافة أعضاء الفريق الآن أو التخطي وإضافتهم لاحقًا من لوحة التحكم.' }}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="flex-1 flex flex-col min-h-0">
-                   <!-- Toggle Single/Bulk -->
-                   <div class="flex gap-4 mb-4 border-b border-slate-200">
-                     <button (click)="bulkMode.set(false)" class="pb-2 text-sm font-medium transition-colors border-b-2" 
-                        [class]="!bulkMode() ? 'border-teal-500 text-teal-600' : 'border-transparent text-slate-500 hover:text-slate-700'">
-                        {{ t().team.single }}
-                     </button>
-                     <button (click)="bulkMode.set(true)" class="pb-2 text-sm font-medium transition-colors border-b-2" 
-                        [class]="bulkMode() ? 'border-teal-500 text-teal-600' : 'border-transparent text-slate-500 hover:text-slate-700'">
-                        {{ t().team.bulk }}
-                     </button>
-                   </div>
-
-                   <!-- Add User Form -->
-                   <div class="bg-gradient-to-br from-white to-slate-50 p-6 rounded-2xl border border-slate-200 shadow-sm mb-6 shrink-0">
-                      @if (!bulkMode()) {
-                        <!-- Single Mode -->
-                        <div class="space-y-4">
-                          <!-- Role Selection First -->
-                          <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">{{ t().team.role }}</label>
-                            <div class="flex gap-3">
-                              <label class="flex-1 flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer transition-all" 
-                                [class.border-teal-500]="newMemberRole === 'branch_admin'"
-                                [class.bg-teal-50]="newMemberRole === 'branch_admin'"
-                                [class.border-slate-200]="newMemberRole !== 'branch_admin'"
-                                [class.hover:border-slate-300]="newMemberRole !== 'branch_admin'">
-                                <input type="radio" name="role" [(ngModel)]="newMemberRole" value="branch_admin" class="text-teal-500">
-                                <div class="flex-1">
-                                  <div class="font-medium text-slate-800 text-sm">{{ t().team.roles.branch_admin }}</div>
-                                  <div class="text-xs text-slate-500">{{ language() === 'en' ? 'Full branch management' : 'إدارة كاملة للفرع' }}</div>
-                                </div>
-                              </label>
-                              <label class="flex-1 flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer transition-all"
-                                [class.border-teal-500]="newMemberRole === 'section_admin'"
-                                [class.bg-teal-50]="newMemberRole === 'section_admin'"
-                                [class.border-slate-200]="newMemberRole !== 'section_admin'"
-                                [class.hover:border-slate-300]="newMemberRole !== 'section_admin'">
-                                <input type="radio" name="role" [(ngModel)]="newMemberRole" value="section_admin" class="text-teal-500">
-                                <div class="flex-1">
-                                  <div class="font-medium text-slate-800 text-sm">{{ t().team.roles.section_admin }}</div>
-                                  <div class="text-xs text-slate-500">{{ language() === 'en' ? 'Staff & operations' : 'الموظفين والعمليات' }}</div>
-                                </div>
-                              </label>
-                            </div>
-                          </div>
-                          
-                          <!-- Member Details -->
-                          <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                            <div class="md:col-span-4">
-                              <label class="block text-sm font-medium text-slate-700 mb-2">{{ t().team.name }} <span class="text-red-500">*</span></label>
-                              <input type="text" [(ngModel)]="newMemberName" [placeholder]="t().team.namePH" class="glass-input w-full px-4 py-3 rounded-xl text-sm bg-white text-slate-800 border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-100">
-                            </div>
-                            <div class="md:col-span-5">
-                              <label class="block text-sm font-medium text-slate-700 mb-2">{{ t().team.email }} <span class="text-red-500">*</span></label>
-                              <input type="email" [(ngModel)]="newMemberEmail" [placeholder]="t().team.emailPH" class="glass-input w-full px-4 py-3 rounded-xl text-sm bg-white text-slate-800 border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-100">
-                            </div>
-                            <div class="md:col-span-3">
-                              <label class="block text-sm font-medium text-slate-700 mb-2">{{ t().team.branch }}</label>
-                              <select [(ngModel)]="newMemberBranchIndex" class="glass-input w-full px-4 py-3 rounded-xl text-sm bg-white text-slate-800 border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 appearance-none">
-                                @for (b of branchList(); track $index) {
-                                  <option [value]="$index">{{ b.name }}</option>
-                                }
-                              </select>
-                            </div>
-                          </div>
-                          
-                          <!-- Add Button -->
-                          <div class="flex justify-end pt-2">
-                            <button (click)="addTeamMember()" 
-                              [disabled]="!newMemberName || !newMemberEmail" 
-                              class="px-6 py-3 bg-teal-500 text-white rounded-xl shadow-lg shadow-teal-500/30 hover:bg-teal-600 disabled:opacity-50 disabled:shadow-none transition-all font-medium text-sm flex items-center gap-2">
-                              <app-icon name="user-plus" [size]="18"></app-icon>
-                              {{ t().team.add }}
-                            </button>
-                          </div>
-                        </div>
-                      } @else {
-                        <!-- Bulk Mode (Excel) -->
-                         <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors relative group">
-                            <input type="file" (change)="handleFile($event)" accept=".xlsx, .xls, .csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                            <app-icon name="upload-cloud" [size]="32" class="text-slate-400 mb-2 group-hover:text-teal-500 transition-colors"></app-icon>
-                            <p class="text-sm font-medium text-slate-700">{{ t().team.bulkPH }}</p>
-                            <p class="text-xs text-slate-400 mt-1">{{ t().team.bulkColumns }}</p>
-                            @if (fileProcessing()) {
-                                <div class="absolute inset-0 bg-white/80 flex items-center justify-center z-20">
-                                   <div class="flex items-center gap-2 text-teal-600 font-medium">
-                                      <div class="w-4 h-4 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
-                                      {{ t().team.addBulk }}
-                                   </div>
-                                </div>
-                            }
-                         </div>
-                         <div class="mt-2 text-center">
-                            <button (click)="downloadSample()" class="text-xs text-teal-600 hover:text-teal-700 hover:underline flex items-center gap-1 justify-center mx-auto">
-                              <app-icon name="download" [size]="14"></app-icon> {{ t().team.downloadSample }}
-                            </button>
-                         </div>
-                      }
-                   </div>
-
-                   <!-- List -->
-                   <div class="flex-1 overflow-y-auto pr-2 space-y-2 min-h-0">
-                     @if (teamMembers().length === 0) {
-                        <div class="text-center py-10 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400">
-                          <app-icon name="users" [size]="32" class="mx-auto mb-2 opacity-50"></app-icon>
-                          <p>{{ t().team.listEmpty }}</p>
-                        </div>
-                     }
-                     @for (member of teamMembers(); track $index) {
-                       <div class="flex items-center justify-between p-3 bg-white/40 rounded-xl border border-white/50">
-                          <div class="flex items-center gap-3">
-                             <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs uppercase">
-                               {{ member.name.charAt(0) }}
-                             </div>
-                             <div>
-                               <div class="text-sm font-medium text-slate-800">{{ member.name }}</div>
-                               <div class="text-xs text-slate-500">{{ member.email }} â€¢ {{ t().team.roles[member.role === 'branch_admin' ? 'branch_admin' : 'section_admin'] }}</div>
-                             </div>
-                          </div>
-                          <div class="flex items-center gap-3">
-                            <span class="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{{ getBranchNameLocal(member.branchIndex) }}</span>
-                            <button (click)="removeTeamMember($index)" class="text-slate-400 hover:text-red-500 transition-colors">
-                              <app-icon name="x" [size]="16"></app-icon>
-                            </button>
-                          </div>
-                       </div>
-                     }
-                   </div>
-                </div>
-
-                <div class="mt-auto pt-6 flex justify-between items-center border-t border-slate-200/50">
-                   <button 
-                    (click)="step.set(2)" 
-                    class="px-6 py-3 text-slate-500 hover:text-slate-800 transition-colors font-medium flex items-center gap-2"
-                  >
-                    <app-icon [name]="isRtl() ? 'arrow-right' : 'arrow-left'" [size]="18"></app-icon> {{ t().branch.back }}
-                  </button>
-                  <div class="flex gap-4">
-                    <button (click)="handleSkip()" class="px-6 py-3 text-slate-500 hover:text-teal-600 font-medium text-sm">
-                      {{ t().team.skip }}
-                    </button>
-                    <button 
-                      (click)="startProvisioning()" 
-                      class="px-8 py-3 bg-teal-500 text-white rounded-xl font-medium shadow-lg shadow-teal-500/30 hover:bg-teal-600 transition-all flex items-center gap-2 text-base"
-                    >
-                      {{ t().team.finish }} <app-icon name="check" [size]="18"></app-icon>
-                    </button>
-                  </div>
-                </div>
-               </div>
-             }
-
-             <!-- Step 4: Provisioning -->
-             @if (step() === 4) {
-               <div class="flex flex-col h-full items-center justify-center animate-fade-in-right text-center px-4">
-                  @if (!provisioningComplete()) {
-                      <!-- Spinner -->
-                      <div class="mb-10 relative">
-                        <div class="w-32 h-32 rounded-full border-8 border-slate-100 border-t-teal-500 border-r-emerald-400 animate-spin"></div>
-                        <div class="absolute inset-0 flex items-center justify-center">
-                          <div class="w-20 h-20 rounded-full bg-gradient-to-br from-teal-50 to-emerald-50 flex items-center justify-center">
-                            <app-icon name="zap" [size]="36" class="text-teal-500 animate-pulse"></app-icon>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <h2 class="text-4xl font-light text-slate-800 mb-3 animate-pulse">{{ t().prov.title }}</h2>
-                      <p class="text-slate-400 mb-10 text-sm">{{ language() === 'en' ? 'This will only take a moment...' : 'هذا سيستغرق لحظة فقط...' }}</p>
-                      
-                      <!-- Progress Steps -->
-                      <div class="flex flex-col gap-4 text-base text-slate-600 w-full max-w-md">
-                        <div class="flex items-center gap-4 p-4 rounded-xl transition-all duration-500" 
-                          [class.bg-emerald-50]="provisionStep() > 0"
-                          [class.border-2]="provisionStep() > 0"
-                          [class.border-emerald-200]="provisionStep() > 0"
-                          [class.bg-slate-50]="provisionStep() === 0"
-                          [class.opacity-50]="provisionStep() < 0">
-                          <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-300"
-                            [class.bg-emerald-500]="provisionStep() > 0"
-                            [class.bg-teal-100]="provisionStep() === 0"
-                            [class.bg-slate-200]="provisionStep() < 0">
-                            @if (provisionStep() > 0) {
-                              <app-icon name="check" [size]="20" class="text-white"></app-icon>
-                            } @else {
-                              <div class="w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
-                            }
-                          </div>
-                          <div class="text-left flex-1">
-                            <div class="font-medium" [class.text-emerald-700]="provisionStep() > 0" [class.text-slate-700]="provisionStep() <= 0">{{ t().prov.step1 }}</div>
-                          </div>
-                        </div>
-                        
-                        <div class="flex items-center gap-4 p-4 rounded-xl transition-all duration-500" 
-                          [class.bg-emerald-50]="provisionStep() > 1"
-                          [class.border-2]="provisionStep() > 1"
-                          [class.border-emerald-200]="provisionStep() > 1"
-                          [class.bg-slate-50]="provisionStep() === 1"
-                          [class.opacity-50]="provisionStep() < 1">
-                          <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-300"
-                            [class.bg-emerald-500]="provisionStep() > 1"
-                            [class.bg-teal-100]="provisionStep() === 1"
-                            [class.bg-slate-200]="provisionStep() < 1">
-                            @if (provisionStep() > 1) {
-                              <app-icon name="check" [size]="20" class="text-white"></app-icon>
-                            } @else if (provisionStep() === 1) {
-                              <div class="w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
-                            }
-                          </div>
-                          <div class="text-left flex-1">
-                            <div class="font-medium" [class.text-emerald-700]="provisionStep() > 1" [class.text-slate-700]="provisionStep() <= 1">{{ t().prov.step2.replace('{0}', '' + branchList().length) }}</div>
-                          </div>
-                        </div>
-                        
-                        <div class="flex items-center gap-4 p-4 rounded-xl transition-all duration-500" 
-                          [class.bg-emerald-50]="provisionStep() > 2"
-                          [class.border-2]="provisionStep() > 2"
-                          [class.border-emerald-200]="provisionStep() > 2"
-                          [class.bg-slate-50]="provisionStep() === 2"
-                          [class.opacity-50]="provisionStep() < 2">
-                          <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-300"
-                            [class.bg-emerald-500]="provisionStep() > 2"
-                            [class.bg-teal-100]="provisionStep() === 2"
-                            [class.bg-slate-200]="provisionStep() < 2">
-                            @if (provisionStep() > 2) {
-                              <app-icon name="check" [size]="20" class="text-white"></app-icon>
-                            } @else if (provisionStep() === 2) {
-                              <div class="w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
-                            }
-                          </div>
-                          <div class="text-left flex-1">
-                            <div class="font-medium" [class.text-emerald-700]="provisionStep() > 2" [class.text-slate-700]="provisionStep() <= 2">{{ t().prov.step3.replace('{0}', '' + teamMembers().length) }}</div>
-                          </div>
-                        </div>
-                        
-                        <div class="flex items-center gap-4 p-4 rounded-xl transition-all duration-500" 
-                          [class.bg-emerald-50]="provisionStep() > 3"
-                          [class.border-2]="provisionStep() > 3"
-                          [class.border-emerald-200]="provisionStep() > 3"
-                          [class.bg-slate-50]="provisionStep() === 3"
-                          [class.opacity-50]="provisionStep() < 3">
-                          <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-300"
-                            [class.bg-emerald-500]="provisionStep() > 3"
-                            [class.bg-teal-100]="provisionStep() === 3"
-                            [class.bg-slate-200]="provisionStep() < 3">
-                            @if (provisionStep() > 3) {
-                              <app-icon name="check" [size]="20" class="text-white"></app-icon>
-                            } @else if (provisionStep() === 3) {
-                              <div class="w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
-                            }
-                          </div>
-                          <div class="text-left flex-1">
-                            <div class="font-medium" [class.text-emerald-700]="provisionStep() > 3" [class.text-slate-700]="provisionStep() <= 3">{{ t().prov.step4 }}</div>
-                          </div>
-                        </div>
-                      </div>
-                  } @else {
-                      <!-- Success State -->
-                      <div class="mb-8 relative animate-bounce-in">
-                        <div class="w-32 h-32 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-2xl shadow-emerald-500/50">
-                          <app-icon name="check" [size]="64" class="text-white"></app-icon>
-                        </div>
-                        <!-- Confetti circles -->
-                        <div class="absolute -top-4 -left-4 w-6 h-6 rounded-full bg-yellow-400 animate-ping"></div>
-                        <div class="absolute -top-2 -right-6 w-4 h-4 rounded-full bg-pink-400 animate-ping" style="animation-delay: 0.2s"></div>
-                        <div class="absolute -bottom-4 -right-2 w-5 h-5 rounded-full bg-blue-400 animate-ping" style="animation-delay: 0.4s"></div>
-                        <div class="absolute -bottom-2 -left-6 w-4 h-4 rounded-full bg-purple-400 animate-ping" style="animation-delay: 0.1s"></div>
-                      </div>
-                      
-                      <h2 class="text-5xl font-light text-slate-800 mb-4 animate-fade-in">{{ t().prov.doneTitle }}</h2>
-                      <p class="text-slate-500 mb-12 font-light max-w-lg text-lg animate-fade-in" style="animation-delay: 0.2s">{{ t().prov.doneDesc }}</p>
-                      
-                      <button 
-                        (click)="finish()" 
-                        class="px-14 py-4 bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-600 text-white rounded-xl font-semibold shadow-2xl shadow-teal-500/40 hover:shadow-emerald-500/50 hover:scale-105 transition-all flex items-center gap-3 text-lg animate-fade-in group"
-                        style="animation-delay: 0.4s"
-                      >
-                        {{ t().prov.button }} 
-                        <app-icon [name]="isRtl() ? 'arrow-left' : 'arrow-right'" [size]="22" class="group-hover:translate-x-1 transition-transform"></app-icon>
-                      </button>
-                  }
-               </div>
-             }
-           </div>
+        <div class="step-footer">
+          <button (click)="step.set(1)" class="back-btn">← {{ t().branch.back }}</button>
+          <button (click)="nextStep()" [disabled]="branchList().length === 0" class="primary-btn">
+            {{ t().branch.next }}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+            </svg>
+          </button>
         </div>
-        
-        <!-- Skip Confirmation Modal -->
-        @if (showSkipConfirmation()) {
-          <div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/20 backdrop-blur-sm animate-fade-in">
-            <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-slate-100 mx-4">
-              <div class="flex flex-col items-center text-center gap-4">
-                <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-500 flex items-center justify-center">
-                  <app-icon name="alert-circle" [size]="24"></app-icon>
-                </div>
-                <div>
-                  <h3 class="text-lg font-semibold text-slate-800">{{ t().team.skipWarningTitle }}</h3>
-                  <p class="text-sm text-slate-500 mt-2">{{ t().team.skipWarningText }}</p>
-                </div>
-                <div class="flex gap-3 w-full mt-2">
-                  <button (click)="cancelSkip()" class="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 font-medium text-sm">
-                    {{ t().team.noStay }}
-                  </button>
-                  <button (click)="confirmSkip()" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 shadow-lg shadow-red-500/30 font-medium text-sm">
-                    {{ t().team.yesProceed }}
-                  </button>
-                </div>
+      </div>
+    }
+
+    <!-- Step 3: Team -->
+    @if (step() === 3) {
+      <div class="step-content">
+        <div class="step-header">
+          <h1>{{ t().team.title }}</h1>
+          <p>{{ t().team.subtitle }}</p>
+        </div>
+
+        <div class="hint-box">
+          {{ language() === 'en' ? 'Optional — you can add team members later from settings.' : 'اختياري — يمكنك إضافة أعضاء الفريق لاحقًا من الإعدادات.' }}
+        </div>
+
+        <div class="tabs">
+          <button (click)="bulkMode.set(false)" [class.active]="!bulkMode()">{{ t().team.single }}</button>
+          <button (click)="bulkMode.set(true)" [class.active]="bulkMode()">{{ t().team.bulk }}</button>
+        </div>
+
+        <div class="form-stack">
+          @if (!bulkMode()) {
+            <div class="field">
+              <label>{{ t().team.role }}</label>
+              <div class="radio-row">
+                <label class="radio" [class.selected]="newMemberRole === 'branch_admin'">
+                  <input type="radio" name="role" [(ngModel)]="newMemberRole" value="branch_admin">
+                  <span class="radio-check"></span>
+                  {{ t().team.roles.branch_admin }}
+                </label>
+                <label class="radio" [class.selected]="newMemberRole === 'section_admin'">
+                  <input type="radio" name="role" [(ngModel)]="newMemberRole" value="section_admin">
+                  <span class="radio-check"></span>
+                  {{ t().team.roles.section_admin }}
+                </label>
               </div>
             </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label>{{ t().team.name }}</label>
+                <input type="text" [(ngModel)]="newMemberName" [placeholder]="t().team.namePH">
+              </div>
+              <div class="field">
+                <label>{{ t().team.email }}</label>
+                <input type="email" [(ngModel)]="newMemberEmail" [placeholder]="t().team.emailPH">
+              </div>
+            </div>
+
+            <div class="field">
+              <label>{{ t().team.branch }}</label>
+              <select [(ngModel)]="newMemberBranchIndex">
+                @for (b of branchList(); track $index) {
+                  <option [value]="$index">{{ b.name }}</option>
+                }
+              </select>
+            </div>
+
+            <button (click)="addTeamMember()" [disabled]="!newMemberName || !newMemberEmail" class="secondary-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="8.5" cy="7" r="4"/>
+                <line x1="20" y1="8" x2="20" y2="14"/>
+                <line x1="23" y1="11" x2="17" y2="11"/>
+              </svg>
+              {{ t().team.add }}
+            </button>
+          } @else {
+            <div class="dropzone">
+              <input type="file" (change)="handleFile($event)" accept=".xlsx, .xls, .csv">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <span>{{ t().team.bulkPH }}</span>
+              <span class="hint">{{ t().team.bulkColumns }}</span>
+            </div>
+            <button (click)="downloadSample()" class="link-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              {{ t().team.downloadSample }}
+            </button>
+          }
+
+          <!-- Team List with Large List Optimization -->
+          @if (teamMembers().length > 0) {
+            <div class="list-section">
+              <div class="list-header">
+                <span><strong>{{ teamMembers().length }}</strong> {{ teamMembers().length === 1 ? 'member' : 'members' }} added</span>
+                @if (hasManyTeamMembers()) {
+                  <button class="list-toggle" (click)="showTeamList.set(!showTeamList())">
+                    {{ showTeamList() ? 'Hide list' : 'Show list' }}
+                  </button>
+                }
+              </div>
+              
+              @if (showTeamList()) {
+                <div class="item-list" [class.large]="hasManyTeamMembers()">
+                  @for (member of teamDisplayList(); track $index) {
+                    <div class="item">
+                      <span class="item-avatar">{{ member.name.charAt(0) }}</span>
+                      <div class="item-content">
+                        <span class="item-name">{{ member.name }}</span>
+                        <span class="item-meta">{{ member.email }} · {{ getBranchNameLocal(member.branchIndex) }}</span>
+                      </div>
+                      <button (click)="removeTeamMember($index)" class="remove-btn">×</button>
+                    </div>
+                  }
+                  @if (teamMembers().length > 5 && showTeamList()) {
+                    <div class="list-more">
+                      +{{ teamMembers().length - 5 }} more members
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div class="list-summary">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                  <strong>{{ teamMembers().length }}</strong> team members ready
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="empty">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              {{ t().team.listEmpty }}
+            </div>
+          }
+        </div>
+
+        <div class="step-footer">
+          <button (click)="step.set(2)" class="back-btn">← {{ t().branch.back }}</button>
+          <div class="footer-actions">
+            <button (click)="handleSkip()" class="skip-btn">{{ t().team.skip }}</button>
+            <button (click)="startProvisioning()" class="primary-btn">
+              {{ t().team.finish }}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </button>
           </div>
+        </div>
+      </div>
+    }
+
+    <!-- Step 4: Provisioning -->
+    @if (step() === 4) {
+      <div class="step-content center">
+        @if (provisioningError()) {
+          <!-- Error State -->
+          <div class="error-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="15" y1="9" x2="9" y2="15"/>
+              <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+          </div>
+          <h1 class="error-title">{{ provisioningError() }}</h1>
+          <p class="muted">{{ language() === 'en' ? 'Something went wrong during setup' : 'حدث خطأ أثناء الإعداد' }}</p>
+          
+          @if (errorDetails()) {
+            <div class="error-details">{{ errorDetails() }}</div>
+          }
+          
+          <div class="error-actions">
+            <button (click)="retryProvisioning()" class="retry-btn" [disabled]="isRetrying()">
+              @if (isRetrying()) {
+                <span class="spinner" style="width: 16px; height: 16px; border-width: 2px; margin: 0;"></span>
+                {{ language() === 'en' ? 'Retrying...' : 'جارٍ المحاولة...' }}
+              } @else {
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="23 4 23 10 17 10"/>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                </svg>
+                {{ language() === 'en' ? 'Try Again' : 'حاول مجددًا' }}
+              }
+            </button>
+          </div>
+          <button (click)="goBackFromError()" class="back-link">
+            {{ language() === 'en' ? '← Go back and edit' : '← العودة والتعديل' }}
+          </button>
+        } @else if (!provisioningComplete()) {
+          <!-- Progress State -->
+          <div class="spinner"></div>
+          <h1>{{ t().prov.title }}</h1>
+          <p class="muted">{{ language() === 'en' ? 'Setting up your workspace...' : 'جارٍ إعداد مساحة العمل الخاصة بك...' }}</p>
+          
+          <div class="checklist">
+            @for (item of [{s: 1, l: t().prov.step1}, {s: 2, l: t().prov.step2.replace('{0}', '' + branchList().length)}, {s: 3, l: t().prov.step3.replace('{0}', '' + teamMembers().length)}, {s: 4, l: t().prov.step4}]; track item.s) {
+              <div class="check-item" [class.done]="provisionStep() > item.s" [class.current]="provisionStep() === item.s">
+                <span class="check-icon">
+                  @if (provisionStep() > item.s) { ✓ } @else if (provisionStep() === item.s) { ○ }
+                </span>
+                {{ item.l }}
+              </div>
+            }
+          </div>
+          
+          @if (branchList().length > 100) {
+            <p class="progress-info">
+              {{ language() === 'en' ? 'Processing ' + branchList().length + ' branches may take a moment...' : 'قد تستغرق معالجة ' + branchList().length + ' فرع بعض الوقت...' }}
+            </p>
+          }
+        } @else {
+          <!-- Success State -->
+          <div class="success-icon">✓</div>
+          <h1>{{ t().prov.doneTitle }}</h1>
+          <p>{{ t().prov.doneDesc }}</p>
+          <button (click)="finish()" class="primary-btn large">
+            {{ t().prov.button }}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+            </svg>
+          </button>
         }
       </div>
+    }
+  </main>
+
+  <!-- Skip Modal -->
+  @if (showSkipConfirmation()) {
+    <div class="modal-backdrop" (click)="cancelSkip()">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <h3>{{ t().team.skipWarningTitle }}</h3>
+        <p>{{ t().team.skipWarningText }}</p>
+        <div class="modal-actions">
+          <button (click)="cancelSkip()" class="modal-btn">{{ t().team.noStay }}</button>
+          <button (click)="confirmSkip()" class="modal-btn danger">{{ t().team.yesProceed }}</button>
+        </div>
+      </div>
     </div>
+  }
+</div>

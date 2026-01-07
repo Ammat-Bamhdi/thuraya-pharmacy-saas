@@ -6,8 +6,8 @@
 
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, forkJoin, of } from 'rxjs';
-import { map, tap, catchError, switchMap } from 'rxjs/operators';
+import { Observable, forkJoin, of, from } from 'rxjs';
+import { map, tap, catchError, switchMap, concatMap, reduce } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { StoreService, Role } from './store.service';
 
@@ -134,15 +134,72 @@ export class OnboardingService {
   }
 
   /**
-   * Create multiple branches at once
+   * Create multiple branches using bulk endpoint with batching
+   * Handles large lists (500+) efficiently
    */
   createBranches(branches: { name: string; location: string }[]): Observable<BranchDto[]> {
     if (branches.length === 0) {
       return of([]);
     }
 
-    const requests = branches.map(b => this.createBranch(b));
-    return forkJoin(requests);
+    // Convert to API request format
+    const items: CreateBranchRequest[] = branches.map(b => ({
+      name: b.name,
+      code: this.generateBranchCode(b.name),
+      location: b.location,
+      isOfflineEnabled: true,
+      licenseCount: 1
+    }));
+
+    // For large lists, split into batches and process sequentially
+    const BATCH_SIZE = 200;
+    if (items.length <= BATCH_SIZE) {
+      // Small list - single bulk request
+      return this.bulkCreateBranches(items);
+    }
+
+    // Large list - split into batches and process sequentially
+    const batches: CreateBranchRequest[][] = [];
+    for (let i = 0; i < items.length; i += BATCH_SIZE) {
+      batches.push(items.slice(i, i + BATCH_SIZE));
+    }
+
+    // Process batches sequentially to avoid overwhelming the server
+    return from(batches).pipe(
+      concatMap(batch => this.bulkCreateBranches(batch)),
+      reduce((acc: BranchDto[], batch: BranchDto[]) => [...acc, ...batch], [])
+    );
+  }
+
+  /**
+   * Bulk create branches via single API call
+   */
+  private bulkCreateBranches(items: CreateBranchRequest[]): Observable<BranchDto[]> {
+    return this.http.post<ApiResponse<BranchDto[]>>(`${this.apiUrl}/branches/bulk`, { items }).pipe(
+      map(response => {
+        if (!response.success || !response.data) {
+          throw new Error(response.message || 'Failed to create branches');
+        }
+        return response.data;
+      }),
+      tap(branches => {
+        // Add all to local store
+        branches.forEach(branch => {
+          this.store.addBranchFromApi({
+            id: branch.id,
+            name: branch.name,
+            code: branch.code,
+            location: branch.location,
+            isOfflineEnabled: branch.isOfflineEnabled,
+            licenseCount: branch.licenseCount
+          });
+        });
+      }),
+      catchError(error => {
+        console.error('Bulk branch creation failed:', error);
+        throw error;
+      })
+    );
   }
 
   /**

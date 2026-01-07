@@ -48,44 +48,48 @@ public class AuthService : IAuthService
             throw new ArgumentException("Email already exists");
         }
 
-        using var transaction = await _db.Database.BeginTransactionAsync(ct);
-        try
+        var strategy = _db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            var tenant = new Tenant
+            using var transaction = await _db.Database.BeginTransactionAsync(ct);
+            try
             {
-                Name = request.TenantName,
-                Country = request.Country,
-                Currency = request.Currency,
-                CreatedAt = DateTime.UtcNow
-            };
+                var tenant = new Tenant
+                {
+                    Name = request.TenantName,
+                    Country = request.Country,
+                    Currency = request.Currency,
+                    CreatedAt = DateTime.UtcNow
+                };
 
-            _db.Tenants.Add(tenant);
-            await _db.SaveChangesAsync(ct);
+                _db.Tenants.Add(tenant);
+                await _db.SaveChangesAsync(ct);
 
-            var user = new User
+                var user = new User
+                {
+                    Name = request.Name,
+                    Email = normalizedEmail,
+                    PasswordHash = _passwordService.HashPassword(request.Password),
+                    Role = UserRole.SuperAdmin,
+                    TenantId = tenant.Id,
+                    Status = UserStatus.Active,
+                    CreatedAt = DateTime.UtcNow,
+                    EmailVerified = false
+                };
+
+                _db.Users.Add(user);
+                await _db.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
+
+                return await GenerateAuthResponseAsync(user, tenant.Id, ct);
+            }
+            catch (Exception ex)
             {
-                Name = request.Name,
-                Email = normalizedEmail,
-                PasswordHash = _passwordService.HashPassword(request.Password),
-                Role = UserRole.SuperAdmin,
-                TenantId = tenant.Id,
-                Status = UserStatus.Active,
-                CreatedAt = DateTime.UtcNow,
-                EmailVerified = false
-            };
-
-            _db.Users.Add(user);
-            await _db.SaveChangesAsync(ct);
-            await transaction.CommitAsync(ct);
-
-            return await GenerateAuthResponseAsync(user, tenant.Id, ct);
-        }
-        catch (Exception ex)
-        {
-            await transaction.RollbackAsync(ct);
-            _logger.LogError(ex, "Error during registration for {Email}", request.Email);
-            throw;
-        }
+                await transaction.RollbackAsync(ct);
+                _logger.LogError(ex, "Error during registration for {Email}", request.Email);
+                throw;
+            }
+        });
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct)
@@ -240,58 +244,57 @@ public class AuthService : IAuthService
 
     private async Task<GoogleAuthResponse> HandleNewGoogleUserAsync(GoogleUserInfo userInfo, string? tenantName, string? country, string? currency, CancellationToken ct)
     {
-        if (string.IsNullOrEmpty(tenantName))
-        {
-            // If tenant details are missing, return isNewUser: true without creating anything yet
-            // This allows the frontend to show the onboarding flow
-            return new GoogleAuthResponse(
-                string.Empty, // No access token yet
-                string.Empty, // No refresh token yet
-                DateTime.MinValue,
-                new UserDto(Guid.Empty, userInfo.Name ?? userInfo.Email, userInfo.Email, UserRole.SuperAdmin, null, null, UserStatus.Active, userInfo.Picture),
-                true,
-                null);
-        }
+        // Always create tenant and user for new Google users
+        // Use defaults if tenant details not provided - onboarding will update them
+        var actualTenantName = string.IsNullOrEmpty(tenantName) 
+            ? $"{userInfo.Name ?? "My"}'s Organization" 
+            : tenantName;
+        var actualCountry = string.IsNullOrEmpty(country) ? "Unknown" : country;
+        var actualCurrency = string.IsNullOrEmpty(currency) ? "USD" : currency;
 
-        using var transaction = await _db.Database.BeginTransactionAsync(ct);
-        try
+        var strategy = _db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            var tenant = new Tenant
+            using var transaction = await _db.Database.BeginTransactionAsync(ct);
+            try
             {
-                Name = tenantName,
-                Country = country ?? "Unknown",
-                Currency = currency ?? "USD",
-                CreatedAt = DateTime.UtcNow
-            };
+                var tenant = new Tenant
+                {
+                    Name = actualTenantName,
+                    Country = actualCountry,
+                    Currency = actualCurrency,
+                    CreatedAt = DateTime.UtcNow
+                };
 
-            _db.Tenants.Add(tenant);
-            await _db.SaveChangesAsync(ct);
+                _db.Tenants.Add(tenant);
+                await _db.SaveChangesAsync(ct);
 
-            var user = new User
+                var user = new User
+                {
+                    Name = userInfo.Name ?? userInfo.Email,
+                    Email = userInfo.Email,
+                    GoogleId = userInfo.Subject,
+                    EmailVerified = true,
+                    Avatar = userInfo.Picture,
+                    Role = UserRole.SuperAdmin,
+                    TenantId = tenant.Id,
+                    Status = UserStatus.Active,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _db.Users.Add(user);
+                await _db.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
+
+                var auth = await GenerateAuthResponseAsync(user, tenant.Id, ct);
+                return new GoogleAuthResponse(auth.AccessToken, auth.RefreshToken, auth.ExpiresAt, auth.User, true, tenant.ToDto());
+            }
+            catch (Exception ex)
             {
-                Name = userInfo.Name ?? userInfo.Email,
-                Email = userInfo.Email,
-                GoogleId = userInfo.Subject,
-                EmailVerified = true,
-                Avatar = userInfo.Picture,
-                Role = UserRole.SuperAdmin,
-                TenantId = tenant.Id,
-                Status = UserStatus.Active,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _db.Users.Add(user);
-            await _db.SaveChangesAsync(ct);
-            await transaction.CommitAsync(ct);
-
-            var auth = await GenerateAuthResponseAsync(user, tenant.Id, ct);
-            return new GoogleAuthResponse(auth.AccessToken, auth.RefreshToken, auth.ExpiresAt, auth.User, true, tenant.ToDto());
-        }
-        catch (Exception ex)
-        {
-            await transaction.RollbackAsync(ct);
-            _logger.LogError(ex, "Error during Google registration for {Email}", userInfo.Email);
-            throw;
-        }
+                await transaction.RollbackAsync(ct);
+                _logger.LogError(ex, "Error during Google registration for {Email}", userInfo.Email);
+                throw;
+            }
+        });
     }
 }

@@ -102,7 +102,14 @@ public class ApplicationDbContext : DbContext
             }
         }
         
-        // Configure relationships
+        // Disable cascade delete globally to avoid SQL Server multiple cascade path issues
+        foreach (var relationship in modelBuilder.Model.GetEntityTypes()
+            .SelectMany(e => e.GetForeignKeys()))
+        {
+            relationship.DeleteBehavior = DeleteBehavior.Restrict;
+        }
+        
+        // Configure relationships (can override Restrict where appropriate)
         ConfigureTenant(modelBuilder);
         ConfigureBranch(modelBuilder);
         ConfigureUser(modelBuilder);
@@ -208,10 +215,11 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.BatchNumber).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Cost).HasPrecision(18, 2);
             
+            // Use Restrict to avoid multiple cascade paths (Tenant->Product->Batch vs Tenant->Batch)
             entity.HasOne(e => e.Product)
                 .WithMany(p => p.Batches)
                 .HasForeignKey(e => e.ProductId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 

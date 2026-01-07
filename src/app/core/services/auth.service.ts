@@ -453,7 +453,11 @@ export class AuthService {
     // Rule 2: Must have at least one branch
     if (branches.length === 0) return false;
 
-    // Rule 3: User must be assigned to a branch (as branch manager)
+    // Rule 3: SuperAdmin can access without branch assignment
+    // Other roles must be assigned to a branch
+    if (user?.role === 'super_admin') return true;
+    
+    // Non-SuperAdmin users must be assigned to a branch
     if (!user?.branchId) return false;
 
     return true;

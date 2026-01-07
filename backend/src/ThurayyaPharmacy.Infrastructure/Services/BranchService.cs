@@ -120,29 +120,113 @@ public class BranchService : IBranchService
         return true;
     }
 
+    /// <summary>
+    /// Bulk create branches with production-grade optimizations:
+    /// - Transaction wrapping for atomicity
+    /// - Batch processing (100 per batch)
+    /// - Single query for duplicate detection
+    /// - Input validation
+    /// - Logging for audit trail
+    /// </summary>
     public async Task<List<BranchDto>> BulkCreateAsync(IEnumerable<CreateBranchRequest> requests, CancellationToken ct)
     {
-        var branches = new List<Branch>();
-        foreach (var request in requests)
+        var requestList = requests.ToList();
+        
+        // Validate input
+        if (requestList.Count == 0) 
+            return new List<BranchDto>();
+        
+        // Production limit: prevent abuse (configurable via appsettings in real scenario)
+        const int maxBulkSize = 5000;
+        if (requestList.Count > maxBulkSize)
         {
-            if (await _db.Branches.AnyAsync(b => b.Code == request.Code, ct))
-                continue; // Skip duplicates for bulk
-
-            branches.Add(new Branch
-            {
-                Name = request.Name,
-                Code = request.Code,
-                Location = request.Location,
-                IsOfflineEnabled = request.IsOfflineEnabled,
-                LicenseCount = request.LicenseCount,
-                ManagerId = request.ManagerId,
-                CreatedAt = DateTime.UtcNow
-            });
+            throw new ArgumentException($"Bulk operation limited to {maxBulkSize} items. Received: {requestList.Count}");
         }
 
-        _db.Branches.AddRange(branches);
-        await _db.SaveChangesAsync(ct);
+        _logger.LogInformation("Starting bulk branch creation: {Count} branches", requestList.Count);
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-        return branches.Select(b => b.ToDto()).ToList();
+        const int batchSize = 100;
+        var allCreatedBranches = new List<Branch>();
+
+        // Get all existing codes in ONE query instead of N queries
+        var newCodes = requestList.Select(r => r.Code).Distinct().ToList();
+        var existingCodes = await _db.Branches
+            .IgnoreQueryFilters() // Check across all tenants to prevent code collision
+            .Where(b => newCodes.Contains(b.Code))
+            .Select(b => b.Code)
+            .ToListAsync(ct);
+        var existingCodesSet = new HashSet<string>(existingCodes, StringComparer.OrdinalIgnoreCase);
+
+        // Use execution strategy for SQL Server retrying + transaction for atomicity
+        var strategy = _db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            using var transaction = await _db.Database.BeginTransactionAsync(ct);
+            try
+            {
+                // Process in batches
+                for (int i = 0; i < requestList.Count; i += batchSize)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    
+                    var batch = requestList.Skip(i).Take(batchSize);
+                    var branches = new List<Branch>();
+                    
+                    foreach (var request in batch)
+                    {
+                        // Validate required fields
+                        if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Code))
+                        {
+                            _logger.LogWarning("Skipping invalid branch: Name or Code is empty");
+                            continue;
+                        }
+                        
+                        // Skip if code already exists
+                        if (existingCodesSet.Contains(request.Code))
+                        {
+                            _logger.LogDebug("Skipping duplicate branch code: {Code}", request.Code);
+                            continue;
+                        }
+                        
+                        // Add to set to prevent duplicates within this bulk operation
+                        existingCodesSet.Add(request.Code);
+
+                        branches.Add(new Branch
+                        {
+                            Name = request.Name.Trim(),
+                            Code = request.Code.Trim().ToUpperInvariant(),
+                            Location = request.Location?.Trim() ?? "",
+                            IsOfflineEnabled = request.IsOfflineEnabled,
+                            LicenseCount = Math.Max(1, request.LicenseCount),
+                            ManagerId = request.ManagerId,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+
+                    if (branches.Count > 0)
+                    {
+                        _db.Branches.AddRange(branches);
+                        await _db.SaveChangesAsync(ct);
+                        allCreatedBranches.AddRange(branches);
+                    }
+                }
+
+                await transaction.CommitAsync(ct);
+                
+                stopwatch.Stop();
+                _logger.LogInformation(
+                    "Bulk branch creation completed: {Created}/{Total} branches in {ElapsedMs}ms",
+                    allCreatedBranches.Count, requestList.Count, stopwatch.ElapsedMilliseconds);
+
+                return allCreatedBranches.Select(b => b.ToDto()).ToList();
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync(ct);
+                _logger.LogError(ex, "Bulk branch creation failed. Rolling back {Count} branches", allCreatedBranches.Count);
+                throw;
+            }
+        });
     }
 }
