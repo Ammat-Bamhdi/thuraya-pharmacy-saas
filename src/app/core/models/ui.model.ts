@@ -6,7 +6,8 @@
 export type ViewState = 
   | 'auth'
   | 'onboarding' 
-  | 'dashboard' 
+  | 'dashboard'
+  | 'manager-assignment' // Post-onboarding: assign managers to branches
   | 'inventory' 
   // Procurement Sub-views
   | 'procurement-orders' 

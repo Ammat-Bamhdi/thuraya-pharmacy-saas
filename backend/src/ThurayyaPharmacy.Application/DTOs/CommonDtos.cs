@@ -1,5 +1,67 @@
 namespace ThurayyaPharmacy.Application.DTOs;
 
+// =============================================================================
+// SETUP STATUS DTOs
+// =============================================================================
+
+/// <summary>
+/// Represents the overall setup completion status for the tenant.
+/// Used by the dashboard to show setup progress and guide users.
+/// </summary>
+/// <param name="TotalBranches">Total number of branches in the system</param>
+/// <param name="BranchesWithManagers">Branches that have a manager assigned</param>
+/// <param name="BranchesWithoutManagers">Branches pending manager assignment</param>
+/// <param name="CompletionPercentage">0-100 percentage of branches with managers</param>
+/// <param name="IsSetupComplete">True if all branches have managers (or none exist)</param>
+/// <param name="RequiresAttention">True if >10% of branches lack managers</param>
+public record SetupStatusDto(
+    int TotalBranches,
+    int BranchesWithManagers,
+    int BranchesWithoutManagers,
+    int CompletionPercentage,
+    bool IsSetupComplete,
+    bool RequiresAttention
+);
+
+/// <summary>
+/// Request to assign a manager to multiple branches at once.
+/// Enables bulk operations for efficient onboarding workflows.
+/// </summary>
+/// <param name="BranchIds">List of branch IDs to assign the manager to</param>
+/// <param name="ManagerId">The user ID of the manager to assign</param>
+public record BulkAssignManagerRequest(
+    List<Guid> BranchIds,
+    Guid ManagerId
+);
+
+/// <summary>
+/// Response from bulk manager assignment operation.
+/// </summary>
+/// <param name="SuccessCount">Number of branches successfully updated</param>
+/// <param name="FailedCount">Number of branches that failed to update</param>
+/// <param name="Errors">List of error messages for failed operations</param>
+public record BulkAssignManagerResponse(
+    int SuccessCount,
+    int FailedCount,
+    List<string> Errors
+);
+
+/// <summary>
+/// Lightweight DTO for manager selection dropdowns.
+/// Contains only essential fields for UI performance.
+/// </summary>
+public record ManagerOptionDto(
+    Guid Id,
+    string Name,
+    string Email,
+    string Role,
+    int AssignedBranchCount
+);
+
+// =============================================================================
+// TENANT DTOs
+// =============================================================================
+
 public record TenantDto(
     Guid Id,
     string Name,

@@ -4,10 +4,21 @@ using ThurayyaPharmacy.Application.DTOs;
 using ThurayyaPharmacy.Application.Interfaces;
 using ThurayyaPharmacy.Application.Mappings;
 using ThurayyaPharmacy.Domain.Entities;
+using ThurayyaPharmacy.Domain.Enums;
 using ThurayyaPharmacy.Infrastructure.Data;
 
 namespace ThurayyaPharmacy.Infrastructure.Services;
 
+/// <summary>
+/// Production-grade branch management service.
+/// Handles CRUD operations, bulk operations, and setup status tracking.
+/// 
+/// Architecture Notes:
+/// - All queries respect multi-tenant isolation via global query filters
+/// - Bulk operations use transactions for atomicity
+/// - Batch processing prevents memory issues with large datasets
+/// - Comprehensive logging for audit trails
+/// </summary>
 public class BranchService : IBranchService
 {
     private readonly ApplicationDbContext _db;
@@ -225,6 +236,216 @@ public class BranchService : IBranchService
             {
                 await transaction.RollbackAsync(ct);
                 _logger.LogError(ex, "Bulk branch creation failed. Rolling back {Count} branches", allCreatedBranches.Count);
+                throw;
+            }
+        });
+    }
+
+    // =========================================================================
+    // SETUP STATUS OPERATIONS
+    // =========================================================================
+
+    /// <summary>
+    /// Gets the current setup status for the tenant.
+    /// 
+    /// Business Rules:
+    /// - Setup is complete when all branches have managers OR no branches exist
+    /// - Requires attention threshold: >10% branches without managers
+    /// - Percentage is 100 if no branches exist (nothing to configure)
+    /// </summary>
+    public async Task<SetupStatusDto> GetSetupStatusAsync(CancellationToken ct)
+    {
+        var totalBranches = await _db.Branches.CountAsync(ct);
+        var branchesWithManagers = await _db.Branches.CountAsync(b => b.ManagerId != null, ct);
+        var branchesWithoutManagers = totalBranches - branchesWithManagers;
+        
+        // Calculate completion percentage (100% if no branches)
+        var completionPercentage = totalBranches == 0 
+            ? 100 
+            : (int)Math.Round((double)branchesWithManagers / totalBranches * 100);
+        
+        // Setup is complete if all branches have managers
+        var isSetupComplete = branchesWithoutManagers == 0;
+        
+        // Requires attention if >10% branches lack managers
+        var requiresAttention = totalBranches > 0 && 
+            ((double)branchesWithoutManagers / totalBranches) > 0.10;
+
+        _logger.LogDebug(
+            "Setup status: {Total} branches, {WithManagers} with managers, {WithoutManagers} without",
+            totalBranches, branchesWithManagers, branchesWithoutManagers);
+
+        return new SetupStatusDto(
+            totalBranches,
+            branchesWithManagers,
+            branchesWithoutManagers,
+            completionPercentage,
+            isSetupComplete,
+            requiresAttention
+        );
+    }
+
+    /// <summary>
+    /// Gets branches without managers with pagination.
+    /// 
+    /// Use Cases:
+    /// - Dashboard setup card showing pending assignments
+    /// - Manager assignment page list view
+    /// - Bulk selection for manager assignment
+    /// </summary>
+    public async Task<PaginatedResponse<BranchDto>> GetBranchesWithoutManagerAsync(
+        int page,
+        int pageSize,
+        string? search,
+        CancellationToken ct)
+    {
+        var query = _db.Branches
+            .Include(b => b.Manager)
+            .Where(b => b.ManagerId == null);
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchLower = search.ToLower();
+            query = query.Where(b => 
+                b.Name.ToLower().Contains(searchLower) || 
+                b.Code.ToLower().Contains(searchLower) ||
+                b.Location.ToLower().Contains(searchLower));
+        }
+
+        // Order by name for consistent results
+        query = query.OrderBy(b => b.Name);
+
+        var totalCount = await query.CountAsync(ct);
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(b => b.ToDto())
+            .ToListAsync(ct);
+
+        return PaginatedResponse<BranchDto>.Create(items, totalCount, page, pageSize);
+    }
+
+    /// <summary>
+    /// Gets users who can be assigned as branch managers.
+    /// 
+    /// Business Rules:
+    /// - Only SuperAdmin and BranchAdmin roles can be managers
+    /// - Returns count of branches already assigned to each user
+    /// - Ordered by name for consistent dropdown experience
+    /// </summary>
+    public async Task<List<ManagerOptionDto>> GetAvailableManagersAsync(CancellationToken ct)
+    {
+        // Get users with manager-eligible roles
+        var eligibleRoles = new[] { UserRole.SuperAdmin, UserRole.BranchAdmin };
+        
+        var managers = await _db.Users
+            .Where(u => eligibleRoles.Contains(u.Role) && u.Status != UserStatus.Suspended)
+            .Select(u => new
+            {
+                u.Id,
+                u.Name,
+                u.Email,
+                Role = u.Role.ToString(),
+                // Count branches this user manages
+                AssignedBranchCount = _db.Branches.Count(b => b.ManagerId == u.Id)
+            })
+            .OrderBy(u => u.Name)
+            .ToListAsync(ct);
+
+        return managers.Select(m => new ManagerOptionDto(
+            m.Id,
+            m.Name,
+            m.Email,
+            m.Role,
+            m.AssignedBranchCount
+        )).ToList();
+    }
+
+    /// <summary>
+    /// Bulk assigns a manager to multiple branches.
+    /// 
+    /// Production Considerations:
+    /// - Validates manager exists and has appropriate role
+    /// - Uses transaction for atomicity
+    /// - Batch updates for performance
+    /// - Detailed error reporting for partial failures
+    /// - Audit logging for compliance
+    /// </summary>
+    public async Task<BulkAssignManagerResponse> BulkAssignManagerAsync(
+        BulkAssignManagerRequest request, 
+        CancellationToken ct)
+    {
+        var errors = new List<string>();
+        var successCount = 0;
+
+        // Validate manager exists and has appropriate role
+        var manager = await _db.Users.FindAsync(new object[] { request.ManagerId }, ct);
+        if (manager == null)
+        {
+            return new BulkAssignManagerResponse(0, request.BranchIds.Count, 
+                new List<string> { "Manager not found" });
+        }
+
+        var eligibleRoles = new[] { UserRole.SuperAdmin, UserRole.BranchAdmin };
+        if (!eligibleRoles.Contains(manager.Role))
+        {
+            return new BulkAssignManagerResponse(0, request.BranchIds.Count,
+                new List<string> { $"User '{manager.Name}' is not eligible to be a branch manager. Required role: SuperAdmin or BranchAdmin" });
+        }
+
+        _logger.LogInformation(
+            "Starting bulk manager assignment: {BranchCount} branches to manager {ManagerName} ({ManagerId})",
+            request.BranchIds.Count, manager.Name, manager.Id);
+
+        // Use execution strategy for SQL Server retry compatibility
+        var strategy = _db.Database.CreateExecutionStrategy();
+        
+        return await strategy.ExecuteAsync(async () =>
+        {
+            using var transaction = await _db.Database.BeginTransactionAsync(ct);
+            
+            try
+            {
+                // Get all branches to update in one query
+                var branches = await _db.Branches
+                    .Where(b => request.BranchIds.Contains(b.Id))
+                    .ToListAsync(ct);
+
+                // Track which branch IDs were not found
+                var foundIds = branches.Select(b => b.Id).ToHashSet();
+                var notFoundIds = request.BranchIds.Where(id => !foundIds.Contains(id)).ToList();
+                
+                if (notFoundIds.Count > 0)
+                {
+                    errors.Add($"{notFoundIds.Count} branch(es) not found");
+                }
+
+                // Update all found branches
+                foreach (var branch in branches)
+                {
+                    branch.ManagerId = request.ManagerId;
+                    branch.ModifiedAt = DateTime.UtcNow;
+                    successCount++;
+                }
+
+                await _db.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
+
+                _logger.LogInformation(
+                    "Bulk manager assignment completed: {Success}/{Total} branches assigned to {ManagerName}",
+                    successCount, request.BranchIds.Count, manager.Name);
+
+                return new BulkAssignManagerResponse(
+                    successCount,
+                    request.BranchIds.Count - successCount,
+                    errors
+                );
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync(ct);
+                _logger.LogError(ex, "Bulk manager assignment failed");
                 throw;
             }
         });

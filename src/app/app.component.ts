@@ -25,6 +25,7 @@ import { SettingsComponent } from '@features/settings/settings.component';
 import { ProcurementComponent } from '@features/procurement/procurement.component';
 import { SalesComponent } from '@features/sales/sales.component';
 import { FinanceComponent } from '@features/finance/finance.component';
+import { ManagerAssignmentComponent } from '@features/manager-assignment/manager-assignment.component';
 
 @Component({
   selector: 'app-root',
@@ -42,7 +43,8 @@ import { FinanceComponent } from '@features/finance/finance.component';
     SettingsComponent,
     ProcurementComponent,
     SalesComponent,
-    FinanceComponent
+    FinanceComponent,
+    ManagerAssignmentComponent
   ],
   template: `
     <!-- Loading State while initializing auth -->
@@ -80,6 +82,9 @@ import { FinanceComponent } from '@features/finance/finance.component';
           @switch (store.currentView()) {
             @case ('dashboard') {
               <app-dashboard class="block h-full"></app-dashboard>
+            }
+            @case ('manager-assignment') {
+              <app-manager-assignment class="block h-full"></app-manager-assignment>
             }
             @case ('inventory') {
               <app-inventory class="block h-full"></app-inventory>
