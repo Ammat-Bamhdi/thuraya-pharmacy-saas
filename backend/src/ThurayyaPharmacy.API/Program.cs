@@ -4,6 +4,19 @@ using ThurayyaPharmacy.API.Middleware;
 var builder = WebApplication.CreateBuilder(args);
 
 // ============================================================================
+// SERVER CONFIGURATION (Production-ready settings)
+// ============================================================================
+builder.WebHost.ConfigureKestrel(options =>
+{
+    // Allow larger request bodies for bulk operations (10MB max)
+    options.Limits.MaxRequestBodySize = 10 * 1024 * 1024;
+    
+    // Increase timeouts for bulk operations
+    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
+    options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(30);
+});
+
+// ============================================================================
 // LOGGING
 // ============================================================================
 builder.Logging.ClearProviders();

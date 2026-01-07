@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using ThurayyaPharmacy.Application.DTOs;
 using ThurayyaPharmacy.Application.Interfaces;
 
@@ -134,9 +135,11 @@ public class BranchesController : BaseApiController
     }
 
     /// <summary>
-    /// Bulk create branches
+    /// Bulk create branches (rate limited: 5 requests per 5 minutes)
     /// </summary>
     [HttpPost("bulk")]
+    [EnableRateLimiting("bulk")]
+    [RequestSizeLimit(10 * 1024 * 1024)] // 10MB limit
     public async Task<ActionResult<ThurayyaPharmacy.Application.DTOs.ApiResponse<List<BranchDto>>>> BulkCreate([FromBody] BulkCreateBranchesRequest request, CancellationToken ct)
     {
         try
