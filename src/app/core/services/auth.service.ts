@@ -464,18 +464,30 @@ export class AuthService {
   }
 
   /**
-   * Complete onboarding for first-time users
+   * Complete onboarding for first-time users.
+   * After successful onboarding provisioning, always navigate to dashboard
+   * and load fresh data from the backend.
    */
   completeOnboarding(): void {
     localStorage.removeItem(FIRST_LOGIN_KEY);
     
-    // Verify dashboard access before navigating
-    if (this.canAccessDashboard()) {
-      this.loadDataAndNavigate('dashboard');
-    } else {
-      console.warn('[Auth] Cannot complete onboarding - requirements not met');
-      this.store.setView('onboarding');
-    }
+    // Debug: Log current state
+    const tenant = this.store.tenant();
+    const branches = this.store.branches();
+    const user = this.store.currentUser();
+    console.log('[Auth] completeOnboarding - State check:', {
+      hasTenant: !!tenant,
+      tenantName: tenant?.name,
+      branchCount: branches.length,
+      userRole: user?.role,
+      userBranchId: user?.branchId
+    });
+    
+    // After successful onboarding, always navigate to dashboard
+    // The loadDataAndNavigate will fetch fresh data from backend
+    // This ensures branches created during onboarding are properly loaded
+    console.log('[Auth] Onboarding complete, loading fresh data and navigating to dashboard...');
+    this.loadDataAndNavigate('dashboard');
   }
 
   /**
@@ -488,13 +500,29 @@ export class AuthService {
       return;
     }
 
-    // Check if user meets dashboard access requirements
-    if (this.canAccessDashboard()) {
-      this.loadDataAndNavigate('dashboard');
-    } else {
-      // User needs to complete onboarding (missing org/branch/assignment)
-      this.store.setView('onboarding');
-    }
+    // For returning users, load data first then check access requirements
+    // This ensures branches are loaded before canAccessDashboard() check
+    this.dataService.loadInitialData().subscribe({
+      next: () => {
+        // Now we have loaded branches - check access requirements
+        if (this.canAccessDashboard()) {
+          this.store.setView('dashboard');
+        } else {
+          // User completed registration but never created branches
+          console.log('[Auth] User has no branches, redirecting to onboarding');
+          this.store.setView('onboarding');
+        }
+      },
+      error: () => {
+        console.warn('[Auth] Failed to load data, checking local state');
+        // Fallback to local state check
+        if (this.canAccessDashboard()) {
+          this.store.setView('dashboard');
+        } else {
+          this.store.setView('onboarding');
+        }
+      }
+    });
   }
 
   /**
@@ -511,12 +539,25 @@ export class AuthService {
   goToDashboard(): void {
     localStorage.removeItem(FIRST_LOGIN_KEY);
     
-    if (this.canAccessDashboard()) {
-      this.loadDataAndNavigate('dashboard');
-    } else {
-      console.warn('[Auth] Cannot access dashboard - requirements not met');
-      this.store.setView('onboarding');
-    }
+    // Load data first, then check access requirements
+    this.dataService.loadInitialData().subscribe({
+      next: () => {
+        if (this.canAccessDashboard()) {
+          this.store.setView('dashboard');
+        } else {
+          console.warn('[Auth] Cannot access dashboard - requirements not met');
+          this.store.setView('onboarding');
+        }
+      },
+      error: () => {
+        // Fallback to local state check
+        if (this.canAccessDashboard()) {
+          this.store.setView('dashboard');
+        } else {
+          this.store.setView('onboarding');
+        }
+      }
+    });
   }
 
   /**

@@ -10,20 +10,19 @@ namespace ThurayyaPharmacy.API.Controllers;
 /// Controller for pharmacy branch management.
 /// 
 /// Endpoints:
-/// - GET  /api/branches              - List all branches (paginated)
-/// - GET  /api/branches/{id}         - Get single branch
-/// - POST /api/branches              - Create branch
-/// - PUT  /api/branches/{id}         - Update branch
-/// - DELETE /api/branches/{id}       - Delete branch
-/// - POST /api/branches/bulk         - Bulk create branches
-/// - GET  /api/branches/setup-status - Get setup completion status
-/// - GET  /api/branches/without-manager - Get branches needing managers
-/// - GET  /api/branches/available-managers - Get users eligible as managers
-/// - POST /api/branches/bulk-assign-manager - Assign manager to multiple branches
+/// - GET  /api/branches              - List all branches (paginated) [SuperAdmin]
+/// - GET  /api/branches/{id}         - Get single branch [SuperAdmin]
+/// - POST /api/branches              - Create branch [SuperAdmin]
+/// - PUT  /api/branches/{id}         - Update branch [SuperAdmin]
+/// - DELETE /api/branches/{id}       - Delete branch [SuperAdmin]
+/// - POST /api/branches/bulk         - Bulk create branches [SuperAdmin]
+/// - GET  /api/branches/setup-status - Get setup completion status [Authenticated]
+/// - GET  /api/branches/without-manager - Get branches needing managers [Authenticated]
+/// - GET  /api/branches/available-managers - Get users eligible as managers [Authenticated]
+/// - POST /api/branches/bulk-assign-manager - Assign manager to multiple branches [SuperAdmin]
 /// 
-/// Authorization: SuperAdmin role required for all endpoints
+/// Authorization: Method-level authorization - SuperAdmin for mutations, Authenticated for queries
 /// </summary>
-[Authorize(Roles = "SuperAdmin")]
 public class BranchesController : BaseApiController
 {
     private readonly IBranchService _branchService;
@@ -48,6 +47,7 @@ public class BranchesController : BaseApiController
     /// <param name="sortBy">Field to sort by (default: Name)</param>
     /// <param name="sortOrder">Sort direction: asc or desc</param>
     [HttpGet]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<ActionResult<ThurayyaPharmacy.Application.DTOs.ApiResponse<ThurayyaPharmacy.Application.DTOs.PaginatedResponse<BranchDto>>>> GetAll(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
@@ -72,6 +72,7 @@ public class BranchesController : BaseApiController
     /// Get branch by ID
     /// </summary>
     [HttpGet("{id:guid}")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<ActionResult<ThurayyaPharmacy.Application.DTOs.ApiResponse<BranchDto>>> GetById(Guid id, CancellationToken ct)
     {
         try
@@ -94,6 +95,7 @@ public class BranchesController : BaseApiController
     /// Create a new branch
     /// </summary>
     [HttpPost]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<ActionResult<ThurayyaPharmacy.Application.DTOs.ApiResponse<BranchDto>>> Create([FromBody] ThurayyaPharmacy.Application.DTOs.CreateBranchRequest request, CancellationToken ct)
     {
         try
@@ -116,6 +118,7 @@ public class BranchesController : BaseApiController
     /// Update an existing branch
     /// </summary>
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<ActionResult<ThurayyaPharmacy.Application.DTOs.ApiResponse<BranchDto>>> Update(Guid id, [FromBody] ThurayyaPharmacy.Application.DTOs.UpdateBranchRequest request, CancellationToken ct)
     {
         try
@@ -142,6 +145,7 @@ public class BranchesController : BaseApiController
     /// Soft delete a branch
     /// </summary>
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<ActionResult<ThurayyaPharmacy.Application.DTOs.ApiResponse<bool>>> Delete(Guid id, CancellationToken ct)
     {
         try
@@ -172,6 +176,7 @@ public class BranchesController : BaseApiController
     /// Duplicate codes are skipped automatically.
     /// </remarks>
     [HttpPost("bulk")]
+    [Authorize(Roles = "SuperAdmin")]
     [EnableRateLimiting("bulk")]
     [RequestSizeLimit(10 * 1024 * 1024)] // 10MB limit
     public async Task<ActionResult<ThurayyaPharmacy.Application.DTOs.ApiResponse<List<BranchDto>>>> BulkCreate([FromBody] BulkCreateBranchesRequest request, CancellationToken ct)
@@ -201,6 +206,7 @@ public class BranchesController : BaseApiController
     /// - Operation is atomic per transaction
     /// </remarks>
     [HttpPost("bulk-assign-manager")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<ActionResult<ApiResponse<BulkAssignManagerResponse>>> BulkAssignManager(
         [FromBody] BulkAssignManagerRequest request, 
         CancellationToken ct)
@@ -245,8 +251,11 @@ public class BranchesController : BaseApiController
     /// - Show setup progress card on dashboard
     /// - Determine if setup completion banner should be shown
     /// - Display completion percentage
+    /// 
+    /// Authorization: Any authenticated user can view setup status.
     /// </remarks>
     [HttpGet("setup-status")]
+    [Authorize]
     public async Task<ActionResult<ApiResponse<SetupStatusDto>>> GetSetupStatus(CancellationToken ct)
     {
         try
@@ -267,11 +276,14 @@ public class BranchesController : BaseApiController
     /// <remarks>
     /// Use this endpoint for the manager assignment page.
     /// Supports pagination and search for handling large datasets.
+    /// 
+    /// Authorization: Any authenticated user can view branches without managers.
     /// </remarks>
     /// <param name="page">Page number (1-based)</param>
     /// <param name="pageSize">Items per page (default: 50)</param>
     /// <param name="search">Search term for name, code, or location</param>
     [HttpGet("without-manager")]
+    [Authorize]
     public async Task<ActionResult<ApiResponse<PaginatedResponse<BranchDto>>>> GetBranchesWithoutManager(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
@@ -297,8 +309,11 @@ public class BranchesController : BaseApiController
     /// Returns lightweight DTOs optimized for dropdown selection.
     /// Only includes users with SuperAdmin or BranchAdmin role.
     /// Includes count of branches each user already manages.
+    /// 
+    /// Authorization: Any authenticated user can view available managers.
     /// </remarks>
     [HttpGet("available-managers")]
+    [Authorize]
     public async Task<ActionResult<ApiResponse<List<ManagerOptionDto>>>> GetAvailableManagers(CancellationToken ct)
     {
         try

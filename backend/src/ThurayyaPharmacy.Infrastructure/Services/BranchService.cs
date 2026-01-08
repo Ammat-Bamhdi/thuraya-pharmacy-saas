@@ -255,8 +255,9 @@ public class BranchService : IBranchService
     /// </summary>
     public async Task<SetupStatusDto> GetSetupStatusAsync(CancellationToken ct)
     {
-        var totalBranches = await _db.Branches.CountAsync(ct);
-        var branchesWithManagers = await _db.Branches.CountAsync(b => b.ManagerId != null, ct);
+        // Use AsNoTracking to ensure we get fresh data from database, not cached entities
+        var totalBranches = await _db.Branches.AsNoTracking().CountAsync(ct);
+        var branchesWithManagers = await _db.Branches.AsNoTracking().CountAsync(b => b.ManagerId != null, ct);
         var branchesWithoutManagers = totalBranches - branchesWithManagers;
         
         // Calculate completion percentage (100% if no branches)
@@ -299,7 +300,9 @@ public class BranchService : IBranchService
         string? search,
         CancellationToken ct)
     {
+        // Use AsNoTracking to ensure we get fresh data from database
         var query = _db.Branches
+            .AsNoTracking()
             .Include(b => b.Manager)
             .Where(b => b.ManagerId == null);
 
@@ -407,30 +410,42 @@ public class BranchService : IBranchService
             
             try
             {
-                // Get all branches to update in one query
-                var branches = await _db.Branches
+                // Use ExecuteUpdateAsync for reliable, set-based update
+                _logger.LogInformation(
+                    "Starting ExecuteUpdate for {RequestedCount} branches -> manager {ManagerId}",
+                    request.BranchIds.Count, request.ManagerId);
+
+                var updatedCount = await _db.Branches
                     .Where(b => request.BranchIds.Contains(b.Id))
-                    .ToListAsync(ct);
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(b => b.ManagerId, _ => request.ManagerId)
+                        .SetProperty(b => b.ModifiedAt, _ => DateTime.UtcNow), ct);
 
-                // Track which branch IDs were not found
-                var foundIds = branches.Select(b => b.Id).ToHashSet();
-                var notFoundIds = request.BranchIds.Where(id => !foundIds.Contains(id)).ToList();
-                
-                if (notFoundIds.Count > 0)
-                {
-                    errors.Add($"{notFoundIds.Count} branch(es) not found");
-                }
-
-                // Update all found branches
-                foreach (var branch in branches)
-                {
-                    branch.ManagerId = request.ManagerId;
-                    branch.ModifiedAt = DateTime.UtcNow;
-                    successCount++;
-                }
-
-                await _db.SaveChangesAsync(ct);
                 await transaction.CommitAsync(ct);
+                _logger.LogInformation("Transaction committed. Rows affected: {UpdatedCount}", updatedCount);
+
+                // Clear change tracker to ensure subsequent queries get fresh data from database
+                _db.ChangeTracker.Clear();
+
+                // Verify the save by querying the database
+                var verifyCount = await _db.Branches
+                    .AsNoTracking()
+                    .CountAsync(b => request.BranchIds.Contains(b.Id) && b.ManagerId == request.ManagerId, ct);
+
+                var notUpdated = request.BranchIds.Count - verifyCount;
+                if (verifyCount == 0)
+                {
+                    _logger.LogWarning("No branches were updated. Requested IDs: {Ids}", string.Join(", ", request.BranchIds));
+                    errors.Add("No branches were updated. Please verify branch IDs and tenant.");
+                }
+                else if (notUpdated > 0)
+                {
+                    _logger.LogWarning("{NotUpdated} branches were not updated. Requested: {Total}, Updated: {Updated}",
+                        notUpdated, request.BranchIds.Count, verifyCount);
+                    errors.Add($"{notUpdated} branch(es) were not updated.");
+                }
+
+                successCount = verifyCount;
 
                 _logger.LogInformation(
                     "Bulk manager assignment completed: {Success}/{Total} branches assigned to {ManagerName}",

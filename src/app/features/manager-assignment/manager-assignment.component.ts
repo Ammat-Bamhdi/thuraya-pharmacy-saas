@@ -53,14 +53,14 @@ interface SelectableBranch extends BranchForAssignment {
   imports: [CommonModule, FormsModule, IconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="h-full flex flex-col gap-6 animate-fade-in overflow-hidden">
+    <div class="h-full flex flex-col gap-4 animate-fade-in overflow-hidden bg-slate-50 p-2 md:p-4 rounded-xl">
       
       <!-- Header -->
-      <header class="shrink-0">
-        <div class="flex items-center gap-3 mb-2">
+      <header class="shrink-0 flex flex-col gap-2">
+        <div class="flex items-center gap-3">
           <button 
             (click)="goBack()"
-            class="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+            class="p-2 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors shadow-sm"
             aria-label="Go back to dashboard"
           >
             <app-icon name="arrow-left" [size]="20" class="text-slate-600"></app-icon>
@@ -70,154 +70,159 @@ interface SelectableBranch extends BranchForAssignment {
               Assign Branch Managers
             </h1>
             <p class="text-sm text-slate-500 mt-0.5">
-              Assign managers to branches to complete your setup
+              Pick a manager for each branch and track completion in real time.
             </p>
           </div>
         </div>
       </header>
 
-      <!-- Status Card -->
+      <!-- Status / Overview -->
       @if (setupStatus(); as status) {
-        <div class="shrink-0 bg-white border border-slate-200 rounded-xl p-4">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-4">
-              <div class="flex items-center gap-2">
+        <section class="shrink-0 grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col gap-3">
+            <div class="flex items-center gap-2">
+              <div 
+                class="w-3 h-3 rounded-full"
+                [class.bg-emerald-500]="status.isSetupComplete"
+                [class.bg-amber-500]="!status.isSetupComplete"
+              ></div>
+              <span class="text-sm font-medium text-slate-700">
+                {{ status.branchesWithManagers }} of {{ status.totalBranches }} branches assigned
+              </span>
+            </div>
+            <div class="flex items-center gap-3">
+              <div class="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden relative">
                 <div 
-                  class="w-3 h-3 rounded-full"
-                  [class.bg-emerald-500]="status.isSetupComplete"
-                  [class.bg-amber-500]="!status.isSetupComplete"
-                ></div>
-                <span class="text-sm font-medium text-slate-700">
-                  {{ status.branchesWithManagers }} of {{ status.totalBranches }} branches assigned
-                </span>
-              </div>
-              
-              <!-- Progress Bar -->
-              <div class="w-32 h-2 bg-slate-200 rounded-full overflow-hidden">
-                <div 
-                  class="h-full transition-all duration-500"
+                  class="h-full transition-all duration-700 ease-out relative"
                   [class.bg-emerald-500]="status.completionPercentage === 100"
                   [class.bg-teal-500]="status.completionPercentage < 100"
                   [style.width.%]="status.completionPercentage"
-                ></div>
+                >
+                  <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+                </div>
               </div>
-              <span class="text-sm font-bold"
+              <span class="text-sm font-bold min-w-[3rem] text-right"
                 [class.text-emerald-600]="status.completionPercentage === 100"
                 [class.text-teal-600]="status.completionPercentage < 100"
               >
                 {{ status.completionPercentage }}%
               </span>
             </div>
-
             @if (status.isSetupComplete) {
-              <span class="text-sm font-medium text-emerald-600 flex items-center gap-1">
+              <div class="inline-flex items-center gap-2 text-sm font-medium text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-100">
                 <app-icon name="check" [size]="16"></app-icon>
                 All branches assigned!
-              </span>
+              </div>
+            } @else {
+              <div class="text-xs text-slate-500">
+                Pending: {{ status.branchesWithoutManagers }} branch(es)
+              </div>
             }
           </div>
-        </div>
+
+          <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col gap-3 lg:col-span-2">
+            <div class="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
+              <div class="flex flex-wrap gap-2 items-center">
+                <span class="text-sm font-semibold text-slate-700">Filters</span>
+                <div class="relative w-full sm:w-72">
+                  <app-icon 
+                    name="search" 
+                    [size]="18" 
+                    class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  ></app-icon>
+                  <input 
+                    type="text"
+                    [ngModel]="searchTerm()"
+                    (ngModelChange)="onSearchChange($event)"
+                    placeholder="Search branches..."
+                    class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
+                  />
+                </div>
+              </div>
+
+              <div class="flex flex-wrap gap-2 items-center">
+                <div class="text-sm text-slate-500">
+                  Showing {{ (currentPage() - 1) * pageSize() + 1 }} - {{ Math.min(currentPage() * pageSize(), totalCount()) }} of {{ totalCount() }}
+                </div>
+                <div class="flex items-center gap-1">
+                  <button 
+                    (click)="previousPage()"
+                    [disabled]="currentPage() === 1"
+                    class="p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <app-icon name="chevron-left" [size]="18"></app-icon>
+                  </button>
+                  <span class="text-sm font-medium text-slate-700 px-2">
+                    Page {{ currentPage() }} / {{ totalPages() }}
+                  </span>
+                  <button 
+                    (click)="nextPage()"
+                    [disabled]="currentPage() === totalPages()"
+                    class="p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <app-icon name="chevron-right" [size]="18"></app-icon>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2 items-center bg-teal-50 border border-teal-100 rounded-lg px-3 py-2">
+              <span class="text-sm font-medium text-teal-700">Bulk assign</span>
+              <select 
+                [ngModel]="bulkManagerId()"
+                (ngModelChange)="bulkManagerId.set($event)"
+                class="px-3 py-1.5 border border-teal-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option value="">Select manager...</option>
+                @for (manager of managers(); track manager.id) {
+                  <option [value]="manager.id">
+                    {{ manager.name }} ({{ manager.assignedBranchCount }} branches)
+                  </option>
+                }
+              </select>
+              <button 
+                (click)="assignBulk()"
+                [disabled]="!bulkManagerId() || selectedCount() === 0 || isAssigning()"
+                class="px-4 py-1.5 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              >
+                @if (isAssigning()) {
+                  <app-icon name="loader" [size]="16" class="animate-spin"></app-icon>
+                }
+                Assign selected ({{ selectedCount() }})
+              </button>
+              <button 
+                (click)="clearSelection()"
+                class="p-2 text-teal-700 hover:bg-teal-100 rounded-lg transition-colors text-sm"
+                aria-label="Clear selection"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </section>
       }
 
-      <!-- Search & Bulk Actions Bar -->
-      <div class="shrink-0 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        <!-- Search -->
-        <div class="relative w-full sm:w-72">
-          <app-icon 
-            name="search" 
-            [size]="18" 
-            class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-          ></app-icon>
-          <input 
-            type="text"
-            [ngModel]="searchTerm()"
-            (ngModelChange)="onSearchChange($event)"
-            placeholder="Search branches..."
-            class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-          />
-        </div>
-
-        <!-- Bulk Actions -->
-        @if (selectedCount() > 0) {
-          <div class="flex items-center gap-3 bg-teal-50 px-4 py-2 rounded-lg border border-teal-200">
-            <span class="text-sm font-medium text-teal-700">
-              {{ selectedCount() }} selected
-            </span>
-            
-            <!-- Bulk Manager Dropdown -->
-            <select 
-              [ngModel]="bulkManagerId()"
-              (ngModelChange)="bulkManagerId.set($event)"
-              class="px-3 py-1.5 border border-teal-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-            >
-              <option value="">Select manager...</option>
-              @for (manager of managers(); track manager.id) {
-                <option [value]="manager.id">
-                  {{ manager.name }} ({{ manager.assignedBranchCount }} branches)
-                </option>
-              }
-            </select>
-
-            <button 
-              (click)="assignBulk()"
-              [disabled]="!bulkManagerId() || isAssigning()"
-              class="px-4 py-1.5 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-            >
-              @if (isAssigning()) {
-                <app-icon name="loader" [size]="16" class="animate-spin"></app-icon>
-              }
-              Assign Selected
-            </button>
-
-            <button 
-              (click)="clearSelection()"
-              class="p-1.5 text-teal-600 hover:bg-teal-100 rounded-lg transition-colors"
-              aria-label="Clear selection"
-            >
-              <app-icon name="x" [size]="16"></app-icon>
-            </button>
-          </div>
-        }
-      </div>
-
       <!-- Branch List -->
-      <div class="flex-1 bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col">
-        
-        <!-- Table Header -->
-        <div class="shrink-0 grid grid-cols-12 gap-4 px-4 py-3 bg-slate-50 border-b border-slate-200 text-sm font-medium text-slate-600">
-          <div class="col-span-1 flex items-center">
-            <input 
-              type="checkbox"
-              [checked]="isAllSelected()"
-              [indeterminate]="isPartiallySelected()"
-              (change)="toggleSelectAll()"
-              class="w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
-            />
-          </div>
-          <div class="col-span-3">Branch Name</div>
-          <div class="col-span-2">Code</div>
-          <div class="col-span-3">Location</div>
-          <div class="col-span-3">Assign Manager</div>
-        </div>
+      <section class="flex-1 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
 
-        <!-- Loading State -->
+        <!-- Loading -->
         @if (isLoading()) {
           <div class="flex-1 flex items-center justify-center p-8">
-            <div class="flex flex-col items-center gap-3">
+            <div class="flex flex-col items-center gap-3 text-slate-500">
               <app-icon name="loader" [size]="32" class="text-teal-600 animate-spin"></app-icon>
-              <p class="text-sm text-slate-500">Loading branches...</p>
+              <p class="text-sm">Loading branches...</p>
             </div>
           </div>
         }
 
-        <!-- Empty State -->
+        <!-- Empty -->
         @else if (branches().length === 0) {
           <div class="flex-1 flex items-center justify-center p-8">
             <div class="text-center max-w-sm">
               <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-100 flex items-center justify-center">
                 <app-icon name="check" [size]="32" class="text-emerald-600"></app-icon>
               </div>
-              <h3 class="text-lg font-semibold text-slate-800 mb-2">All Caught Up!</h3>
+              <h3 class="text-lg font-semibold text-slate-800 mb-2">All caught up!</h3>
               <p class="text-sm text-slate-500">
                 @if (searchTerm()) {
                   No branches found matching "{{ searchTerm() }}".
@@ -237,16 +242,17 @@ interface SelectableBranch extends BranchForAssignment {
           </div>
         }
 
-        <!-- Branch Rows -->
+        <!-- List -->
         @else {
-          <div class="flex-1 overflow-y-auto">
+          <div class="flex-1 overflow-y-auto divide-y divide-slate-100">
             @for (branch of branches(); track branch.id) {
               <div 
-                class="grid grid-cols-12 gap-4 px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors items-center"
+                class="flex flex-col md:grid md:grid-cols-12 gap-3 px-4 py-3 transition-all duration-300 hover:bg-slate-50"
                 [class.bg-teal-50]="branch.selected"
+                [class.opacity-60]="assigningBranchId() === branch.id"
               >
                 <!-- Checkbox -->
-                <div class="col-span-1">
+                <div class="md:col-span-1 flex items-start pt-1">
                   <input 
                     type="checkbox"
                     [checked]="branch.selected"
@@ -255,27 +261,22 @@ interface SelectableBranch extends BranchForAssignment {
                   />
                 </div>
 
-                <!-- Name -->
-                <div class="col-span-3">
-                  <span class="font-medium text-slate-800">{{ branch.name }}</span>
+                <!-- Branch info -->
+                <div class="md:col-span-5 flex flex-col gap-1">
+                  <div class="flex items-center gap-2">
+                    <span class="font-semibold text-slate-800">{{ branch.name }}</span>
+                    <span class="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{{ branch.code }}</span>
+                  </div>
+                  <div class="text-sm text-slate-500">{{ branch.location || '—' }}</div>
                 </div>
 
-                <!-- Code -->
-                <div class="col-span-2">
-                  <span class="text-sm text-slate-600 font-mono">{{ branch.code }}</span>
-                </div>
-
-                <!-- Location -->
-                <div class="col-span-3">
-                  <span class="text-sm text-slate-600">{{ branch.location || '—' }}</span>
-                </div>
-
-                <!-- Manager Dropdown -->
-                <div class="col-span-3 flex items-center gap-2">
+                <!-- Manager assignment -->
+                <div class="md:col-span-6 flex flex-col md:flex-row md:items-center gap-2">
                   <select 
                     [ngModel]="branch.selectedManagerId"
                     (ngModelChange)="onManagerSelect(branch, $event)"
-                    class="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    [disabled]="assigningBranchId() === branch.id"
+                    class="flex-1 px-3 py-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
                     <option value="">Select manager...</option>
                     @for (manager of managers(); track manager.id) {
@@ -283,67 +284,78 @@ interface SelectableBranch extends BranchForAssignment {
                     }
                   </select>
 
-                  @if (branch.selectedManagerId) {
-                    <button 
-                      (click)="assignSingle(branch)"
-                      [disabled]="isAssigning()"
-                      class="p-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-colors"
-                      title="Assign manager"
-                    >
-                      <app-icon name="check" [size]="16"></app-icon>
-                    </button>
-                  }
+                  <div class="flex items-center gap-2">
+                    @if (assigningBranchId() === branch.id) {
+                      <div class="px-3 py-2 bg-teal-100 rounded-lg flex items-center justify-center min-w-[36px]">
+                        <app-icon name="loader" [size]="16" class="text-teal-600 animate-spin"></app-icon>
+                      </div>
+                    } @else {
+                      <button 
+                        (click)="assignSingle(branch)"
+                        [disabled]="!branch.selectedManagerId"
+                        class="px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 flex items-center gap-2 min-w-[44px]"
+                        title="Assign manager"
+                      >
+                        <app-icon name="check" [size]="16"></app-icon>
+                        <span class="text-sm font-medium hidden sm:inline">Assign</span>
+                      </button>
+                    }
+                  </div>
                 </div>
               </div>
             }
           </div>
+        }
+      </section>
 
-          <!-- Pagination -->
-          @if (totalPages() > 1) {
-            <div class="shrink-0 flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200">
-              <span class="text-sm text-slate-600">
-                Showing {{ (currentPage() - 1) * pageSize() + 1 }} - {{ Math.min(currentPage() * pageSize(), totalCount()) }} of {{ totalCount() }}
-              </span>
-              <div class="flex items-center gap-2">
-                <button 
-                  (click)="previousPage()"
-                  [disabled]="currentPage() === 1"
-                  class="p-2 border border-slate-200 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <app-icon name="chevron-left" [size]="18"></app-icon>
-                </button>
-                <span class="text-sm font-medium text-slate-700 px-3">
-                  Page {{ currentPage() }} of {{ totalPages() }}
-                </span>
-                <button 
-                  (click)="nextPage()"
-                  [disabled]="currentPage() === totalPages()"
-                  class="p-2 border border-slate-200 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <app-icon name="chevron-right" [size]="18"></app-icon>
-                </button>
-              </div>
+      <!-- Toast -->
+      @if (showSuccess()) {
+        <div 
+          class="fixed bottom-6 right-6 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-slide-in z-50 min-w-[300px]"
+          [class.bg-emerald-600]="successMessage() && !successMessage()!.startsWith('Error')"
+          [class.bg-red-600]="successMessage() && successMessage()!.startsWith('Error')"
+          [class.text-white]="true"
+          [class.ring-2]="true"
+          [class.ring-emerald-300]="successMessage() && !successMessage()!.startsWith('Error')"
+          [class.ring-red-300]="successMessage() && successMessage()!.startsWith('Error')"
+        >
+          @if (successMessage() && successMessage()!.startsWith('Error')) {
+            <div class="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+              <app-icon name="alert-circle" [size]="20"></app-icon>
+            </div>
+          } @else {
+            <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 animate-bounce">
+              <app-icon name="check" [size]="20"></app-icon>
             </div>
           }
-        }
-      </div>
-
-      <!-- Success Toast -->
-      @if (showSuccess()) {
-        <div class="fixed bottom-6 right-6 bg-emerald-600 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-slide-in">
-          <app-icon name="check" [size]="20"></app-icon>
-          <span class="font-medium">{{ successMessage() }}</span>
+          <span class="font-semibold flex-1">{{ successMessage() }}</span>
         </div>
       }
     </div>
   `,
   styles: [`
     @keyframes slide-in {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
+      from { opacity: 0; transform: translateY(20px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
     }
     .animate-slide-in {
-      animation: slide-in 0.3s ease-out;
+      animation: slide-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    .animate-shimmer {
+      animation: shimmer 2s infinite;
+    }
+    
+    @keyframes fade-out {
+      from { opacity: 1; transform: scale(1); }
+      to { opacity: 0; transform: scale(0.95); }
+    }
+    .animate-fade-out {
+      animation: fade-out 0.3s ease-in;
     }
   `]
 })
@@ -367,6 +379,12 @@ export class ManagerAssignmentComponent implements OnInit {
 
   /** Assignment in progress */
   readonly isAssigning = signal(false);
+  
+  /** Track which branch is currently being assigned */
+  readonly assigningBranchId = signal<string | null>(null);
+  
+  /** Track branches that were just assigned (for animation) */
+  readonly recentlyAssigned = signal<Set<string>>(new Set());
 
   /** Setup status */
   readonly setupStatus = signal<SetupStatus | null>(null);
@@ -379,6 +397,9 @@ export class ManagerAssignmentComponent implements OnInit {
 
   /** Search term */
   readonly searchTerm = signal('');
+
+  /** Debounce timer for search */
+  private searchTimer: any = null;
 
   /** Current page */
   readonly currentPage = signal(1);
@@ -459,19 +480,29 @@ export class ManagerAssignmentComponent implements OnInit {
    * Loads branches without managers with current pagination/search.
    */
   private loadBranches(): void {
+    console.log('[ManagerAssignment] Loading branches...');
     this.setupService.getBranchesWithoutManager(
       this.currentPage(),
       this.pageSize(),
       this.searchTerm() || undefined
     ).subscribe({
       next: (response) => {
+        console.log('[ManagerAssignment] Branches loaded:', { count: response.items.length, total: response.totalCount });
+        // Preserve recently assigned state when refreshing
+        const recentlyAssignedSet = this.recentlyAssigned();
         this.branches.set(
-          response.items.map(b => ({ ...b, selected: false }))
+          response.items.map(b => ({ 
+            ...b, 
+            selected: false,
+            // Keep manager name if branch was recently assigned (for display)
+            managerName: recentlyAssignedSet.has(b.id) ? b.managerName : undefined
+          }))
         );
         this.totalCount.set(response.totalCount);
         this.isLoading.set(false);
       },
-      error: () => {
+      error: (error) => {
+        console.error('[ManagerAssignment] Failed to load branches:', error);
         this.branches.set([]);
         this.isLoading.set(false);
       }
@@ -529,20 +560,108 @@ export class ManagerAssignmentComponent implements OnInit {
   }
 
   /**
-   * Assigns manager to a single branch.
+   * Assigns manager to a single branch with optimistic UI updates.
    */
   assignSingle(branch: SelectableBranch): void {
-    if (!branch.selectedManagerId) return;
+    if (!branch.selectedManagerId) {
+      console.warn('[ManagerAssignment] No manager selected for branch:', branch.id);
+      return;
+    }
+    if (this.assigningBranchId() === branch.id) {
+      console.warn('[ManagerAssignment] Already assigning this branch:', branch.id);
+      return;
+    }
 
-    this.isAssigning.set(true);
-    this.setupService.assignManager(branch.id, branch.selectedManagerId).subscribe({
+    const branchId = branch.id;
+    const managerId = branch.selectedManagerId;
+    const managerName = this.managers().find(m => m.id === managerId)?.name || 'Manager';
+
+    console.log('[ManagerAssignment] Assigning manager:', { branchId, managerId, managerName });
+    
+    // Optimistic UI update - show immediate feedback
+    this.assigningBranchId.set(branchId);
+    
+    // Store manager name in branch for display
+    this.branches.update(branches =>
+      branches.map(b =>
+        b.id === branchId ? { ...b, managerName, selectedManagerId: managerId } : b
+      )
+    );
+    
+    // Optimistically update progress (will be corrected after backend response)
+    this.updateProgressOptimistically(1);
+    
+    this.setupService.assignManager(branchId, managerId).subscribe({
       next: (result) => {
-        this.showSuccessToast(`Manager assigned to ${branch.name}`);
-        this.loadBranches(); // Refresh list
-        this.isAssigning.set(false);
+        console.log('[ManagerAssignment] Assignment successful:', result);
+        console.log('[ManagerAssignment] Result details:', {
+          successCount: result.successCount,
+          failedCount: result.failedCount,
+          errors: result.errors
+        });
+        
+        // Check if assignment actually succeeded
+        if (result.successCount === 0) {
+          console.error('[ManagerAssignment] Assignment returned successCount 0!');
+          const errorMsg = result.errors.length > 0 ? result.errors[0] : 'Assignment failed - no branches were updated';
+          this.successMessage.set(`Error: ${errorMsg}`);
+          this.showSuccess.set(true);
+          setTimeout(() => this.showSuccess.set(false), 5000);
+          
+          // Revert optimistic update
+          this.revertProgressOptimistically(1);
+          
+          // Clear assigning state
+          this.assigningBranchId.set(null);
+          this.isAssigning.set(false);
+          return;
+        }
+        
+        // Mark as recently assigned for visual feedback
+        this.recentlyAssigned.update(set => new Set(set).add(branchId));
+        
+        // Show success toast with manager name
+        this.showSuccessToast(`✓ ${managerName} assigned to ${branch.name}`);
+        
+        // Remove branch locally for immediate feedback
+        this.branches.update(branches => branches.filter(b => b.id !== branchId));
+        this.totalCount.update(t => Math.max(0, t - result.successCount));
+
+        // Clear assigning state
+        this.assigningBranchId.set(null);
+
+        // Refresh status and list
+        setTimeout(() => {
+          this.refreshStatus();
+          this.loadBranches();
+        }, 500);
       },
-      error: () => {
-        this.isAssigning.set(false);
+      error: (error) => {
+        console.error('[ManagerAssignment] Assignment failed:', error);
+        console.error('[ManagerAssignment] Error status:', error?.status);
+        console.error('[ManagerAssignment] Error message:', error?.message);
+        console.error('[ManagerAssignment] Error details:', error?.error);
+        
+        // Revert optimistic update
+        this.revertProgressOptimistically(1);
+        
+        // Remove manager name from branch
+        this.branches.update(branches =>
+          branches.map(b =>
+            b.id === branchId ? { ...b, managerName: undefined, selectedManagerId: branch.selectedManagerId } : b
+          )
+        );
+        
+        // Clear assigning state on error
+        console.log('[ManagerAssignment] Clearing assigning state due to error...');
+        this.assigningBranchId.set(null);
+        console.log('[ManagerAssignment] State cleared - assigningBranchId:', this.assigningBranchId());
+        
+        // Show error message
+        const errorMsg = error?.error?.message || error?.message || 'Failed to assign manager';
+        this.successMessage.set(`Error: ${errorMsg}`);
+        this.showSuccess.set(true);
+        setTimeout(() => this.showSuccess.set(false), 5000);
       }
     });
   }
@@ -557,17 +676,31 @@ export class ManagerAssignmentComponent implements OnInit {
     
     if (selectedIds.length === 0 || !this.bulkManagerId()) return;
 
+    console.log('[ManagerAssignment] Bulk assigning manager:', { branchIds: selectedIds, managerId: this.bulkManagerId() });
     this.isAssigning.set(true);
     this.setupService.bulkAssignManager(selectedIds, this.bulkManagerId()).subscribe({
       next: (result) => {
+        console.log('[ManagerAssignment] Bulk assignment successful:', result);
         this.showSuccessToast(`Manager assigned to ${result.successCount} branch(es)`);
         this.clearSelection();
-        this.loadBranches(); // Refresh list
-        this.setupService.refreshSetupStatus();
+        
+        // Delay to ensure backend transaction has committed and EF Core cache is cleared
+        setTimeout(() => {
+          this.loadBranches(); // Refresh list - assigned branches should disappear
+          this.refreshStatus(); // Refresh status and percentage
+        }, 500);
+        
         this.isAssigning.set(false);
       },
-      error: () => {
+      error: (error) => {
+        console.error('[ManagerAssignment] Bulk assignment failed:', error);
+        console.error('[ManagerAssignment] Full error object:', JSON.stringify(error, null, 2));
         this.isAssigning.set(false);
+        // Show error message
+        const errorMsg = error?.error?.message || error?.message || 'Failed to assign manager';
+        this.successMessage.set(`Error: ${errorMsg}`);
+        this.showSuccess.set(true);
+        setTimeout(() => this.showSuccess.set(false), 5000);
       }
     });
   }
@@ -582,7 +715,13 @@ export class ManagerAssignmentComponent implements OnInit {
   onSearchChange(term: string): void {
     this.searchTerm.set(term);
     this.currentPage.set(1); // Reset to first page
-    this.loadBranches();
+    
+    if (this.searchTimer) {
+      clearTimeout(this.searchTimer);
+    }
+    this.searchTimer = setTimeout(() => {
+      this.loadBranches();
+    }, 300);
   }
 
   /**
@@ -635,6 +774,155 @@ export class ManagerAssignmentComponent implements OnInit {
     this.successMessage.set(message);
     this.showSuccess.set(true);
     setTimeout(() => this.showSuccess.set(false), 3000);
+  }
+
+  /**
+   * Refreshes the setup status to update the percentage.
+   * Only updates if backend shows progress (doesn't revert optimistic updates).
+   */
+  private refreshStatus(): void {
+    console.log('[ManagerAssignment] Refreshing setup status...');
+    const currentOptimistic = this.setupStatus();
+    this.setupService.getSetupStatus().subscribe({
+      next: (status) => {
+        console.log('[ManagerAssignment] Setup status refreshed:', status);
+        
+        // Only update if backend shows equal or more progress than optimistic
+        // This prevents reverting optimistic updates
+        if (currentOptimistic) {
+          const backendProgress = status.branchesWithManagers;
+          const optimisticProgress = currentOptimistic.branchesWithManagers;
+          
+          // Use the higher value to preserve optimistic updates
+          if (backendProgress >= optimisticProgress) {
+            this.setupStatus.set(status);
+          } else {
+            console.log('[ManagerAssignment] Backend status stale, keeping optimistic update');
+            // Keep optimistic but update other fields that might have changed
+            this.setupStatus.set({
+              ...currentOptimistic,
+              totalBranches: status.totalBranches // Update total if it changed
+            });
+          }
+        } else {
+          this.setupStatus.set(status);
+        }
+      },
+      error: (error) => {
+        console.error('[ManagerAssignment] Failed to refresh status:', error);
+        // Keep current state on error
+      }
+    });
+  }
+
+  /**
+   * Optimistically updates progress bar (before backend confirms).
+   */
+  private updateProgressOptimistically(count: number): void {
+    const current = this.setupStatus();
+    if (!current) return;
+    
+    const newWithManagers = current.branchesWithManagers + count;
+    const newTotal = current.totalBranches;
+    const newPercentage = newTotal === 0 ? 100 : Math.round((newWithManagers / newTotal) * 100);
+    
+    this.setupStatus.set({
+      ...current,
+      branchesWithManagers: newWithManagers,
+      branchesWithoutManagers: newTotal - newWithManagers,
+      completionPercentage: newPercentage,
+      isSetupComplete: newWithManagers === newTotal,
+      requiresAttention: newTotal > 0 && ((newTotal - newWithManagers) / newTotal) > 0.10
+    });
+  }
+
+  /**
+   * Reverts optimistic progress update on error.
+   */
+  private revertProgressOptimistically(count: number): void {
+    const current = this.setupStatus();
+    if (!current) return;
+    
+    const newWithManagers = Math.max(0, current.branchesWithManagers - count);
+    const newTotal = current.totalBranches;
+    const newPercentage = newTotal === 0 ? 100 : Math.round((newWithManagers / newTotal) * 100);
+    
+    this.setupStatus.set({
+      ...current,
+      branchesWithManagers: newWithManagers,
+      branchesWithoutManagers: newTotal - newWithManagers,
+      completionPercentage: newPercentage,
+      isSetupComplete: newWithManagers === newTotal,
+      requiresAttention: newTotal > 0 && ((newTotal - newWithManagers) / newTotal) > 0.10
+    });
+  }
+
+  /**
+   * Refreshes data with retry logic to handle EF Core caching delays.
+   * Keeps success state visible until backend confirms.
+   */
+  private refreshWithRetry(branchId: string, retries: number = 5, attempt: number = 1): void {
+    console.log(`[ManagerAssignment] Refreshing (attempt ${attempt}/${retries})...`);
+    
+    // Refresh status first (with protection against reverting optimistic updates)
+    this.refreshStatus();
+    
+    // Wait before checking
+    setTimeout(() => {
+      const currentStatus = this.setupStatus();
+      const branchStillExists = this.branches().some(b => b.id === branchId);
+      
+      console.log(`[ManagerAssignment] After refresh - Status: ${currentStatus?.branchesWithManagers} managers, Branch exists: ${branchStillExists}`);
+      
+      // Refresh branch list (but preserve success state)
+      this.loadBranches();
+      
+      // Check after branch list loads
+      setTimeout(() => {
+        const stillExists = this.branches().some(b => b.id === branchId);
+        const statusManagers = currentStatus?.branchesWithManagers || 0;
+        
+        if (!stillExists && statusManagers > 0) {
+          // Success! Branch removed and status updated
+          console.log('[ManagerAssignment] ✅ Success confirmed - Branch removed, status updated');
+          // Keep success state visible for 3 seconds before clearing
+          setTimeout(() => {
+            this.recentlyAssigned.update(set => {
+              const newSet = new Set(set);
+              newSet.delete(branchId);
+              return newSet;
+            });
+          }, 3000);
+        } else if (stillExists && statusManagers === 0 && attempt < retries) {
+          // Backend not updated yet, retry
+          console.log(`[ManagerAssignment] ⏳ Retry ${attempt + 1}: Backend not updated yet`);
+          setTimeout(() => {
+            this.refreshWithRetry(branchId, retries, attempt + 1);
+          }, 1500); // Longer delay between retries
+        } else if (statusManagers > 0) {
+          // Status updated but branch still visible (might be on different page)
+          // Keep success state - assignment was successful
+          console.log('[ManagerAssignment] ✅ Status updated, keeping success state');
+          setTimeout(() => {
+            this.recentlyAssigned.update(set => {
+              const newSet = new Set(set);
+              newSet.delete(branchId);
+              return newSet;
+            });
+          }, 5000); // Keep visible longer since assignment succeeded
+        } else {
+          // Max retries or unclear state - keep success state since assignment API succeeded
+          console.log('[ManagerAssignment] ⚠️ Max retries or unclear state, keeping success state');
+          setTimeout(() => {
+            this.recentlyAssigned.update(set => {
+              const newSet = new Set(set);
+              newSet.delete(branchId);
+              return newSet;
+            });
+          }, 5000);
+        }
+      }, 800);
+    }, 1000);
   }
 }
 

@@ -110,6 +110,61 @@ export class BranchNetworkComponent {
     
     // Clear previous
     d3.select(element).selectAll('*').remove();
+    
+    // Handle empty branches - show empty state message
+    if (!this.branches() || this.branches().length === 0) {
+      const svg = d3.select(element)
+        .append('svg')
+        .attr('width', '100%')
+        .attr('height', '100%')
+        .attr('xmlns', 'http://www.w3.org/2000/svg');
+      
+      const g = svg.append('g')
+        .attr('transform', `translate(${containerWidth / 2}, 200)`);
+      
+      // Empty state icon (building icon)
+      g.append('foreignObject')
+        .attr('width', 120)
+        .attr('height', 120)
+        .attr('x', -60)
+        .attr('y', -60)
+        .append('xhtml:div')
+        .style('width', '100%')
+        .style('height', '100%')
+        .style('display', 'flex')
+        .style('align-items', 'center')
+        .style('justify-content', 'center')
+        .html(`
+          <div style="width:80px; height:80px; background:#f1f5f9; border-radius:16px; display:flex; align-items:center; justify-content:center;">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5">
+              <rect width="7" height="7" x="3" y="3" rx="1"/>
+              <rect width="7" height="7" x="14" y="3" rx="1"/>
+              <rect width="7" height="7" x="14" y="14" rx="1"/>
+              <rect width="7" height="7" x="3" y="14" rx="1"/>
+            </svg>
+          </div>
+        `);
+      
+      // Empty state text
+      g.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('y', 80)
+        .attr('fill', '#64748b')
+        .attr('font-family', 'Inter, system-ui, sans-serif')
+        .attr('font-size', '16px')
+        .attr('font-weight', '500')
+        .text('No branches configured');
+      
+      g.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('y', 105)
+        .attr('fill', '#94a3b8')
+        .attr('font-family', 'Inter, system-ui, sans-serif')
+        .attr('font-size', '13px')
+        .text('Add branches in settings to see your network');
+      
+      return;
+    }
 
     const svg = d3.select(element)
       .append('svg')

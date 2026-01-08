@@ -19,7 +19,7 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of, BehaviorSubject } from 'rxjs';
-import { map, tap, catchError, shareReplay } from 'rxjs/operators';
+import { map, tap, catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 
 // =============================================================================
@@ -161,6 +161,13 @@ export class SetupService {
    * @returns Observable<SetupStatus>
    */
   getSetupStatus(): Observable<SetupStatus> {
+    // Check if user is authenticated
+    const token = localStorage.getItem('thurayya_access_token');
+    if (!token) {
+      console.warn('[SetupService] No auth token - skipping setup status check');
+      return of(this.getDefaultStatus());
+    }
+
     return this.http.get<ApiResponse<SetupStatus>>(`${this.apiUrl}/branches/setup-status`).pipe(
       map(response => {
         if (!response.success || !response.data) {
@@ -171,21 +178,36 @@ export class SetupService {
       tap(status => {
         this._setupStatus.next(status);
         this.setupStatus.set(status);
+        console.log('[SetupService] Setup status loaded:', status);
       }),
       catchError(error => {
-        console.error('Failed to get setup status:', error);
-        // Return default status on error
-        const defaultStatus: SetupStatus = {
-          totalBranches: 0,
-          branchesWithManagers: 0,
-          branchesWithoutManagers: 0,
-          completionPercentage: 100,
-          isSetupComplete: true,
-          requiresAttention: false
-        };
-        return of(defaultStatus);
+        console.error('[SetupService] Failed to get setup status:', error);
+        
+        // If 401, user is not authorized - show them the default "no action needed" status
+        if (error.status === 401) {
+          console.warn('[SetupService] User not authorized to view setup status (401)');
+        }
+        
+        return of(this.getDefaultStatus());
       })
     );
+  }
+
+  /**
+   * Get default setup status (no action needed).
+   * When there are no branches, setup is "complete" in the sense that
+   * there's nothing to do - but we mark requiresAttention as false
+   * to avoid showing misleading UI.
+   */
+  private getDefaultStatus(): SetupStatus {
+    return {
+      totalBranches: 0,
+      branchesWithManagers: 0,
+      branchesWithoutManagers: 0,
+      completionPercentage: 100, // 100% when no branches (nothing to complete)
+      isSetupComplete: true,
+      requiresAttention: false // Don't show attention card when no branches
+    };
   }
 
   /**
@@ -278,13 +300,19 @@ export class SetupService {
    *   });
    */
   bulkAssignManager(branchIds: string[], managerId: string): Observable<BulkAssignManagerResponse> {
-    const request: BulkAssignManagerRequest = { branchIds, managerId };
+    const request = { 
+      branchIds: branchIds,
+      managerId: managerId
+    };
+
+    console.log('[SetupService] Bulk assigning manager:', { branchIds, managerId });
 
     return this.http.post<ApiResponse<BulkAssignManagerResponse>>(
       `${this.apiUrl}/branches/bulk-assign-manager`,
       request
     ).pipe(
       map(response => {
+        console.log('[SetupService] Bulk assign response:', response);
         if (!response.success || !response.data) {
           throw new Error(response.message || 'Failed to assign manager');
         }
@@ -295,7 +323,10 @@ export class SetupService {
         this.refreshSetupStatus();
       }),
       catchError(error => {
-        console.error('Failed to bulk assign manager:', error);
+        console.error('[SetupService] Failed to bulk assign manager:', error);
+        if (error.error) {
+          console.error('[SetupService] Error details:', error.error);
+        }
         throw error;
       })
     );
