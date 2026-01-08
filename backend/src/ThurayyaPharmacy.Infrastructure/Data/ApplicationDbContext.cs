@@ -70,37 +70,13 @@ public class ApplicationDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
         
-        // Apply global query filters
-        var tenantId = _currentTenantService.TenantId ?? Guid.Empty;
-
-        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-        {
-            // Soft delete filter
-            if (entityType.ClrType.GetProperty("IsDeleted") != null)
-            {
-                var parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
-                var property = System.Linq.Expressions.Expression.Property(parameter, "IsDeleted");
-                var falseConstant = System.Linq.Expressions.Expression.Constant(false);
-                var lambda = System.Linq.Expressions.Expression.Lambda(
-                    System.Linq.Expressions.Expression.Equal(property, falseConstant),
-                    parameter);
-                modelBuilder.Entity(entityType.ClrType).HasQueryFilter(lambda);
-            }
-
-            // Multi-tenancy filter
-            if (typeof(ThurayyaPharmacy.Domain.Common.ITenantEntity).IsAssignableFrom(entityType.ClrType))
-            {
-                var parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
-                var property = System.Linq.Expressions.Expression.Property(parameter, "TenantId");
-                var tenantIdConstant = System.Linq.Expressions.Expression.Constant(tenantId);
-                var equalExpression = System.Linq.Expressions.Expression.Equal(property, tenantIdConstant);
-                
-                // If the user is not logged in (e.g., during registration), we might want to skip this filter or handle it differently.
-                // But for now, using Guid.Empty will ensure no data is leaked.
-                var lambda = System.Linq.Expressions.Expression.Lambda(equalExpression, parameter);
-                modelBuilder.Entity(entityType.ClrType).HasQueryFilter(lambda);
-            }
-        }
+        // Multi-tenancy and soft-delete filters - Applied dynamically per entity using method calls
+        // This ensures TenantId is resolved at query time, not at model build time
+        // The old approach captured TenantId as a constant at startup (Guid.Empty), breaking multi-tenancy
+        ConfigureMultiTenancyFilters(modelBuilder);
+        
+        // Apply soft-delete filter to non-tenant entities (Tenant, ProductBatch, etc.)
+        ApplySoftDeleteFilters(modelBuilder);
         
         // Disable cascade delete globally to avoid SQL Server multiple cascade path issues
         foreach (var relationship in modelBuilder.Model.GetEntityTypes()
@@ -391,6 +367,85 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.BranchId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
+    }
+    
+    /// <summary>
+    /// Configures multi-tenancy query filters dynamically.
+    /// 
+    /// IMPORTANT: The TenantId property is evaluated at query execution time, NOT at model build time.
+    /// EF Core parameterizes property accesses from the DbContext, ensuring proper tenant isolation.
+    /// </summary>
+    private void ConfigureMultiTenancyFilters(ModelBuilder modelBuilder)
+    {
+        // Apply tenant filter to Branch
+        modelBuilder.Entity<Branch>()
+            .HasQueryFilter(e => !e.IsDeleted && e.TenantId == CurrentTenantId);
+            
+        // Apply tenant filter to User  
+        modelBuilder.Entity<User>()
+            .HasQueryFilter(e => !e.IsDeleted && e.TenantId == CurrentTenantId);
+            
+        // Apply tenant filter to Product
+        modelBuilder.Entity<Product>()
+            .HasQueryFilter(e => !e.IsDeleted && e.TenantId == CurrentTenantId);
+            
+        // Apply tenant filter to Supplier
+        modelBuilder.Entity<Supplier>()
+            .HasQueryFilter(e => !e.IsDeleted && e.TenantId == CurrentTenantId);
+            
+        // Apply tenant filter to PurchaseOrder
+        modelBuilder.Entity<PurchaseOrder>()
+            .HasQueryFilter(e => !e.IsDeleted && e.TenantId == CurrentTenantId);
+            
+        // Apply tenant filter to PurchaseBill
+        modelBuilder.Entity<PurchaseBill>()
+            .HasQueryFilter(e => !e.IsDeleted && e.TenantId == CurrentTenantId);
+            
+        // Apply tenant filter to Customer
+        modelBuilder.Entity<Customer>()
+            .HasQueryFilter(e => !e.IsDeleted && e.TenantId == CurrentTenantId);
+            
+        // Apply tenant filter to Invoice
+        modelBuilder.Entity<Invoice>()
+            .HasQueryFilter(e => !e.IsDeleted && e.TenantId == CurrentTenantId);
+            
+        // Apply tenant filter to Expense
+        modelBuilder.Entity<Expense>()
+            .HasQueryFilter(e => !e.IsDeleted && e.TenantId == CurrentTenantId);
+    }
+    
+    /// <summary>
+    /// Current tenant ID property - EF Core parameterizes this at query execution time.
+    /// Using a property (not method) is the recommended pattern for EF Core query filters.
+    /// Returns Guid.Empty if no tenant is authenticated (which will match no data).
+    /// </summary>
+    private Guid CurrentTenantId => _currentTenantService.TenantId ?? Guid.Empty;
+    
+    /// <summary>
+    /// Applies soft delete filter to the Tenant entity itself.
+    /// Other entities have tenant filter which implies soft delete.
+    /// </summary>
+    private void ApplySoftDeleteFilters(ModelBuilder modelBuilder)
+    {
+        // Tenant entity - only soft delete, no tenant filter (it IS the tenant)
+        modelBuilder.Entity<Tenant>()
+            .HasQueryFilter(e => !e.IsDeleted);
+            
+        // ProductBatch - also has TenantId through BranchEntity
+        modelBuilder.Entity<ProductBatch>()
+            .HasQueryFilter(e => !e.IsDeleted && e.TenantId == CurrentTenantId);
+            
+        // PurchaseOrderItem - also has TenantId through BranchEntity
+        modelBuilder.Entity<PurchaseOrderItem>()
+            .HasQueryFilter(e => !e.IsDeleted && e.TenantId == CurrentTenantId);
+            
+        // PaymentRecord - also has TenantId through TenantEntity
+        modelBuilder.Entity<PaymentRecord>()
+            .HasQueryFilter(e => !e.IsDeleted && e.TenantId == CurrentTenantId);
+            
+        // InvoiceItem - also has TenantId through BranchEntity
+        modelBuilder.Entity<InvoiceItem>()
+            .HasQueryFilter(e => !e.IsDeleted && e.TenantId == CurrentTenantId);
     }
 }
 

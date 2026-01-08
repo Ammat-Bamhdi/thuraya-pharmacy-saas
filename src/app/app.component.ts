@@ -136,8 +136,60 @@ export class AppComponent implements OnInit {
   protected readonly auth = inject(AuthService);
 
   async ngOnInit(): Promise<void> {
+    // Filter out browser extension errors that clutter the console
+    this.setupErrorFiltering();
+    
     // Initialize auth state - validates token against backend
     // This is the single source of truth for auth
     await this.auth.initialize();
+  }
+
+  /**
+   * Filters out non-critical browser extension errors from console
+   */
+  private setupErrorFiltering(): void {
+    const originalError = console.error;
+    const originalWarn = console.warn;
+
+    // Filter browser extension errors
+    console.error = (...args: any[]) => {
+      const message = args.join(' ');
+      // Ignore Chrome extension errors
+      if (
+        message.includes('message channel closed') ||
+        message.includes('asynchronous response') ||
+        message.includes('Extension context invalidated') ||
+        message.includes('chrome-extension://')
+      ) {
+        return; // Silently ignore
+      }
+      originalError.apply(console, args);
+    };
+
+    console.warn = (...args: any[]) => {
+      const message = args.join(' ');
+      // Ignore Chrome extension warnings
+      if (
+        message.includes('message channel closed') ||
+        message.includes('asynchronous response') ||
+        message.includes('Extension context invalidated')
+      ) {
+        return; // Silently ignore
+      }
+      originalWarn.apply(console, args);
+    };
+
+    // Also catch unhandled promise rejections from extensions
+    window.addEventListener('unhandledrejection', (event) => {
+      const message = event.reason?.message || event.reason?.toString() || '';
+      if (
+        message.includes('message channel closed') ||
+        message.includes('asynchronous response') ||
+        message.includes('Extension context invalidated')
+      ) {
+        event.preventDefault(); // Prevent error from showing
+        return;
+      }
+    });
   }
 }

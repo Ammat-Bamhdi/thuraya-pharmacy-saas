@@ -168,32 +168,49 @@
                  <button class="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium shadow-lg hover:bg-slate-700">Add New Branch</button>
                </div>
                
-               <div class="space-y-3">
-                 @for (branch of store.branches(); track branch.id) {
-                   <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between group hover:border-teal-200 transition-all">
-                      <div class="flex items-center gap-4">
-                         <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-600 transition-colors">
-                           <app-icon name="map-pin" [size]="20"></app-icon>
-                         </div>
-                         <div>
-                           <div class="font-medium text-slate-800">{{ branch.name }}</div>
-                           <div class="text-xs text-slate-500">{{ branch.location }} â€¢ {{ branch.code }}</div>
-                         </div>
-                      </div>
-                      <div class="flex items-center gap-6">
-                         <div class="text-right">
-                           <div class="text-xs text-slate-400">Status</div>
-                           <div class="text-sm font-medium text-emerald-600 flex items-center gap-1">
-                             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
-                           </div>
-                         </div>
-                         <button class="p-2 text-slate-300 hover:text-slate-600">
-                           <app-icon name="more-horizontal" [size]="20"></app-icon>
-                         </button>
-                      </div>
+               @if (store.branches().length === 0) {
+                 <!-- Empty State for No Branches -->
+                 <div class="flex-1 flex flex-col items-center justify-center py-16">
+                   <div class="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mb-6">
+                     <app-icon name="map-pin" [size]="36" class="text-slate-400"></app-icon>
                    </div>
-                 }
-               </div>
+                   <h4 class="text-lg font-medium text-slate-700 mb-2">No branches configured</h4>
+                   <p class="text-sm text-slate-500 text-center max-w-sm mb-6">
+                     Add your first branch to start managing your pharmacy locations.
+                   </p>
+                   <button class="px-6 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-medium shadow hover:bg-teal-700 transition-colors flex items-center gap-2">
+                     <app-icon name="plus" [size]="16"></app-icon>
+                     Add First Branch
+                   </button>
+                 </div>
+               } @else {
+                 <div class="space-y-3">
+                   @for (branch of store.branches(); track branch.id) {
+                     <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between group hover:border-teal-200 transition-all">
+                        <div class="flex items-center gap-4">
+                           <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-600 transition-colors">
+                             <app-icon name="map-pin" [size]="20"></app-icon>
+                           </div>
+                           <div>
+                             <div class="font-medium text-slate-800">{{ branch.name }}</div>
+                             <div class="text-xs text-slate-500">{{ branch.location }} • {{ branch.code }}</div>
+                           </div>
+                        </div>
+                        <div class="flex items-center gap-6">
+                           <div class="text-right">
+                             <div class="text-xs text-slate-400">Status</div>
+                             <div class="text-sm font-medium text-emerald-600 flex items-center gap-1">
+                               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
+                             </div>
+                           </div>
+                           <button class="p-2 text-slate-300 hover:text-slate-600">
+                             <app-icon name="more-horizontal" [size]="20"></app-icon>
+                           </button>
+                        </div>
+                     </div>
+                   }
+                 </div>
+               }
              </div>
            }
 

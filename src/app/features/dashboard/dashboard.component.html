@@ -25,186 +25,161 @@
     }
   </header>
 
-  <!-- Manager Assignment Card (Show when branches need managers) -->
-  @if (setupStatus(); as status) {
-    @if (status.requiresAttention && !setupCardDismissed()) {
-      <section 
-        class="glass-panel p-0 rounded-xl mb-2 border-l-4 border-l-amber-500 relative overflow-hidden animate-slide-in shrink-0"
-        aria-labelledby="setup-card-title"
-        role="region"
-      >
-        <div class="p-4 flex items-start justify-between gap-4">
-          <div class="flex items-start gap-4">
-            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-white flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0">
-              <app-icon name="users" [size]="24"></app-icon>
-            </div>
-            <div>
-              <h2 id="setup-card-title" class="font-semibold text-slate-800 text-lg">
-                Complete Your Setup
-              </h2>
-              <p class="text-sm text-slate-600 mt-1">
-                <span class="font-medium text-amber-600">{{ status.branchesWithoutManagers }}</span> of 
-                <span class="font-medium">{{ status.totalBranches }}</span> branches need manager assignment.
-              </p>
-              <div class="flex items-center gap-3 mt-3">
-                <div class="w-32 h-2 bg-slate-200 rounded-full overflow-hidden">
-                  <div 
-                    class="h-full bg-gradient-to-r from-amber-400 to-amber-600 transition-all duration-500" 
-                    [style.width.%]="status.completionPercentage"
-                  ></div>
-                </div>
-                <span class="text-sm font-bold text-amber-600">{{ status.completionPercentage }}%</span>
-              </div>
-            </div>
-          </div>
-          
-          <div class="flex items-center gap-2 shrink-0">
-            <button 
-              (click)="goToManagerAssignment()"
-              class="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors flex items-center gap-2"
-            >
-              <app-icon name="user-plus" [size]="16"></app-icon>
-              Assign Managers
-            </button>
-            <button 
-              (click)="dismissSetupCard()" 
-              class="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition-colors"
-              aria-label="Dismiss for now"
-              title="Remind me later"
-            >
-              <app-icon name="x" [size]="18"></app-icon>
-            </button>
-          </div>
-        </div>
-      </section>
-    }
-  }
-
-  <!-- Setup Guide (Always show for new users until complete) -->
-  @if (store.showSetupGuide() && store.setupCompletion() < 100) {
+  <!-- Unified Getting Started Card -->
+  @if (showGettingStarted()) {
     <section 
-      class="glass-panel p-0 rounded-xl mb-2 border-l-4 border-l-teal-500 relative overflow-hidden animate-slide-in shrink-0"
-      aria-labelledby="setup-guide-title"
+      class="getting-started-card shrink-0"
+      aria-labelledby="getting-started-title"
       role="region"
     >
-      <div class="p-4 border-b border-slate-100 bg-white/50 flex justify-between items-center">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 text-white flex items-center justify-center shadow-lg shadow-teal-500/20">
-            <app-icon name="rocket" [size]="20"></app-icon>
+      <!-- Header Section -->
+      <div class="card-header">
+        <div class="header-content">
+          <div class="icon-container" [class.complete]="isSetupComplete()">
+            @if (isSetupComplete()) {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            } @else {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path>
+                <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path>
+                <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path>
+                <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path>
+              </svg>
+            }
           </div>
-          <div>
-            <h2 id="setup-guide-title" class="font-semibold text-slate-800 text-lg">
-              Welcome to {{ store.tenant()?.name || 'Thuraya Pharmacy' }}!
-            </h2>
-            <p class="text-sm text-slate-500">Complete these steps to get started.</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-4">
-          <div class="flex items-center gap-2">
-            <div class="w-24 h-2 bg-slate-200 rounded-full overflow-hidden">
-              <div 
-                class="h-full bg-gradient-to-r from-teal-400 to-teal-600 transition-all duration-500" 
-                [style.width.%]="store.setupCompletion()"
-                role="progressbar"
-                [attr.aria-valuenow]="store.setupCompletion()"
-                aria-valuemin="0"
-                aria-valuemax="100"
-              ></div>
-            </div>
-            <span class="text-sm font-bold text-teal-600">{{ store.setupCompletion() }}%</span>
-          </div>
-          <button 
-            (click)="store.dismissSetupGuide()" 
-            class="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
-            aria-label="Dismiss setup guide"
-          >
-            <app-icon name="x" [size]="18"></app-icon>
-          </button>
-        </div>
-      </div>
-      
-      <div class="p-4 grid grid-cols-1 md:grid-cols-5 gap-3" role="list" aria-label="Setup steps">
-        @for (step of store.setupProgress(); track step.id; let i = $index) {
-          <div 
-            class="flex items-start gap-3 p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer group" 
-            [class.bg-teal-50]="step.done" 
-            [class.border-teal-200]="step.done"
-            [class.bg-white]="!step.done" 
-            [class.border-slate-100]="!step.done && step.action"
-            [class.border-dashed]="!step.done && !step.action"
-            [class.opacity-50]="!step.done && !step.action"
-            [class.hover:border-teal-300]="!step.done && step.action"
-            (click)="step.action && !step.done && store.setView(step.action)"
-            [attr.role]="step.action && !step.done ? 'button' : 'listitem'"
-            [attr.tabindex]="step.action && !step.done ? 0 : -1"
-          >
-            <div class="mt-0.5 shrink-0">
-              @if (step.done) {
-                <div class="w-6 h-6 rounded-full bg-teal-600 text-white flex items-center justify-center">
-                  <app-icon name="check" [size]="14"></app-icon>
-                </div>
+          <div class="header-text">
+            <h2 id="getting-started-title" class="title">
+              @if (isSetupComplete()) {
+                You're all set!
               } @else {
-                <div class="w-6 h-6 rounded-full border-2 border-slate-300 text-slate-400 flex items-center justify-center font-semibold text-xs group-hover:border-teal-500 group-hover:text-teal-500 transition-colors">
-                  {{ i + 1 }}
-                </div>
+                Welcome to {{ store.tenant()?.name || 'Thurayya' }}
               }
-            </div>
-            <div class="flex-1 min-w-0">
-              <div 
-                class="text-sm font-semibold truncate" 
-                [class.text-teal-700]="step.done" 
-                [class.text-slate-700]="!step.done"
-              >
-                {{ step.label }}
-              </div>
-              @if (!step.done && step.action) {
-                <span class="text-xs text-teal-600 font-medium mt-1 flex items-center gap-1 group-hover:underline">
-                  Get started <app-icon name="arrow-right" [size]="12"></app-icon>
-                </span>
-              } @else if (step.done) {
-                <span class="text-xs text-teal-600">Completed</span>
+            </h2>
+            <p class="subtitle">
+              @if (isSetupComplete()) {
+                Your pharmacy is ready. Start managing your inventory.
+              } @else {
+                Complete these steps to unlock your dashboard.
               }
+            </p>
+          </div>
+        </div>
+        
+        @if (!isSetupComplete()) {
+          <div class="progress-section" role="progressbar" [attr.aria-valuenow]="overallProgress()" aria-valuemin="0" aria-valuemax="100" [attr.aria-label]="'Setup progress: ' + overallProgress() + '% complete'">
+            <div class="progress-ring">
+              <svg viewBox="0 0 36 36">
+                <defs>
+                  <linearGradient id="progress-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#14b8a6" />
+                    <stop offset="100%" stop-color="#0d9488" />
+                  </linearGradient>
+                </defs>
+                <path class="ring-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path class="ring-fill" [attr.stroke-dasharray]="overallProgress() + ', 100'" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              </svg>
+              <span class="progress-text">{{ overallProgress() }}%</span>
             </div>
           </div>
         }
+        
+        <button 
+          (click)="dismissGettingStarted()" 
+          class="dismiss-btn"
+          aria-label="Dismiss getting started guide"
+          title="Hide this guide"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
       </div>
-    </section>
-  }
 
-  <!-- First Time User: Welcome State -->
-  @if (store.isFirstTimeUser() && store.setupCompletion() >= 100) {
-    <section class="flex-1 glass-panel rounded-xl flex items-center justify-center p-12" aria-label="Getting started">
-      <div class="text-center max-w-lg">
-        <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center shadow-xl shadow-teal-500/20">
-          <app-icon name="check" [size]="40" class="text-white"></app-icon>
-        </div>
-        <h2 class="text-2xl font-semibold text-slate-800 mb-2">You're all set!</h2>
-        <p class="text-slate-500 mb-6 leading-relaxed">
-          Your pharmacy is ready to go. Start by adding your first products and suppliers to begin managing your inventory.
-        </p>
-        <div class="flex flex-wrap gap-3 justify-center">
+      <!-- Steps or Actions -->
+      @if (isSetupComplete()) {
+        <!-- Completed State: Quick Actions -->
+        <div class="complete-actions">
           <button 
             (click)="store.setView('inventory')"
-            class="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+            class="action-btn primary"
           >
-            <app-icon name="package" [size]="18"></app-icon>
-            Add Products
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m7.5 4.27 9 5.15"></path>
+              <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path>
+              <path d="m3.3 7 8.7 5 8.7-5"></path>
+              <path d="M12 22V12"></path>
+            </svg>
+            <span>Add Products</span>
           </button>
           <button 
             (click)="store.setView('procurement-suppliers')"
-            class="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-700 border border-slate-200 rounded-xl font-medium hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+            class="action-btn secondary"
           >
-            <app-icon name="truck" [size]="18"></app-icon>
-            Add Suppliers
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"></path>
+              <path d="M15 18H9"></path>
+              <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"></path>
+              <circle cx="17" cy="18" r="2"></circle>
+              <circle cx="7" cy="18" r="2"></circle>
+            </svg>
+            <span>Add Suppliers</span>
+          </button>
+          <button 
+            (click)="store.setView('pos')"
+            class="action-btn secondary"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="20" height="14" x="2" y="5" rx="2"></rect>
+              <line x1="2" x2="22" y1="10" y2="10"></line>
+            </svg>
+            <span>Open POS</span>
           </button>
         </div>
-      </div>
+      } @else {
+        <!-- Setup Steps -->
+        <div class="steps-grid" role="list" aria-label="Setup steps">
+          @for (step of allSetupSteps(); track step.id; let i = $index) {
+            <button 
+              class="step-item" 
+              [class.done]="step.done"
+              [class.actionable]="!step.done && step.action"
+              [class.locked]="!step.done && !step.action"
+              [disabled]="!step.action || step.done"
+              (click)="handleStepClick(step)"
+              role="listitem"
+              [attr.aria-label]="step.label + (step.done ? ' - Completed' : step.action ? ' - Click to start' : ' - Locked')"
+            >
+              <div class="step-indicator">
+                @if (step.done) {
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                } @else {
+                  <span>{{ i + 1 }}</span>
+                }
+              </div>
+              <div class="step-content">
+                <span class="step-label">{{ step.label }}</span>
+                @if (!step.done && step.action) {
+                  <span class="step-cta">Start →</span>
+                } @else if (step.done) {
+                  <span class="step-status">Done</span>
+                } @else {
+                  <span class="step-locked">Locked</span>
+                }
+              </div>
+            </button>
+          }
+        </div>
+      }
     </section>
   }
   
-  <!-- Stats Grid (only show if has data) -->
-  @if (!store.isFirstTimeUser() || store.setupCompletion() < 100) {
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0" role="group" aria-label="Key metrics">
+  <!-- Stats Grid - Always visible -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0" role="group" aria-label="Key metrics">
       
       <!-- Sales Today -->
       <article class="glass-panel p-5 rounded-xl flex flex-col justify-between group hover:border-teal-300/50 transition-colors duration-300">
@@ -308,5 +283,4 @@
         </div>
       }
     </section>
-  }
 </div>

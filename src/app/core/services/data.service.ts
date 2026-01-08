@@ -527,15 +527,26 @@ export class DataService {
    * Load initial data for the application
    */
   loadInitialData(): Observable<boolean> {
+    console.log('[DataService] Loading initial data...');
     return new Observable(observer => {
       // Load branches first as other data depends on them
       this.getBranches({ pageSize: 100 }).subscribe({
         next: () => {
+          const branches = this.store.branches();
+          console.log('[DataService] Initial data loaded successfully:', {
+            branchCount: branches.length,
+            branches: branches.map(b => ({ id: b.id, name: b.name }))
+          });
           observer.next(true);
           observer.complete();
         },
         error: (error) => {
-          console.error('Failed to load initial data:', error);
+          console.error('[DataService] Failed to load initial data:', error);
+          console.error('[DataService] Error details:', {
+            status: error.status,
+            statusText: error.statusText,
+            message: error.message
+          });
           observer.next(false);
           observer.complete();
         }
