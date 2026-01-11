@@ -34,7 +34,6 @@ export const authGuard: CanActivateFn = () => {
   }
   
   // Not authenticated - redirect to auth
-  console.log('[AuthGuard] Access denied, redirecting to auth');
   store.setView('auth');
   return false;
 };
@@ -85,7 +84,6 @@ export function roleGuard(allowedRoles: string[]): CanActivateFn {
     }
     
     // User doesn't have required role - redirect to dashboard
-    console.log('[RoleGuard] Access denied for role:', user.role);
     store.setView('dashboard');
     return false;
   };

@@ -20,8 +20,10 @@ import {
   PurchaseOrder, 
   POStatus, 
   PurchaseBill, 
-  PaymentRecord 
+  PaymentRecord,
+  Product
 } from '@core/services/store.service';
+import { DataService } from '@core/services/data.service';
 import { IconComponent } from '@shared/components/icons/icons.component';
 import { 
   FormBuilder, 
@@ -30,7 +32,7 @@ import {
   FormsModule 
 } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, forkJoin } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 // ============================================================================
@@ -97,9 +99,17 @@ export class ProcurementComponent {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly cdr = inject(ChangeDetectorRef);
   protected readonly store = inject(StoreService);
+  private readonly dataService = inject(DataService);
   
   // Local signal to track current view for template reactivity with OnPush
   readonly currentView = signal(this.store.currentView());
+  
+  // Saving states for UI feedback
+  readonly savingSupplier = signal(false);
+  readonly savingPO = signal(false);
+  readonly savingBill = signal(false);
+  readonly savingPayment = signal(false);
+  readonly errorMessage = signal<string | null>(null);
 
   // -------------------------------------------------------------------------
   // REACTIVE STATE - UI Signals
@@ -385,16 +395,65 @@ export class ProcurementComponent {
     if (!this.supplierForm.valid) return;
     
     const val = this.supplierForm.getRawValue();
-    const status: 'Active' | 'Inactive' = val.status ? 'Active' : 'Inactive';
-    const data = { ...val, status };
+    
+    this.savingSupplier.set(true);
+    this.errorMessage.set(null);
     
     const id = this.editingId();
     if (id) {
-      this.store.updateSupplier(id, data);
+      // Update existing supplier via API - includes rating and status
+      const updateData = {
+        name: val.name,
+        contactPerson: val.contactPerson || undefined,
+        email: val.email || undefined,
+        phone: val.phone || undefined,
+        address: val.address || undefined,
+        city: val.city || undefined,
+        country: val.country || undefined,
+        paymentTerms: val.paymentTerms || undefined,
+        creditLimit: val.creditLimit,
+        rating: val.rating,
+        status: val.status ? 'Active' as const : 'Inactive' as const,
+        category: val.category || undefined
+      };
+      
+      this.dataService.updateSupplier(id, updateData).subscribe({
+        next: () => {
+          this.savingSupplier.set(false);
+          this.closeSupplierModal();
+        },
+        error: (err) => {
+          this.savingSupplier.set(false);
+          this.errorMessage.set(err.message || 'Failed to update supplier');
+        }
+      });
     } else {
-      this.store.addSupplier(data);
+      // Create new supplier via API - only send fields supported by CreateSupplierRequest
+      const createData = {
+        code: val.code,
+        name: val.name,
+        contactPerson: val.contactPerson || undefined,
+        email: val.email || undefined,
+        phone: val.phone || undefined,
+        address: val.address || undefined,
+        city: val.city || undefined,
+        country: val.country || undefined,
+        paymentTerms: val.paymentTerms || undefined,
+        creditLimit: val.creditLimit,
+        category: val.category || undefined
+      };
+      
+      this.dataService.createSupplier(createData).subscribe({
+        next: () => {
+          this.savingSupplier.set(false);
+          this.closeSupplierModal();
+        },
+        error: (err) => {
+          this.savingSupplier.set(false);
+          this.errorMessage.set(err.message || 'Failed to create supplier');
+        }
+      });
     }
-    this.closeSupplierModal();
   }
 
   editSupplierFromMenu(): void {
@@ -421,8 +480,17 @@ export class ProcurementComponent {
 
   confirmDeactivation(): void {
     if (this.activeDeactivateId) {
-      this.store.updateSupplier(this.activeDeactivateId, { status: 'Inactive' });
-      this.closeDeactivateModal();
+      this.savingSupplier.set(true);
+      this.dataService.updateSupplier(this.activeDeactivateId, { status: 'Inactive' }).subscribe({
+        next: () => {
+          this.savingSupplier.set(false);
+          this.closeDeactivateModal();
+        },
+        error: () => {
+          this.savingSupplier.set(false);
+          this.closeDeactivateModal();
+        }
+      });
     }
   }
 
@@ -478,30 +546,56 @@ export class ProcurementComponent {
   savePO(): void {
     const val = this.poForm.getRawValue();
     const targetBranchId = this.selectedBranchIdForPO();
+    
+    this.savingPO.set(true);
+    this.errorMessage.set(null);
 
+    // First, create any new products (network imports)
+    const productCreations = this.poItems()
+      .filter(item => item.isNetworkImport && item.productDetails)
+      .map(item => this.dataService.createProduct({
+        name: item.productDetails!.name,
+        sku: item.productDetails!.sku,
+        cost: item.productDetails!.cost,
+        price: item.productDetails!.price ?? item.productDetails!.cost * 1.2,
+        category: item.productDetails!.category,
+        supplierId: item.productDetails!.supplierId,
+        branchId: targetBranchId,
+        minStock: 10,
+        initialStock: 0
+      }));
+
+    if (productCreations.length === 0) {
+      // No new products to create, proceed directly
+      this.finalizePOSave(val, targetBranchId, new Map());
+    } else {
+      // Create products first, then save PO
+      forkJoin(productCreations).subscribe({
+        next: (newProducts: Product[]) => {
+          // Map old temp IDs to new real IDs
+          const productIdMap = new Map<string, string>();
+          this.poItems()
+            .filter(item => item.isNetworkImport && item.productDetails)
+            .forEach((item, index) => {
+              if (newProducts[index]) {
+                productIdMap.set(item.productId, newProducts[index].id);
+              }
+            });
+          this.finalizePOSave(val, targetBranchId, productIdMap);
+        },
+        error: (err: { message?: string }) => {
+          this.savingPO.set(false);
+          this.errorMessage.set(err.message || 'Failed to create products');
+        }
+      });
+    }
+  }
+
+  private finalizePOSave(val: any, targetBranchId: string, productIdMap: Map<string, string>): void {
     const finalItems = this.poItems().map(item => {
-      if (item.isNetworkImport && item.productDetails) {
-        const newId = this.store.addProduct({
-          name: item.productDetails.name,
-          sku: item.productDetails.sku,
-          cost: item.productDetails.cost,
-          price: item.productDetails.price ?? item.productDetails.cost * 1.2,
-          margin: item.productDetails.margin,
-          category: item.productDetails.category,
-          supplierId: item.productDetails.supplierId,
-          branchId: targetBranchId,
-          minStock: 10,
-          stock: 0
-        });
-        return { 
-          productId: newId, 
-          quantity: item.quantity, 
-          unitCost: item.unitCost, 
-          expiryDate: item.expiryDate ?? undefined 
-        };
-      }
+      const productId = productIdMap.get(item.productId) || item.productId;
       return { 
-        productId: item.productId, 
+        productId, 
         quantity: item.quantity, 
         unitCost: item.unitCost, 
         expiryDate: item.expiryDate ?? undefined 
@@ -510,28 +604,66 @@ export class ProcurementComponent {
 
     const { subTotal, grandTotal } = this.financialSummary();
     const tax = subTotal * (this.poTaxRate() / 100);
-    const data = { 
-      ...val, 
-      status: val.status as POStatus,
-      subTotal, 
-      tax, 
-      discount: this.poDiscount(), 
-      grandTotal, 
-      items: finalItems 
-    };
 
     const editId = this.editingPOId();
     if (editId) {
       const linkedBill = this.store.bills().find(b => b.poId === editId);
       if (linkedBill?.status === 'Paid' || linkedBill?.status === 'Partial') {
         alert(`Cannot edit Order. Linked Bill ${linkedBill.billNumber} has processed payments.`);
+        this.savingPO.set(false);
         return;
       }
-      this.store.updatePurchaseOrder(editId, data);
+      
+      // Update existing PO via API
+      const updateData = { 
+        ...val, 
+        status: val.status as POStatus,
+        subTotal, 
+        tax, 
+        discount: this.poDiscount(), 
+        grandTotal, 
+        items: finalItems 
+      };
+      
+      this.dataService.updatePurchaseOrder(editId, updateData).subscribe({
+        next: () => {
+          this.savingPO.set(false);
+          this.closePOModal();
+        },
+        error: (err) => {
+          this.savingPO.set(false);
+          this.errorMessage.set(err.message || 'Failed to update purchase order');
+        }
+      });
     } else {
-      this.store.createPO(data);
+      // Create new PO via API
+      const createData = {
+        supplierId: val.supplierId,
+        branchId: targetBranchId,
+        expectedDeliveryDate: val.expectedDeliveryDate,
+        tax,
+        discount: this.poDiscount(),
+        termsConditions: val.termsConditions,
+        shippingAddress: val.shippingAddress,
+        items: finalItems.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitCost: item.unitCost,
+          expiryDate: item.expiryDate
+        }))
+      };
+      
+      this.dataService.createPurchaseOrder(createData).subscribe({
+        next: () => {
+          this.savingPO.set(false);
+          this.closePOModal();
+        },
+        error: (err) => {
+          this.savingPO.set(false);
+          this.errorMessage.set(err.message || 'Failed to create purchase order');
+        }
+      });
     }
-    this.closePOModal();
   }
 
   // -------------------------------------------------------------------------
@@ -624,7 +756,7 @@ export class ProcurementComponent {
     
     if (!name || !supplierId || !branchId) return;
 
-    const newId = this.store.addProduct({
+    this.dataService.createProduct({
       name,
       sku: sku || `SKU-${Math.floor(Math.random() * 10000)}`,
       cost: Number(cost),
@@ -632,16 +764,18 @@ export class ProcurementComponent {
       category,
       supplierId,
       branchId,
-      stock: 0,
+      initialStock: 0,
       minStock: 10
+    }).subscribe({
+      next: (newProduct) => {
+        this.selectedProduct.set(newProduct as ProductOption);
+        this.searchQueryInternal.set(newProduct.name);
+        this.closeQuickProductModal();
+      },
+      error: (err) => {
+        this.errorMessage.set(err.message || 'Failed to create product');
+      }
     });
-
-    const fullProduct = this.store.products().find(p => p.id === newId);
-    if (fullProduct) {
-      this.selectedProduct.set(fullProduct as ProductOption);
-      this.searchQueryInternal.set(fullProduct.name);
-    }
-    this.closeQuickProductModal();
   }
 
   // -------------------------------------------------------------------------
@@ -742,8 +876,11 @@ export class ProcurementComponent {
         return;
       }
     }
-    this.store.updatePurchaseOrder(id, { status });
-    this.closeActionMenu();
+    
+    this.dataService.updatePurchaseOrder(id, { status }).subscribe({
+      next: () => this.closeActionMenu(),
+      error: () => this.closeActionMenu()
+    });
   }
 
   deletePOFromMenu(): void {
@@ -756,8 +893,14 @@ export class ProcurementComponent {
       this.closeActionMenu();
       return;
     }
-    if (confirm('Delete order?')) this.store.deletePurchaseOrder(id);
-    this.closeActionMenu();
+    if (confirm('Delete order?')) {
+      this.dataService.deletePurchaseOrder(id).subscribe({
+        next: () => this.closeActionMenu(),
+        error: () => this.closeActionMenu()
+      });
+    } else {
+      this.closeActionMenu();
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -855,9 +998,21 @@ export class ProcurementComponent {
   saveBill(): void {
     if (!this.receiveForm.valid || !this.activeReceivePOId || this.editingBillId()) return;
     
+    this.savingBill.set(true);
+    this.errorMessage.set(null);
+    
     const val = this.receiveForm.getRawValue();
-    this.store.createBill(this.activeReceivePOId, val);
-    this.closeReceiveModal();
+    
+    this.dataService.createBill(this.activeReceivePOId, val).subscribe({
+      next: () => {
+        this.savingBill.set(false);
+        this.closeReceiveModal();
+      },
+      error: (err) => {
+        this.savingBill.set(false);
+        this.errorMessage.set(err?.message || 'Failed to create bill');
+      }
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -882,21 +1037,30 @@ export class ProcurementComponent {
     const billId = this.editingBillId();
     if (!this.paymentForm.valid || !billId || this.isAmountInvalid()) return;
     
+    this.savingPayment.set(true);
+    
     const val = this.paymentForm.getRawValue();
-    this.store.addBillPayment(billId, {
+    this.dataService.addBillPayment(billId, {
       ...val,
       method: val.method as 'Cash' | 'Bank Transfer' | 'Check' | 'Credit'
+    }).subscribe({
+      next: () => {
+        this.savingPayment.set(false);
+        this.paymentForm.reset({
+          date: this.today,
+          amount: 0,
+          method: 'Cash',
+          reference: '',
+          attachmentName: '',
+          fileUrl: ''
+        });
+        this.uploadedFileName.set('');
+        this.tempFileUrl.set(null);
+      },
+      error: () => {
+        this.savingPayment.set(false);
+      }
     });
-    this.paymentForm.reset({
-      date: this.today,
-      amount: 0,
-      method: 'Cash',
-      reference: '',
-      attachmentName: '',
-      fileUrl: ''
-    });
-    this.uploadedFileName.set('');
-    this.tempFileUrl.set(null);
   }
 
   // -------------------------------------------------------------------------

@@ -269,7 +269,6 @@ export class ApiService {
           }
           // Exponential backoff: 1s, 2s, 4s...
           const delay = Math.pow(2, retryCount - 1) * 1000;
-          console.log(`Retrying request in ${delay}ms (attempt ${retryCount}/${retries})`);
           return timer(delay);
         }
       }),

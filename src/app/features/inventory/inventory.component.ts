@@ -8,6 +8,7 @@
 import { Component, inject, signal, computed, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { StoreService, Product, PurchaseOrder } from '@core/services/store.service';
+import { DataService } from '@core/services/data.service';
 import { IconComponent } from '@shared/components/icons/icons.component';
 import { FormsModule } from '@angular/forms';
 
@@ -58,7 +59,12 @@ import { FormsModule } from '@angular/forms';
 })
 export class InventoryComponent {
   store = inject(StoreService);
+  private readonly dataService = inject(DataService);
   Math = Math;
+  
+  // Saving state
+  readonly saving = signal(false);
+  readonly errorMessage = signal<string | null>(null);
   
   // State
   searchQuery = signal('');
@@ -75,6 +81,9 @@ export class InventoryComponent {
   showColumnMenu = signal(false);
   
   editingId: string | null = null; 
+  
+  // Manual entry mode - when true, shows the form directly without PO selection
+  manualEntryMode = signal(false);
 
   // Smart Add / PO Logic
   sourceSupplierId = signal('');
@@ -407,8 +416,16 @@ export class InventoryComponent {
       this.recalcPrice();
   }
 
-  isValid() {
-      if (!this.newProduct.name || !this.newProduct.cost) return false;
+  isValid(): boolean {
+      // Name is required (at least 2 characters)
+      if (!this.newProduct.name || this.newProduct.name.trim().length < 2) return false;
+      
+      // In manual entry mode, cost must be provided (can be 0)
+      if (this.manualEntryMode() && (this.newProduct.cost === undefined || this.newProduct.cost === null)) return false;
+      
+      // Price must be valid
+      if (this.newProduct.price !== undefined && this.newProduct.price < 0) return false;
+      
       return true;
   }
 
@@ -418,13 +435,14 @@ export class InventoryComponent {
       this.newProduct.price = cost * (1 + (margin / 100));
   }
 
-  openAddModal() {
+  openAddModal(manual = false) {
     this.editingId = null;
     this.newStockQty.set(0);
     this.selectedSourcePO.set(null);
     this.activePOItem.set(null);
     this.sourceSupplierId.set(''); 
     this.selectedPOItems.clear();
+    this.manualEntryMode.set(manual);
     
     this.newProduct = { 
        name: '', genericName: '', sku: '', category: 'General', 
@@ -434,6 +452,18 @@ export class InventoryComponent {
     this.showModal.set(true);
     this.closeActionMenu();
   }
+  
+  // Switch to manual entry mode from PO selection
+  switchToManualEntry() {
+    this.manualEntryMode.set(true);
+    this.selectedSourcePO.set(null);
+    this.activePOItem.set(null);
+  }
+  
+  // Switch back to PO import mode
+  switchToPOImport() {
+    this.manualEntryMode.set(false);
+  }
 
   editProduct(id: string) {
       const p = this.store.products().find(x => x.id === id);
@@ -441,7 +471,8 @@ export class InventoryComponent {
           this.editingId = id;
           this.newStockQty.set(0);
           this.newProduct = { ...p }; 
-          this.activePOItem.set(null); 
+          this.activePOItem.set(null);
+          this.manualEntryMode.set(true); // Use simpler modal for editing
           this.showModal.set(true);
           this.closeActionMenu();
       }
@@ -449,14 +480,26 @@ export class InventoryComponent {
 
   deleteProduct(id: string) {
       if (confirm('Are you sure? This will remove the product from the catalog.')) {
-          this.store.deleteProduct(id);
-          this.closeActionMenu();
+          this.saving.set(true);
+          this.dataService.deleteProduct(id).subscribe({
+              next: () => {
+                  this.saving.set(false);
+                  this.closeActionMenu();
+              },
+              error: (err) => {
+                  this.saving.set(false);
+                  this.errorMessage.set(err.message || 'Failed to delete product');
+                  this.closeActionMenu();
+              }
+          });
       }
   }
 
   closeModal() {
     this.showModal.set(false);
     this.editingId = null;
+    this.manualEntryMode.set(false);
+    this.errorMessage.set(null);
   }
 
   // --- Save Actions ---
@@ -464,7 +507,6 @@ export class InventoryComponent {
   saveProduct() {
     if (this.isValid()) {
       this.commitItem(this.newProduct, this.newStockQty());
-      this.closeModal();
     }
   }
 
@@ -473,8 +515,12 @@ export class InventoryComponent {
       if (this.selectedPOItems.size === 0) return;
       
       const defaultMargin = 25; // Could be a setting
+      const items = Array.from(this.selectedPOItems);
+      let completed = 0;
       
-      this.selectedPOItems.forEach(item => {
+      this.saving.set(true);
+      
+      items.forEach(item => {
           const product: any = {
               name: this.getProductName(item.productId),
               sku: item.productId, // Fallback if no SKU
@@ -487,41 +533,140 @@ export class InventoryComponent {
               expiryDate: item.expiryDate || ''
           };
           
-          this.commitItem(product, item.quantity);
+          this.commitItemAsync(product, item.quantity, () => {
+              completed++;
+              if (completed >= items.length) {
+                  this.saving.set(false);
+                  this.closeModal();
+              }
+          });
       });
-
-      this.closeModal();
   }
 
   private commitItem(productData: any, qty: number) {
       const addedQty = Number(qty) || 0;
-      // IMP: Ensure we use the branch from the context (or PO if imported)
       const targetBranchId = this.selectedSourcePO()?.branchId || this.selectedBranchId();
 
-      let newBatch = null;
-      if (addedQty > 0) {
-          newBatch = {
-              id: 'b_' + Math.random().toString(36).substr(2, 9),
-              poRef: productData.initialPoRef || 'MANUAL',
-              batchNumber: 'BATCH-' + Math.floor(Math.random() * 10000),
-              quantity: addedQty,
-              cost: Number(productData.cost),
-              expiryDate: productData.expiryDate || new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
-              receivedDate: new Date().toISOString().split('T')[0]
-          };
+      // Validation: ensure we have a valid branch
+      if (!targetBranchId) {
+          this.errorMessage.set('Please select a branch first');
+          return;
       }
 
-      if (this.editingId) {
-          const updatedProduct: any = { ...productData };
-          if (newBatch) {
-              updatedProduct.batches = [...(updatedProduct.batches || []), newBatch];
-              updatedProduct.stock = (updatedProduct.stock || 0) + addedQty;
-          }
-          this.store.updateProduct(this.editingId, updatedProduct);
-      } else {
-          const prod = { ...productData, stock: addedQty, branchId: targetBranchId };
-          this.store.addProduct(prod); 
+      // Validation: ensure product name is valid
+      if (!productData.name || productData.name.trim().length < 2) {
+          this.errorMessage.set('Product name must be at least 2 characters');
+          return;
       }
+
+      this.saving.set(true);
+      this.errorMessage.set(null);
+
+      // Helper to convert empty strings to undefined for optional GUID fields
+      const toGuidOrUndefined = (val: string | undefined | null): string | undefined => {
+          if (!val || val.trim() === '') return undefined;
+          return val;
+      };
+
+      // Helper to convert empty strings to undefined for optional fields
+      const toStringOrUndefined = (val: string | undefined | null): string | undefined => {
+          if (!val || val.trim() === '') return undefined;
+          return val.trim();
+      };
+
+      if (this.editingId) {
+          // Update existing product via API
+          const updateData = {
+              name: productData.name.trim(),
+              genericName: toStringOrUndefined(productData.genericName),
+              sku: toStringOrUndefined(productData.sku),
+              price: Number(productData.price) || 0,
+              cost: Number(productData.cost) || 0,
+              category: productData.category || 'General',
+              supplierId: toGuidOrUndefined(productData.supplierId),
+              minStock: Number(productData.minStock) || 10,
+              location: toStringOrUndefined(productData.location),
+              expiryDate: toStringOrUndefined(productData.expiryDate)
+          };
+          
+          this.dataService.updateProduct(this.editingId, updateData).subscribe({
+              next: () => {
+                  this.saving.set(false);
+                  this.closeModal();
+              },
+              error: (err) => {
+                  this.saving.set(false);
+                  this.errorMessage.set(err.message || 'Failed to update product');
+              }
+          });
+      } else {
+          // Generate a unique SKU if not provided
+          const sku = productData.sku?.trim() || `SKU-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+          
+          // Create new product via API
+          const createData = {
+              name: productData.name.trim(),
+              genericName: toStringOrUndefined(productData.genericName) || '',
+              sku: sku,
+              price: Number(productData.price) || 0,
+              cost: Number(productData.cost) || 0,
+              category: productData.category || 'General',
+              supplierId: toGuidOrUndefined(productData.supplierId),
+              branchId: targetBranchId,
+              minStock: Number(productData.minStock) || 10,
+              location: toStringOrUndefined(productData.location),
+              initialStock: addedQty,
+              expiryDate: toStringOrUndefined(productData.expiryDate)
+          };
+          
+          this.dataService.createProduct(createData).subscribe({
+              next: () => {
+                  this.saving.set(false);
+                  this.closeModal();
+              },
+              error: (err) => {
+                  this.saving.set(false);
+                  this.errorMessage.set(err.message || 'Failed to create product');
+              }
+          });
+      }
+  }
+
+  private commitItemAsync(productData: any, qty: number, onComplete: () => void) {
+      const addedQty = Number(qty) || 0;
+      const targetBranchId = this.selectedSourcePO()?.branchId || this.selectedBranchId();
+
+      // Helper to convert empty strings to undefined
+      const toGuidOrUndefined = (val: string | undefined | null): string | undefined => {
+          if (!val || val.trim() === '') return undefined;
+          return val;
+      };
+
+      const toStringOrUndefined = (val: string | undefined | null): string | undefined => {
+          if (!val || val.trim() === '') return undefined;
+          return val.trim();
+      };
+
+      const sku = productData.sku?.trim() || `SKU-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+      const createData = {
+          name: (productData.name || 'Product').trim(),
+          genericName: toStringOrUndefined(productData.genericName) || '',
+          sku: sku,
+          price: Number(productData.price) || 0,
+          cost: Number(productData.cost) || 0,
+          category: productData.category || 'General',
+          supplierId: toGuidOrUndefined(productData.supplierId),
+          branchId: targetBranchId,
+          minStock: 10,
+          initialStock: addedQty,
+          expiryDate: toStringOrUndefined(productData.expiryDate)
+      };
+      
+      this.dataService.createProduct(createData).subscribe({
+          next: () => onComplete(),
+          error: () => onComplete()
+      });
   }
 
   // Column Management

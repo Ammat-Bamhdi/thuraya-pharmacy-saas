@@ -8,6 +8,7 @@
 import { Component, inject, signal, computed, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { StoreService, Customer, Invoice } from '@core/services/store.service';
+import { DataService } from '@core/services/data.service';
 import { IconComponent } from '@shared/components/icons/icons.component';
 import { FormsModule } from '@angular/forms';
 import { YEMEN_LOCATIONS } from '@constants/locations.const';
@@ -53,7 +54,12 @@ import { YEMEN_LOCATIONS } from '@constants/locations.const';
 })
 export class SalesComponent {
   store = inject(StoreService);
+  private readonly dataService = inject(DataService);
   Math = Math;
+  
+  // Saving state
+  readonly saving = signal(false);
+  readonly errorMessage = signal<string | null>(null);
 
   // Active Tab derived from global state
   activeTab = computed(() => {
@@ -409,12 +415,34 @@ export class SalesComponent {
 
   saveCustomer() {
     if(this.isFormValid()) {
+      this.saving.set(true);
+      this.errorMessage.set(null);
+      
       if (this.editingId()) {
-          this.store.updateCustomer(this.editingId()!, this.newCustomer);
+          // Update existing customer via API
+          this.dataService.updateCustomer(this.editingId()!, this.newCustomer).subscribe({
+            next: () => {
+              this.saving.set(false);
+              this.showCustomerModal.set(false);
+            },
+            error: (err) => {
+              this.saving.set(false);
+              this.errorMessage.set(err.message || 'Failed to update customer');
+            }
+          });
       } else {
-          this.store.addCustomer(this.newCustomer);
+          // Create new customer via API
+          this.dataService.createCustomer(this.newCustomer).subscribe({
+            next: () => {
+              this.saving.set(false);
+              this.showCustomerModal.set(false);
+            },
+            error: (err) => {
+              this.saving.set(false);
+              this.errorMessage.set(err.message || 'Failed to create customer');
+            }
+          });
       }
-      this.showCustomerModal.set(false);
     }
   }
 

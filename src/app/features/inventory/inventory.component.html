@@ -112,7 +112,7 @@
                 Add Suppliers First
               </button>
               <button 
-                (click)="openAddModal()"
+                (click)="openAddModal(true)"
                 class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-slate-700 border border-slate-200 rounded-xl font-medium hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
               >
                 <app-icon name="plus" [size]="18"></app-icon>
@@ -148,7 +148,7 @@
               Add your first product to start managing your pharmacy inventory. You can import from purchase orders or add manually.
             </p>
             <button 
-              (click)="openAddModal()"
+              (click)="openAddModal(true)"
               class="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
             >
               <app-icon name="plus" [size]="18"></app-icon>
@@ -388,8 +388,8 @@
         </div>
       </div>
 
-      <!-- REDESIGNED ADD/EDIT MODAL -->
-      @if (showModal()) {
+      <!-- PO IMPORT MODAL - Only shown when products exist and not in manual mode -->
+      @if (showModal() && !manualEntryMode()) {
         <div class="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in p-4" (click)="closeModal()">
            
            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-[95%] h-[90vh] flex flex-col border border-slate-200 overflow-hidden" (click)="$event.stopPropagation()">
@@ -397,8 +397,13 @@
               <!-- Header -->
               <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/80 backdrop-blur shrink-0">
                  <div>
-                    <h3 class="text-xl font-bold text-slate-800 tracking-tight">{{ editingId ? 'Edit Product' : 'Inventory Ingestion' }}</h3>
-                    <p class="text-xs text-slate-500 font-medium">Adding stock to: <strong>{{ getBranchName(selectedBranchId()) }}</strong></p>
+                    <h3 class="text-xl font-bold text-slate-800 tracking-tight">
+                      {{ editingId ? 'Edit Product' : (manualEntryMode() ? 'Add New Product' : 'Inventory Ingestion') }}
+                    </h3>
+                    <p class="text-xs text-slate-500 font-medium">
+                      {{ manualEntryMode() ? 'Manual product entry' : 'Adding stock to:' }} 
+                      <strong>{{ getBranchName(selectedBranchId()) }}</strong>
+                    </p>
                  </div>
                  <button (click)="closeModal()" class="p-2 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors">
                     <app-icon name="x" [size]="20"></app-icon>
@@ -407,8 +412,8 @@
 
               <div class="flex-1 flex overflow-hidden">
                  
-                 <!-- COLUMN 1: SOURCE SELECTION (PROGRESSIVE) -->
-                 @if (!editingId) {
+                 <!-- COLUMN 1: SOURCE SELECTION (PROGRESSIVE) - Hidden in manual mode -->
+                 @if (!editingId && !manualEntryMode()) {
                     <div class="w-72 bg-slate-50/50 border-r border-slate-100 flex flex-col shrink-0">
                        <div class="p-4 border-b border-slate-100">
                           <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-3">
@@ -472,6 +477,16 @@
                                 }
                              </div>
                           }
+                       </div>
+                       
+                       <!-- Manual Entry Option -->
+                       <div class="p-4 border-t border-slate-100 bg-slate-50/50">
+                          <p class="text-[10px] text-slate-400 mb-2 text-center">Or add product manually</p>
+                          <button (click)="switchToManualEntry()" 
+                             class="w-full px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-colors flex items-center justify-center gap-2">
+                             <app-icon name="edit-3" [size]="14"></app-icon>
+                             Manual Entry
+                          </button>
                        </div>
                     </div>
                  }
@@ -555,11 +570,20 @@
                  }
 
                  <!-- COLUMN 3: CONTEXTUAL EDITOR (RIGHT) -->
-                 <!-- Only visible if an item is actively selected for editing -->
-                 @if (activePOItem() || editingId) {
+                 <!-- Visible when: PO item selected, editing product, or manual entry mode -->
+                 @if (activePOItem() || editingId || manualEntryMode()) {
                     <div class="flex-1 flex flex-col min-w-0 bg-slate-50/30 overflow-y-auto p-6 relative border-l border-slate-100 animate-fade-in-right">
                         
-                        @if (isCurrentPOFullyAdded() && !editingId) {
+                        <!-- Back to PO Import button when in manual mode -->
+                        @if (manualEntryMode() && store.suppliers().length > 0) {
+                           <button (click)="switchToPOImport()" 
+                              class="mb-4 px-3 py-2 text-xs font-medium text-slate-500 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2 w-fit">
+                              <app-icon name="arrow-left" [size]="14"></app-icon>
+                              Import from Purchase Order
+                           </button>
+                        }
+                        
+                        @if (isCurrentPOFullyAdded() && !editingId && !manualEntryMode()) {
                            <div class="bg-blue-50 border-l-4 border-blue-500 p-3 mb-4 rounded-r shadow-sm">
                               <div class="flex items-center gap-2">
                                  <app-icon name="check-circle" [size]="16" class="text-blue-600"></app-icon>
@@ -619,20 +643,43 @@
                               <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                                  <div class="md:col-span-2">
                                     <label class="block text-xs font-medium text-slate-700 mb-1">Product Name <span class="text-red-500">*</span></label>
-                                    <input type="text" [(ngModel)]="newProduct.name" [readonly]="isCurrentPOFullyAdded()" class="glass-input w-full px-3 py-2 rounded-lg text-sm font-medium border-slate-200 focus:ring-teal-500/20 read-only:bg-slate-50 read-only:text-slate-500">
+                                    <input type="text" [(ngModel)]="newProduct.name" 
+                                       [readonly]="isCurrentPOFullyAdded() && !manualEntryMode()" 
+                                       class="glass-input w-full px-3 py-2 rounded-lg text-sm font-medium border-slate-200 focus:ring-teal-500/20 read-only:bg-slate-50 read-only:text-slate-500"
+                                       placeholder="Enter product name">
                                  </div>
                                  <div>
                                     <label class="block text-xs font-medium text-slate-700 mb-1">SKU / Barcode</label>
-                                    <input type="text" [(ngModel)]="newProduct.sku" [readonly]="isCurrentPOFullyAdded()" class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200 read-only:bg-slate-50 read-only:text-slate-500">
+                                    <input type="text" [(ngModel)]="newProduct.sku" 
+                                       [readonly]="isCurrentPOFullyAdded() && !manualEntryMode()" 
+                                       class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200 read-only:bg-slate-50 read-only:text-slate-500"
+                                       placeholder="Auto-generated if empty">
                                  </div>
                                  <div>
                                     <label class="block text-xs font-medium text-slate-700 mb-1">Category</label>
-                                    <select [(ngModel)]="newProduct.category" [disabled]="isCurrentPOFullyAdded()" class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200 bg-white disabled:bg-slate-50 disabled:text-slate-500">
+                                    <select [(ngModel)]="newProduct.category" 
+                                       [disabled]="isCurrentPOFullyAdded() && !manualEntryMode()" 
+                                       class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200 bg-white disabled:bg-slate-50 disabled:text-slate-500">
+                                       <option value="General">General</option>
                                        <option value="Analgesic">Analgesic</option>
                                        <option value="Antibiotic">Antibiotic</option>
-                                       <option value="General">General</option>
+                                       <option value="Supplements">Supplements</option>
+                                       <option value="Medical Supplies">Medical Supplies</option>
+                                       <option value="Personal Care">Personal Care</option>
                                     </select>
                                  </div>
+                                 @if (manualEntryMode() || editingId) {
+                                    <div>
+                                       <label class="block text-xs font-medium text-slate-700 mb-1">Supplier</label>
+                                       <select [(ngModel)]="newProduct.supplierId" 
+                                          class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200 bg-white">
+                                          <option value="">-- No Supplier --</option>
+                                          @for(s of store.suppliers(); track s.id) {
+                                             <option [value]="s.id">{{ s.name }}</option>
+                                          }
+                                       </select>
+                                    </div>
+                                 }
                               </div>
                            </fieldset>
 
@@ -645,22 +692,31 @@
                                  <div class="grid grid-cols-2 gap-4 mt-2">
                                     <div>
                                        <label class="block text-xs font-medium text-slate-600 mb-1">Unit Cost</label>
-                                       <input type="number" [(ngModel)]="newProduct.cost" (ngModelChange)="recalcPrice()" readonly 
-                                          class="glass-input w-full px-3 py-2 rounded-lg text-sm bg-slate-50 border-slate-200 font-bold text-slate-600 cursor-not-allowed">
+                                       <input type="number" [(ngModel)]="newProduct.cost" (ngModelChange)="recalcPrice()" 
+                                          [readonly]="!manualEntryMode() && !editingId" 
+                                          [class.bg-slate-50]="!manualEntryMode() && !editingId"
+                                          [class.cursor-not-allowed]="!manualEntryMode() && !editingId"
+                                          class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200 font-bold text-slate-600">
                                     </div>
                                     <div>
                                        <label class="block text-xs font-medium text-slate-600 mb-1">Selling Price</label>
                                        <div class="relative">
                                           <div class="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 text-xs">YER</div>
-                                          <input type="number" [ngModel]="newProduct.price" readonly class="glass-input w-full px-3 py-2 rounded-lg text-lg font-bold text-teal-600 bg-white border-slate-200">
+                                          <input type="number" [(ngModel)]="newProduct.price" 
+                                             [readonly]="!manualEntryMode() && !editingId"
+                                             [class.bg-slate-50]="!manualEntryMode() && !editingId"
+                                             class="glass-input w-full px-3 py-2 rounded-lg text-lg font-bold text-teal-600 border-slate-200">
                                        </div>
                                     </div>
                                     <div class="col-span-2">
                                        <label class="block text-xs font-medium text-slate-600 mb-1">Margin %</label>
                                        <div class="flex items-center gap-2">
-                                          <input type="number" [(ngModel)]="newProduct.margin" (ngModelChange)="recalcPrice()" min="0" [readonly]="isCurrentPOFullyAdded()" 
+                                          <input type="number" [(ngModel)]="newProduct.margin" (ngModelChange)="recalcPrice()" min="0" 
+                                             [readonly]="isCurrentPOFullyAdded() && !manualEntryMode()" 
                                              class="glass-input w-20 px-2 py-1.5 rounded-lg text-sm border-teal-300 focus:ring-teal-500 font-bold text-teal-700 text-center read-only:bg-slate-50 read-only:text-slate-500">
-                                          <input type="range" [(ngModel)]="newProduct.margin" (ngModelChange)="recalcPrice()" min="0" max="100" [disabled]="isCurrentPOFullyAdded()" class="flex-1 accent-teal-500 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50">
+                                          <input type="range" [(ngModel)]="newProduct.margin" (ngModelChange)="recalcPrice()" min="0" max="100" 
+                                             [disabled]="isCurrentPOFullyAdded() && !manualEntryMode()" 
+                                             class="flex-1 accent-teal-500 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50">
                                        </div>
                                     </div>
                                  </div>
@@ -724,21 +780,39 @@
                               </legend>
                               <div class="grid grid-cols-2 gap-4 mt-2">
                                  <div>
-                                    <label class="block text-xs font-medium text-slate-600 mb-1">Incoming Qty</label>
-                                    <input type="number" [(ngModel)]="newStockQty" readonly class="glass-input w-full px-3 py-2 rounded-lg text-sm bg-slate-50 font-bold text-slate-700">
+                                    <label class="block text-xs font-medium text-slate-600 mb-1">
+                                       {{ manualEntryMode() ? 'Initial Stock' : 'Incoming Qty' }}
+                                    </label>
+                                    <input type="number" [ngModel]="newStockQty()" (ngModelChange)="newStockQty.set($event)" 
+                                       [readonly]="!manualEntryMode() && !editingId" 
+                                       [class.bg-slate-50]="!manualEntryMode() && !editingId"
+                                       class="glass-input w-full px-3 py-2 rounded-lg text-sm font-bold text-slate-700 border-slate-200">
                                  </div>
                                  <div>
                                     <label class="block text-xs font-medium text-slate-600 mb-1">Expiry Date</label>
-                                    <input type="date" [(ngModel)]="newProduct.expiryDate" [readonly]="isCurrentPOFullyAdded()" class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200 read-only:bg-slate-50 read-only:text-slate-500">
+                                    <input type="date" [(ngModel)]="newProduct.expiryDate" 
+                                       [readonly]="isCurrentPOFullyAdded() && !manualEntryMode()" 
+                                       class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200 read-only:bg-slate-50 read-only:text-slate-500">
                                  </div>
                               </div>
                            </fieldset>
 
-                           @if (!isCurrentPOFullyAdded() || editingId) {
+                           @if (!isCurrentPOFullyAdded() || editingId || manualEntryMode()) {
                               <div class="pt-4 flex gap-3 justify-end">
-                                 <button (click)="saveProduct()" [disabled]="!isValid()" class="px-6 py-2.5 bg-slate-800 text-white rounded-lg shadow-lg hover:bg-slate-700 transition-all font-medium text-sm flex items-center gap-2">
-                                    <app-icon name="check" [size]="16"></app-icon> 
-                                    {{ editingId ? 'Update' : 'Confirm Import' }}
+                                 @if (errorMessage()) {
+                                    <div class="flex-1 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+                                       {{ errorMessage() }}
+                                    </div>
+                                 }
+                                 <button (click)="saveProduct()" [disabled]="!isValid() || saving()" 
+                                    class="px-6 py-2.5 bg-slate-800 text-white rounded-lg shadow-lg hover:bg-slate-700 transition-all font-medium text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    @if (saving()) {
+                                       <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                       Saving...
+                                    } @else {
+                                       <app-icon name="check" [size]="16"></app-icon> 
+                                       {{ editingId ? 'Update Product' : (manualEntryMode() ? 'Add Product' : 'Confirm Import') }}
+                                    }
                                  </button>
                               </div>
                            }
@@ -757,6 +831,168 @@
       }
 
       } <!-- End of else block for products display -->
+
+      <!-- MANUAL ADD/EDIT MODAL - Works regardless of whether products exist -->
+      @if (showModal() && manualEntryMode()) {
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in p-4" (click)="closeModal()">
+           
+           <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-200 overflow-hidden" (click)="$event.stopPropagation()">
+              
+              <!-- Header -->
+              <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/80 backdrop-blur shrink-0">
+                 <div>
+                    <h3 class="text-xl font-bold text-slate-800 tracking-tight">
+                      {{ editingId ? 'Edit Product' : 'Add New Product' }}
+                    </h3>
+                    <p class="text-xs text-slate-500 font-medium">
+                      Adding to: <strong>{{ getBranchName(selectedBranchId()) }}</strong>
+                    </p>
+                 </div>
+                 <button (click)="closeModal()" class="p-2 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors">
+                    <app-icon name="x" [size]="20"></app-icon>
+                 </button>
+              </div>
+
+              <!-- Form Content -->
+              <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                 
+                 <!-- Error Message -->
+                 @if (errorMessage()) {
+                    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+                       <app-icon name="alert-circle" [size]="16"></app-icon>
+                       {{ errorMessage() }}
+                    </div>
+                 }
+                 
+                 <!-- Product Definition -->
+                 <fieldset class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <legend class="px-2 text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                       <app-icon name="package" [size]="14"></app-icon> Product Information
+                    </legend>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                       <div class="md:col-span-2">
+                          <label class="block text-xs font-medium text-slate-700 mb-1">Product Name <span class="text-red-500">*</span></label>
+                          <input type="text" [(ngModel)]="newProduct.name" 
+                             class="glass-input w-full px-3 py-2 rounded-lg text-sm font-medium border-slate-200 focus:ring-teal-500/20"
+                             placeholder="Enter product name">
+                       </div>
+                       <div>
+                          <label class="block text-xs font-medium text-slate-700 mb-1">Generic Name</label>
+                          <input type="text" [(ngModel)]="newProduct.genericName" 
+                             class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200"
+                             placeholder="Generic/scientific name">
+                       </div>
+                       <div>
+                          <label class="block text-xs font-medium text-slate-700 mb-1">SKU / Barcode</label>
+                          <input type="text" [(ngModel)]="newProduct.sku" 
+                             class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200"
+                             placeholder="Auto-generated if empty">
+                       </div>
+                       <div>
+                          <label class="block text-xs font-medium text-slate-700 mb-1">Category</label>
+                          <select [(ngModel)]="newProduct.category" 
+                             class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200 bg-white">
+                             <option value="General">General</option>
+                             <option value="Analgesic">Analgesic</option>
+                             <option value="Antibiotic">Antibiotic</option>
+                             <option value="Supplements">Supplements</option>
+                             <option value="Medical Supplies">Medical Supplies</option>
+                             <option value="Personal Care">Personal Care</option>
+                          </select>
+                       </div>
+                       <div>
+                          <label class="block text-xs font-medium text-slate-700 mb-1">Supplier</label>
+                          <select [(ngModel)]="newProduct.supplierId" 
+                             class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200 bg-white">
+                             <option value="">-- No Supplier --</option>
+                             @for(s of store.suppliers(); track s.id) {
+                                <option [value]="s.id">{{ s.name }}</option>
+                             }
+                          </select>
+                       </div>
+                    </div>
+                 </fieldset>
+
+                 <!-- Pricing -->
+                 <fieldset class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <legend class="px-2 text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                       <app-icon name="dollar-sign" [size]="14"></app-icon> Pricing
+                    </legend>
+                    <div class="grid grid-cols-3 gap-4 mt-2">
+                       <div>
+                          <label class="block text-xs font-medium text-slate-600 mb-1">Unit Cost <span class="text-red-500">*</span></label>
+                          <input type="number" [(ngModel)]="newProduct.cost" (ngModelChange)="recalcPrice()" min="0" step="0.01"
+                             class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200 font-bold text-slate-600"
+                             placeholder="0.00">
+                       </div>
+                       <div>
+                          <label class="block text-xs font-medium text-slate-600 mb-1">Margin %</label>
+                          <input type="number" [(ngModel)]="newProduct.margin" (ngModelChange)="recalcPrice()" min="0" max="100"
+                             class="glass-input w-full px-3 py-2 rounded-lg text-sm border-teal-300 font-bold text-teal-700"
+                             placeholder="25">
+                       </div>
+                       <div>
+                          <label class="block text-xs font-medium text-slate-600 mb-1">Selling Price</label>
+                          <input type="number" [(ngModel)]="newProduct.price" min="0" step="0.01"
+                             class="glass-input w-full px-3 py-2 rounded-lg text-sm font-bold text-teal-600 border-slate-200"
+                             placeholder="0.00">
+                       </div>
+                    </div>
+                 </fieldset>
+
+                 <!-- Stock & Storage -->
+                 <fieldset class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <legend class="px-2 text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                       <app-icon name="truck" [size]="14"></app-icon> Stock & Storage
+                    </legend>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+                       <div>
+                          <label class="block text-xs font-medium text-slate-600 mb-1">Initial Stock</label>
+                          <input type="number" [ngModel]="newStockQty()" (ngModelChange)="newStockQty.set($event)" min="0"
+                             class="glass-input w-full px-3 py-2 rounded-lg text-sm font-bold text-slate-700 border-slate-200"
+                             placeholder="0">
+                       </div>
+                       <div>
+                          <label class="block text-xs font-medium text-slate-600 mb-1">Min Stock Alert</label>
+                          <input type="number" [(ngModel)]="newProduct.minStock" min="0"
+                             class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200"
+                             placeholder="10">
+                       </div>
+                       <div>
+                          <label class="block text-xs font-medium text-slate-600 mb-1">Location</label>
+                          <input type="text" [(ngModel)]="newProduct.location"
+                             class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200"
+                             placeholder="Shelf A1">
+                       </div>
+                       <div>
+                          <label class="block text-xs font-medium text-slate-600 mb-1">Expiry Date</label>
+                          <input type="date" [(ngModel)]="newProduct.expiryDate"
+                             class="glass-input w-full px-3 py-2 rounded-lg text-sm border-slate-200">
+                       </div>
+                    </div>
+                 </fieldset>
+              </div>
+
+              <!-- Footer Actions -->
+              <div class="p-5 border-t border-slate-100 bg-slate-50/80 flex justify-end gap-3 shrink-0">
+                 <button (click)="closeModal()" 
+                    class="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                    Cancel
+                 </button>
+                 <button (click)="saveProduct()" [disabled]="!isValid() || saving()" 
+                    class="px-6 py-2 bg-teal-600 text-white rounded-lg shadow-lg hover:bg-teal-700 transition-all font-medium text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    @if (saving()) {
+                       <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                       Saving...
+                    } @else {
+                       <app-icon name="check" [size]="16"></app-icon> 
+                       {{ editingId ? 'Update Product' : 'Add Product' }}
+                    }
+                 </button>
+              </div>
+           </div>
+        </div>
+      }
 
       <!-- Action Menu Overlay -->
       @if (activeActionRow()) {
