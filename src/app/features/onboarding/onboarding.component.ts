@@ -828,8 +828,6 @@ export class OnboardingComponent {
   finish() {
     // SuperAdmin should always be able to proceed after provisioning
     // Even if they skipped team assignment
-    console.log('[Onboarding] Finish clicked, calling completeOnboarding');
-    console.log('[Onboarding] Created branches during this session:', this.createdBranchIds.length);
     this.auth.completeOnboarding();
   }
 }

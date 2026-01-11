@@ -178,7 +178,6 @@ export class SetupService {
       tap(status => {
         this._setupStatus.next(status);
         this.setupStatus.set(status);
-        console.log('[SetupService] Setup status loaded:', status);
       }),
       catchError(error => {
         console.error('[SetupService] Failed to get setup status:', error);
@@ -255,6 +254,7 @@ export class SetupService {
     );
   }
 
+
   // ---------------------------------------------------------------------------
   // Manager Operations
   // ---------------------------------------------------------------------------
@@ -296,7 +296,7 @@ export class SetupService {
    * @example
    * setupService.bulkAssignManager(['branch-1', 'branch-2'], 'manager-id')
    *   .subscribe(result => {
-   *     console.log(`Assigned ${result.successCount} branches`);
+   *     // handle success counts
    *   });
    */
   bulkAssignManager(branchIds: string[], managerId: string): Observable<BulkAssignManagerResponse> {
@@ -305,14 +305,11 @@ export class SetupService {
       managerId: managerId
     };
 
-    console.log('[SetupService] Bulk assigning manager:', { branchIds, managerId });
-
     return this.http.post<ApiResponse<BulkAssignManagerResponse>>(
       `${this.apiUrl}/branches/bulk-assign-manager`,
       request
     ).pipe(
       map(response => {
-        console.log('[SetupService] Bulk assign response:', response);
         if (!response.success || !response.data) {
           throw new Error(response.message || 'Failed to assign manager');
         }

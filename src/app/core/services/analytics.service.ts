@@ -1,4 +1,4 @@
-import { Injectable, signal, computed, effect, linkedSignal } from '@angular/core';
+import { Injectable, signal, computed, linkedSignal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { interval } from 'rxjs';
 
@@ -46,13 +46,6 @@ export class AnalyticsService {
 
   // Real-time updates using toSignal
   readonly currentTime = toSignal(interval(1000), { initialValue: Date.now() });
-
-  constructor() {
-    // Effect to log changes
-    effect(() => {
-      console.log('Analytics updated for branch:', this.selectedBranchId());
-    });
-  }
 
   private calculateAnalytics(branchId: string, dateRange: { start: Date; end: Date }) {
     // Mock analytics calculation

@@ -8,6 +8,7 @@
 import { Component, inject, signal, computed, ElementRef, ViewChild, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { StoreService, Product, Customer, CustomerType } from '@core/services/store.service';
+import { DataService } from '@core/services/data.service';
 import { IconComponent } from '@shared/components/icons/icons.component';
 import { FormsModule } from '@angular/forms';
 
@@ -51,6 +52,7 @@ import { FormsModule } from '@angular/forms';
 })
 export class POSComponent implements OnInit, OnDestroy {
   store = inject(StoreService);
+  private readonly dataService = inject(DataService);
   
   @ViewChild('searchInput') searchInput!: ElementRef;
   @ViewChild('custSearchInput') custSearchInput!: ElementRef;
@@ -220,15 +222,21 @@ export class POSComponent implements OnInit, OnDestroy {
           assignedSalesRep: this.store.currentUser()?.id
       };
 
-      this.store.addCustomer(newC);
-      
-      // Ideally, store.addCustomer returns the ID or object. 
-      // For now, we grab the latest added customer (simple simulation)
-      setTimeout(() => {
-          const all = this.store.customers();
-          const created = all[all.length - 1]; 
-          this.selectCustomer(created);
-      }, 50);
+      // Create customer via API
+      this.dataService.createCustomer(newC).subscribe({
+          next: (created) => {
+              this.selectCustomer(created as Customer);
+          },
+          error: () => {
+              // Fallback to store method if API fails
+              this.store.addCustomer(newC);
+              setTimeout(() => {
+                  const all = this.store.customers();
+                  const created = all[all.length - 1]; 
+                  this.selectCustomer(created);
+              }, 50);
+          }
+      });
   }
 
   // --- Checkout ---
@@ -239,18 +247,36 @@ export class POSComponent implements OnInit, OnDestroy {
 
   processCheckout() {
      this.processing.set(true);
-     // Simulate API latency
-     setTimeout(() => {
-        // Use activeCustomer ID if set, otherwise fallback to generic 'c1' (Walk-in)
-        const custId = this.activeCustomer()?.id || 'c1'; 
-        
-        // Pass the Active Branch ID to scope the transaction
-        this.store.checkout(custId, this.store.activeBranch().id);
-        
-        this.processing.set(false);
-        this.activeCustomer.set(null); // Reset to Walk-in after sale
-        this.searchInput.nativeElement.focus();
-     }, 1000);
+     
+     const custId = this.activeCustomer()?.id || 'c1'; 
+     const branchId = this.store.activeBranch().id;
+     const cart = this.store.cart();
+     
+     // Create invoice via API
+     this.dataService.createInvoice({
+         branchId,
+         customerId: custId,
+         items: cart.map(item => ({
+             productId: item.id,
+             quantity: item.quantity,
+             price: item.price
+         }))
+     }).subscribe({
+         next: () => {
+             // Clear cart locally
+             this.store.clearCart();
+             this.processing.set(false);
+             this.activeCustomer.set(null);
+             this.searchInput.nativeElement.focus();
+         },
+         error: () => {
+             // Fallback to store method if API fails
+             this.store.checkout(custId, branchId);
+             this.processing.set(false);
+             this.activeCustomer.set(null);
+             this.searchInput.nativeElement.focus();
+         }
+     });
   }
 }
 

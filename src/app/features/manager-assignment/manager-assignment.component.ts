@@ -1,23 +1,15 @@
 /**
  * @fileoverview Manager Assignment Component
- * @description Dedicated page for assigning managers to branches that don't have one.
- * Supports bulk operations, search, and pagination for handling large datasets.
+ * @description Clean, panel-free interface for assigning managers to branches.
+ * Shows only unassigned branches. Uses color-coded states:
+ * - Pending (🟡 Yellow) — Manager selected, not saved yet
+ * - Unassigned (⚪ Gray) — No manager assigned
+ * 
+ * After saving, branches disappear from this list (they're now assigned).
+ * Progress is tracked via the setup status API.
  * 
  * @author Thuraya Systems
- * @version 1.0.0
- * 
- * @features
- * - Paginated list of branches without managers
- * - Search/filter functionality
- * - Bulk selection with "Select All" option
- * - Manager dropdown for each branch or bulk assignment
- * - Progress tracking with completion percentage
- * - Responsive design for mobile/desktop
- * 
- * @architecture
- * - Uses OnPush change detection for performance
- * - Signal-based reactive state
- * - Lazy-loaded as a standalone component
+ * @version 6.0.0
  */
 
 import { 
@@ -30,6 +22,8 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { forkJoin, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { 
   SetupService, 
   BranchForAssignment, 
@@ -37,11 +31,14 @@ import {
   SetupStatus 
 } from '@core/services/setup.service';
 import { StoreService } from '@core/services/store.service';
-import { IconComponent } from '@shared/components/icons/icons.component';
 
-/**
- * Extended branch with selection state for UI.
- */
+interface PendingAssignment {
+  branchId: string;
+  branchName: string;
+  managerId: string;
+  managerName: string;
+}
+
 interface SelectableBranch extends BranchForAssignment {
   selected: boolean;
   selectedManagerId?: string;
@@ -50,691 +47,1231 @@ interface SelectableBranch extends BranchForAssignment {
 @Component({
   selector: 'app-manager-assignment',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="h-full flex flex-col gap-4 animate-fade-in overflow-hidden bg-slate-50 p-2 md:p-4 rounded-xl">
-      
-      <!-- Header -->
-      <header class="shrink-0 flex flex-col gap-2">
-        <div class="flex items-center gap-3">
-          <button 
-            (click)="goBack()"
-            class="p-2 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors shadow-sm"
-            aria-label="Go back to dashboard"
-          >
-            <app-icon name="arrow-left" [size]="20" class="text-slate-600"></app-icon>
-          </button>
-          <div>
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-800">
-              Assign Branch Managers
-            </h1>
-            <p class="text-sm text-slate-500 mt-0.5">
-              Pick a manager for each branch and track completion in real time.
+    <div class="page">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <button (click)="goBack()" class="back-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          Dashboard
+        </button>
+
+        <div class="sidebar-content">
+          <div class="header-section">
+            <h1 class="page-title">Assign Branch Managers</h1>
+            <p class="page-desc">
+              Select a manager for each branch. Your selections become 
+              <strong>Pending</strong> until you click <strong>Save All</strong>.
+              After saving, assigned branches will no longer appear here.
             </p>
           </div>
-        </div>
-      </header>
 
-      <!-- Status / Overview -->
-      @if (setupStatus(); as status) {
-        <section class="shrink-0 grid grid-cols-1 lg:grid-cols-3 gap-3">
-          <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col gap-3">
-            <div class="flex items-center gap-2">
-              <div 
-                class="w-3 h-3 rounded-full"
-                [class.bg-emerald-500]="status.isSetupComplete"
-                [class.bg-amber-500]="!status.isSetupComplete"
-              ></div>
-              <span class="text-sm font-medium text-slate-700">
-                {{ status.branchesWithManagers }} of {{ status.totalBranches }} branches assigned
-              </span>
-            </div>
-            <div class="flex items-center gap-3">
-              <div class="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden relative">
+          <!-- Progress -->
+          @if (setupStatus(); as status) {
+            <div class="progress-card">
+              <div class="progress-header">
+                <span class="progress-label">Progress</span>
+                <span class="progress-value">{{ status.branchesWithManagers }}/{{ status.totalBranches }}</span>
+              </div>
+              <div class="progress-bar">
                 <div 
-                  class="h-full transition-all duration-700 ease-out relative"
-                  [class.bg-emerald-500]="status.completionPercentage === 100"
-                  [class.bg-teal-500]="status.completionPercentage < 100"
+                  class="progress-fill"
                   [style.width.%]="status.completionPercentage"
-                >
-                  <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
-                </div>
+                  [class.complete]="status.completionPercentage === 100"
+                ></div>
               </div>
-              <span class="text-sm font-bold min-w-[3rem] text-right"
-                [class.text-emerald-600]="status.completionPercentage === 100"
-                [class.text-teal-600]="status.completionPercentage < 100"
-              >
-                {{ status.completionPercentage }}%
-              </span>
+              <div class="progress-stats">
+                <span class="stat">
+                  <span class="stat-dot assigned"></span>
+                  {{ status.branchesWithManagers }} assigned
+                </span>
+                <span class="stat">
+                  <span class="stat-dot unassigned"></span>
+                  {{ status.branchesWithoutManagers }} remaining
+                </span>
+              </div>
             </div>
-            @if (status.isSetupComplete) {
-              <div class="inline-flex items-center gap-2 text-sm font-medium text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-100">
-                <app-icon name="check" [size]="16"></app-icon>
-                All branches assigned!
+          }
+
+          <!-- Status Legend -->
+          <div class="legend">
+            <div class="legend-title">How it works</div>
+            <div class="legend-items">
+              <div class="legend-item">
+                <span class="legend-num">1</span>
+                <span class="legend-text">Select a manager from the dropdown</span>
               </div>
-            } @else {
-              <div class="text-xs text-slate-500">
-                Pending: {{ status.branchesWithoutManagers }} branch(es)
+              <div class="legend-item">
+                <span class="legend-num">2</span>
+                <span class="legend-text">Row turns <strong>yellow</strong> (pending)</span>
               </div>
-            }
+              <div class="legend-item">
+                <span class="legend-num">3</span>
+                <span class="legend-text">Click <strong>Save All</strong> to confirm</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-num">4</span>
+                <span class="legend-text">Saved branches are removed from list</span>
+              </div>
+            </div>
           </div>
 
-          <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col gap-3 lg:col-span-2">
-            <div class="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
-              <div class="flex flex-wrap gap-2 items-center">
-                <span class="text-sm font-semibold text-slate-700">Filters</span>
-                <div class="relative w-full sm:w-72">
-                  <app-icon 
-                    name="search" 
-                    [size]="18" 
-                    class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  ></app-icon>
-                  <input 
-                    type="text"
-                    [ngModel]="searchTerm()"
-                    (ngModelChange)="onSearchChange($event)"
-                    placeholder="Search branches..."
-                    class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
-                  />
-                </div>
-              </div>
-
-              <div class="flex flex-wrap gap-2 items-center">
-                <div class="text-sm text-slate-500">
-                  Showing {{ (currentPage() - 1) * pageSize() + 1 }} - {{ Math.min(currentPage() * pageSize(), totalCount()) }} of {{ totalCount() }}
-                </div>
-                <div class="flex items-center gap-1">
-                  <button 
-                    (click)="previousPage()"
-                    [disabled]="currentPage() === 1"
-                    class="p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <app-icon name="chevron-left" [size]="18"></app-icon>
-                  </button>
-                  <span class="text-sm font-medium text-slate-700 px-2">
-                    Page {{ currentPage() }} / {{ totalPages() }}
-                  </span>
-                  <button 
-                    (click)="nextPage()"
-                    [disabled]="currentPage() === totalPages()"
-                    class="p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <app-icon name="chevron-right" [size]="18"></app-icon>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div class="flex flex-wrap gap-2 items-center bg-teal-50 border border-teal-100 rounded-lg px-3 py-2">
-              <span class="text-sm font-medium text-teal-700">Bulk assign</span>
+          <!-- Bulk Assign -->
+          <div class="bulk-section">
+            <div class="bulk-label">Bulk assign</div>
+            <p class="bulk-desc">Select multiple branches using checkboxes, then assign them all at once.</p>
+            <div class="bulk-row">
               <select 
                 [ngModel]="bulkManagerId()"
                 (ngModelChange)="bulkManagerId.set($event)"
-                class="px-3 py-1.5 border border-teal-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                class="bulk-select"
+                [disabled]="selectedCount() === 0"
               >
-                <option value="">Select manager...</option>
+                <option value="">Choose manager...</option>
                 @for (manager of managers(); track manager.id) {
-                  <option [value]="manager.id">
-                    {{ manager.name }} ({{ manager.assignedBranchCount }} branches)
-                  </option>
+                  <option [value]="manager.id">{{ manager.name }}</option>
                 }
               </select>
               <button 
-                (click)="assignBulk()"
-                [disabled]="!bulkManagerId() || selectedCount() === 0 || isAssigning()"
-                class="px-4 py-1.5 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                (click)="applyBulkSelection()"
+                [disabled]="!bulkManagerId() || selectedCount() === 0"
+                class="bulk-btn"
               >
-                @if (isAssigning()) {
-                  <app-icon name="loader" [size]="16" class="animate-spin"></app-icon>
-                }
-                Assign selected ({{ selectedCount() }})
-              </button>
-              <button 
-                (click)="clearSelection()"
-                class="p-2 text-teal-700 hover:bg-teal-100 rounded-lg transition-colors text-sm"
-                aria-label="Clear selection"
-              >
-                Clear
+                Apply
               </button>
             </div>
-          </div>
-        </section>
-      }
-
-      <!-- Branch List -->
-      <section class="flex-1 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-
-        <!-- Loading -->
-        @if (isLoading()) {
-          <div class="flex-1 flex items-center justify-center p-8">
-            <div class="flex flex-col items-center gap-3 text-slate-500">
-              <app-icon name="loader" [size]="32" class="text-teal-600 animate-spin"></app-icon>
-              <p class="text-sm">Loading branches...</p>
-            </div>
-          </div>
-        }
-
-        <!-- Empty -->
-        @else if (branches().length === 0) {
-          <div class="flex-1 flex items-center justify-center p-8">
-            <div class="text-center max-w-sm">
-              <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-100 flex items-center justify-center">
-                <app-icon name="check" [size]="32" class="text-emerald-600"></app-icon>
-              </div>
-              <h3 class="text-lg font-semibold text-slate-800 mb-2">All caught up!</h3>
-              <p class="text-sm text-slate-500">
-                @if (searchTerm()) {
-                  No branches found matching "{{ searchTerm() }}".
-                } @else {
-                  All branches have managers assigned. Great job!
-                }
-              </p>
-              @if (searchTerm()) {
-                <button 
-                  (click)="clearSearch()"
-                  class="mt-4 text-sm text-teal-600 hover:underline"
-                >
-                  Clear search
-                </button>
-              }
-            </div>
-          </div>
-        }
-
-        <!-- List -->
-        @else {
-          <div class="flex-1 overflow-y-auto divide-y divide-slate-100">
-            @for (branch of branches(); track branch.id) {
-              <div 
-                class="flex flex-col md:grid md:grid-cols-12 gap-3 px-4 py-3 transition-all duration-300 hover:bg-slate-50"
-                [class.bg-teal-50]="branch.selected"
-                [class.opacity-60]="assigningBranchId() === branch.id"
-              >
-                <!-- Checkbox -->
-                <div class="md:col-span-1 flex items-start pt-1">
-                  <input 
-                    type="checkbox"
-                    [checked]="branch.selected"
-                    (change)="toggleBranch(branch)"
-                    class="w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
-                  />
-                </div>
-
-                <!-- Branch info -->
-                <div class="md:col-span-5 flex flex-col gap-1">
-                  <div class="flex items-center gap-2">
-                    <span class="font-semibold text-slate-800">{{ branch.name }}</span>
-                    <span class="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{{ branch.code }}</span>
-                  </div>
-                  <div class="text-sm text-slate-500">{{ branch.location || '—' }}</div>
-                </div>
-
-                <!-- Manager assignment -->
-                <div class="md:col-span-6 flex flex-col md:flex-row md:items-center gap-2">
-                  <select 
-                    [ngModel]="branch.selectedManagerId"
-                    (ngModelChange)="onManagerSelect(branch, $event)"
-                    [disabled]="assigningBranchId() === branch.id"
-                    class="flex-1 px-3 py-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                  >
-                    <option value="">Select manager...</option>
-                    @for (manager of managers(); track manager.id) {
-                      <option [value]="manager.id">{{ manager.name }}</option>
-                    }
-                  </select>
-
-                  <div class="flex items-center gap-2">
-                    @if (assigningBranchId() === branch.id) {
-                      <div class="px-3 py-2 bg-teal-100 rounded-lg flex items-center justify-center min-w-[36px]">
-                        <app-icon name="loader" [size]="16" class="text-teal-600 animate-spin"></app-icon>
-                      </div>
-                    } @else {
-                      <button 
-                        (click)="assignSingle(branch)"
-                        [disabled]="!branch.selectedManagerId"
-                        class="px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 flex items-center gap-2 min-w-[44px]"
-                        title="Assign manager"
-                      >
-                        <app-icon name="check" [size]="16"></app-icon>
-                        <span class="text-sm font-medium hidden sm:inline">Assign</span>
-                      </button>
-                    }
-                  </div>
-                </div>
-              </div>
+            @if (selectedCount() > 0) {
+              <div class="bulk-hint">{{ selectedCount() }} branch{{ selectedCount() > 1 ? 'es' : '' }} selected</div>
             }
           </div>
-        }
-      </section>
+        </div>
 
-      <!-- Toast -->
-      @if (showSuccess()) {
-        <div 
-          class="fixed bottom-6 right-6 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-slide-in z-50 min-w-[300px]"
-          [class.bg-emerald-600]="successMessage() && !successMessage()!.startsWith('Error')"
-          [class.bg-red-600]="successMessage() && successMessage()!.startsWith('Error')"
-          [class.text-white]="true"
-          [class.ring-2]="true"
-          [class.ring-emerald-300]="successMessage() && !successMessage()!.startsWith('Error')"
-          [class.ring-red-300]="successMessage() && successMessage()!.startsWith('Error')"
-        >
-          @if (successMessage() && successMessage()!.startsWith('Error')) {
-            <div class="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
-              <app-icon name="alert-circle" [size]="20"></app-icon>
-            </div>
-          } @else {
-            <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 animate-bounce">
-              <app-icon name="check" [size]="20"></app-icon>
+        <!-- Save Button (Fixed at bottom) -->
+        <div class="save-section">
+          @if (pendingCount() > 0) {
+            <div class="save-alert">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              {{ pendingCount() }} unsaved change{{ pendingCount() > 1 ? 's' : '' }}
             </div>
           }
-          <span class="font-semibold flex-1">{{ successMessage() }}</span>
+          <button 
+            (click)="saveAllAssignments()"
+            [disabled]="pendingCount() === 0 || isAssigning()"
+            class="save-btn"
+          >
+            @if (isAssigning()) {
+              <svg class="spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" opacity="0.25"/>
+                <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/>
+              </svg>
+              Saving...
+            } @else {
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                <polyline points="17 21 17 13 7 13 7 21"/>
+                <polyline points="7 3 7 8 15 8"/>
+              </svg>
+              Save All Assignments
+            }
+          </button>
+          @if (pendingCount() > 0) {
+            <button (click)="clearAllPending()" class="discard-btn">
+              Discard changes
+            </button>
+          }
+        </div>
+      </aside>
+
+      <!-- Main -->
+      <main class="main">
+        <!-- Toolbar -->
+        <header class="toolbar">
+          <div class="search-box">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input 
+              type="search"
+              [ngModel]="searchTerm()"
+              (ngModelChange)="onSearchChange($event)"
+              placeholder="Search branches..."
+              class="search-input"
+            />
+            @if (searchTerm()) {
+              <button (click)="clearSearch()" class="search-clear">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            }
+          </div>
+
+          <div class="toolbar-right">
+            <span class="record-count">{{ totalCount() }} branches need managers</span>
+            <div class="pagination">
+              <button 
+                (click)="previousPage()"
+                [disabled]="currentPage() === 1"
+                class="page-btn"
+                title="Previous page"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="15 18 9 12 15 6"/>
+                </svg>
+              </button>
+              <span class="page-info">{{ currentPage() }} / {{ totalPages() }}</span>
+              <button 
+                (click)="nextPage()"
+                [disabled]="currentPage() >= totalPages()"
+                class="page-btn"
+                title="Next page"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <!-- Content -->
+        <div class="content">
+          @if (isLoading()) {
+            <div class="state-view">
+              <svg class="spinner lg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" opacity="0.25"/>
+                <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/>
+              </svg>
+              <p>Loading branches...</p>
+            </div>
+          } @else if (branches().length === 0) {
+            <div class="state-view">
+              @if (searchTerm()) {
+                <div class="state-icon muted">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                </div>
+                <h3>No results</h3>
+                <p>No branches match "{{ searchTerm() }}"</p>
+                <button (click)="clearSearch()" class="link-btn">Clear search</button>
+              } @else {
+                <div class="state-icon success">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <h3>All done!</h3>
+                <p>Every branch has a manager assigned.</p>
+                <button (click)="goBack()" class="link-btn">Return to Dashboard</button>
+              }
+            </div>
+          } @else {
+            <!-- Table Header -->
+            <div class="table-head">
+              <div class="col-check">
+                <input 
+                  type="checkbox"
+                  [checked]="isAllSelected()"
+                  [indeterminate]="isPartiallySelected()"
+                  (change)="toggleSelectAll()"
+                  class="checkbox"
+                  title="Select all"
+                />
+              </div>
+              <div class="col-status">Status</div>
+              <div class="col-branch">Branch</div>
+              <div class="col-manager">Manager</div>
+            </div>
+
+            <!-- Table Body -->
+            <ul class="table-body">
+              @for (branch of branches(); track branch.id) {
+                <li 
+                  class="row"
+                  [class.selected]="branch.selected"
+                  [class.is-pending]="hasPendingAssignment(branch.id)"
+                >
+                  <div class="col-check">
+                    <input 
+                      type="checkbox"
+                      [checked]="branch.selected"
+                      (change)="toggleBranch(branch)"
+                      class="checkbox"
+                    />
+                  </div>
+
+                  <div class="col-status">
+                    @if (hasPendingAssignment(branch.id)) {
+                      <span class="status pending" title="Pending — click Save All to confirm">
+                        <span class="status-dot"></span>
+                        Pending
+                      </span>
+                    } @else {
+                      <span class="status unassigned" title="Unassigned — select a manager">
+                        <span class="status-dot"></span>
+                        Unassigned
+                      </span>
+                    }
+                  </div>
+
+                  <div class="col-branch">
+                    <span class="branch-name">{{ branch.name }}</span>
+                    <span class="branch-meta">
+                      <code class="branch-code">{{ branch.code }}</code>
+                      @if (branch.location) {
+                        <span class="sep">•</span>
+                        <span>{{ branch.location }}</span>
+                      }
+                    </span>
+                  </div>
+
+                  <div class="col-manager">
+                    <div class="manager-select-wrap">
+                      <select 
+                        [ngModel]="branch.selectedManagerId || ''"
+                        (ngModelChange)="onManagerSelect(branch, $event)"
+                        [disabled]="isAssigning()"
+                        class="manager-select"
+                        [class.has-pending]="hasPendingAssignment(branch.id)"
+                      >
+                        <option value="">Select manager...</option>
+                        @for (manager of managers(); track manager.id) {
+                          <option [value]="manager.id">{{ manager.name }}</option>
+                        }
+                      </select>
+                      @if (branch.selectedManagerId) {
+                        <button 
+                          (click)="clearBranchSelection(branch)"
+                          class="clear-btn"
+                          title="Clear selection"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                          </svg>
+                        </button>
+                      }
+                    </div>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </main>
+
+      <!-- Toast -->
+      @if (showToast()) {
+        <div class="toast" [class.error]="toastType() === 'error'" [class.success]="toastType() === 'success'">
+          @if (toastType() === 'error') {
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          } @else {
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          }
+          {{ toastMessage() }}
         </div>
       }
     </div>
   `,
   styles: [`
-    @keyframes slide-in {
-      from { opacity: 0; transform: translateY(20px) scale(0.95); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
+    :host {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --border-light: #f1f5f9;
+      --text: #0f172a;
+      --text-2: #64748b;
+      --text-3: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --green: #10b981;
+      --green-bg: #ecfdf5;
+      --yellow: #f59e0b;
+      --yellow-bg: #fffbeb;
+      --yellow-border: #fde68a;
+      --gray: #94a3b8;
+      --gray-bg: #f8fafc;
+      --red: #ef4444;
+      --radius: 8px;
+      --transition: 150ms ease;
+      display: block;
+      height: 100%;
     }
-    .animate-slide-in {
-      animation: slide-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    .page {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      height: 100%;
+      background: var(--bg);
+      overflow: hidden;
     }
-    
-    @keyframes shimmer {
-      0% { transform: translateX(-100%); }
-      100% { transform: translateX(100%); }
+    @media (max-width: 900px) {
+      .page { 
+        grid-template-columns: 1fr; 
+        grid-template-rows: auto 1fr;
+        overflow-y: auto;
+      }
     }
-    .animate-shimmer {
-      animation: shimmer 2s infinite;
+
+    /* ===== SIDEBAR ===== */
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
-    
-    @keyframes fade-out {
-      from { opacity: 1; transform: scale(1); }
-      to { opacity: 0; transform: scale(0.95); }
+    @media (max-width: 900px) {
+      .sidebar { border-right: none; border-bottom: 1px solid var(--border); max-height: 50vh; }
     }
-    .animate-fade-out {
-      animation: fade-out 0.3s ease-in;
+
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      margin: 10px 16px;
+      background: none;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all var(--transition);
+      flex-shrink: 0;
+    }
+    .back-btn:hover { background: var(--border-light); color: var(--text); }
+
+    .sidebar-content {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 16px 16px;
+      min-height: 0;
+    }
+
+    .page-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+      margin: 0 0 6px;
+    }
+    .page-desc {
+      font-size: 13px;
+      color: var(--text-2);
+      margin: 0;
+      line-height: 1.5;
+    }
+    .page-desc strong { color: var(--text); font-weight: 500; }
+
+    /* Progress */
+    .progress-card {
+      background: var(--bg);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .progress-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-2);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .progress-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .progress-bar {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 3px;
+      transition: width 0.4s ease;
+    }
+    .progress-fill.complete { background: var(--green); }
+    .progress-stats {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-2);
+    }
+    .stat-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .stat-dot.assigned { background: var(--green); }
+    .stat-dot.unassigned { background: var(--gray); }
+
+    /* Legend */
+    .legend {
+      background: var(--bg);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+    .legend-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+    }
+    .legend-items { display: flex; flex-direction: column; gap: 8px; }
+    .legend-item { display: flex; align-items: flex-start; gap: 10px; }
+    .legend-num {
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--border);
+      border-radius: 50%;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-2);
+      flex-shrink: 0;
+    }
+    .legend-text {
+      font-size: 12px;
+      color: var(--text-2);
+      line-height: 1.4;
+    }
+    .legend-text strong { color: var(--text); }
+
+    /* Bulk Assign */
+    .bulk-section {
+      background: var(--bg);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+    .bulk-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-2);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+    .bulk-desc {
+      font-size: 11px;
+      color: var(--text-3);
+      margin: 0 0 8px;
+      line-height: 1.4;
+    }
+    .bulk-row { display: flex; gap: 6px; }
+    .bulk-select {
+      flex: 1;
+      height: 32px;
+      padding: 0 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .bulk-select:disabled { opacity: 0.5; cursor: not-allowed; }
+    .bulk-select:focus { outline: none; border-color: var(--primary); }
+    .bulk-btn {
+      padding: 0 12px;
+      height: 32px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .bulk-btn:hover:not(:disabled) { background: var(--border-light); }
+    .bulk-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .bulk-hint { font-size: 11px; color: var(--primary); margin-top: 6px; font-weight: 500; }
+
+    /* Save Section */
+    .save-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 16px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .save-alert {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: var(--yellow-bg);
+      border: 1px solid var(--yellow-border);
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--yellow);
+    }
+    .save-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      height: 40px;
+      background: var(--primary);
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      color: white;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .save-btn:hover:not(:disabled) { background: var(--primary-hover); }
+    .save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .discard-btn {
+      width: 100%;
+      padding: 8px;
+      background: none;
+      border: 1px dashed var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .discard-btn:hover { border-color: var(--red); color: var(--red); }
+
+    /* ===== MAIN ===== */
+    .main {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+      height: 100%;
+    }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .search-box {
+      position: relative;
+      width: 240px;
+      flex-shrink: 0;
+    }
+    @media (max-width: 600px) { .search-box { width: 100%; } }
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-3);
+      pointer-events: none;
+    }
+    .search-input {
+      width: 100%;
+      height: 34px;
+      padding: 0 32px;
+      background: var(--bg);
+      border: 1px solid transparent;
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--text);
+      transition: all var(--transition);
+    }
+    .search-input::placeholder { color: var(--text-3); }
+    .search-input:hover { border-color: var(--border); }
+    .search-input:focus {
+      outline: none;
+      background: var(--surface);
+      border-color: var(--primary);
+    }
+    .search-clear {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      border-radius: 4px;
+      color: var(--text-3);
+      cursor: pointer;
+    }
+    .search-clear:hover { background: var(--border-light); color: var(--text); }
+
+    .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .record-count {
+      font-size: 12px;
+      color: var(--text-2);
+    }
+
+    .pagination {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .page-btn {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .page-btn:hover:not(:disabled) { background: var(--border-light); color: var(--text); }
+    .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .page-info {
+      font-size: 12px;
+      color: var(--text-2);
+      padding: 0 8px;
+      min-width: 50px;
+      text-align: center;
+    }
+
+    /* Content */
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: var(--surface);
+      min-height: 0;
+    }
+
+    /* State View */
+    .state-view {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      text-align: center;
+    }
+    .state-view h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      margin: 12px 0 4px;
+    }
+    .state-view p {
+      font-size: 13px;
+      color: var(--text-2);
+      margin: 0;
+    }
+    .state-icon {
+      width: 52px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+    .state-icon.muted { background: var(--bg); color: var(--text-3); }
+    .state-icon.success { background: var(--green-bg); color: var(--green); }
+    .link-btn {
+      margin-top: 12px;
+      padding: 6px 12px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .link-btn:hover { background: var(--border-light); }
+
+    /* Table */
+    .table-head {
+      display: grid;
+      grid-template-columns: 44px 100px 1fr 220px;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    @media (max-width: 700px) {
+      .table-head { display: none; }
+    }
+
+    .table-body {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 44px 100px 1fr 220px;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border-light);
+      transition: background var(--transition);
+    }
+    @media (max-width: 700px) {
+      .row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 12px 16px;
+        position: relative;
+      }
+      .col-check { position: absolute; top: 12px; right: 16px; }
+      .col-status { order: 1; }
+      .col-branch { order: 2; }
+      .col-manager { order: 3; }
+    }
+    .row:hover { background: var(--bg); }
+    .row.selected { background: rgba(59,130,246,0.04); }
+    .row.is-pending { background: var(--yellow-bg); }
+    .row.is-pending:hover { background: #fef3c7; }
+
+    .col-check { display: flex; align-items: center; justify-content: center; }
+    .checkbox {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      cursor: pointer;
+      accent-color: var(--primary);
+    }
+
+    /* Status */
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+    .status.pending { background: var(--yellow-bg); color: var(--yellow); }
+    .status.pending .status-dot { background: var(--yellow); }
+    .status.unassigned { background: var(--gray-bg); color: var(--gray); }
+    .status.unassigned .status-dot { background: var(--gray); }
+
+    /* Branch */
+    .col-branch { min-width: 0; }
+    .branch-name {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .branch-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+      font-size: 11px;
+      color: var(--text-3);
+    }
+    .branch-code {
+      padding: 1px 4px;
+      background: var(--bg);
+      border-radius: 3px;
+      font-size: 10px;
+      font-family: ui-monospace, monospace;
+    }
+    .sep { color: var(--border); }
+
+    /* Manager */
+    .col-manager { display: flex; align-items: center; }
+    @media (max-width: 700px) {
+      .col-manager { flex-direction: column; align-items: stretch; }
+    }
+
+    .manager-select-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+    }
+    .manager-select {
+      flex: 1;
+      height: 34px;
+      padding: 0 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .manager-select:hover:not(:disabled) { border-color: var(--text-3); }
+    .manager-select:focus { outline: none; border-color: var(--primary); }
+    .manager-select.has-pending {
+      color: var(--text);
+      border-color: var(--yellow);
+      background: var(--yellow-bg);
+    }
+    .manager-select:disabled { opacity: 0.6; cursor: not-allowed; }
+    .clear-btn {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text-3);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all var(--transition);
+    }
+    .clear-btn:hover { border-color: var(--red); color: var(--red); background: #fef2f2; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: var(--text);
+      color: white;
+      border-radius: var(--radius);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 100;
+      animation: slideUp 0.25s ease;
+    }
+    .toast.error { background: var(--red); }
+    .toast.success { background: var(--green); }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .spinner { animation: spin 0.8s linear infinite; }
+    .spinner.lg { color: var(--text-3); }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
     }
   `]
 })
 export class ManagerAssignmentComponent implements OnInit {
-  // ---------------------------------------------------------------------------
-  // Dependencies
-  // ---------------------------------------------------------------------------
-  
   private readonly setupService = inject(SetupService);
   private readonly store = inject(StoreService);
 
-  // Expose Math to template
-  protected readonly Math = Math;
-
-  // ---------------------------------------------------------------------------
   // State
-  // ---------------------------------------------------------------------------
-
-  /** Loading state */
   readonly isLoading = signal(true);
-
-  /** Assignment in progress */
   readonly isAssigning = signal(false);
-  
-  /** Track which branch is currently being assigned */
-  readonly assigningBranchId = signal<string | null>(null);
-  
-  /** Track branches that were just assigned (for animation) */
-  readonly recentlyAssigned = signal<Set<string>>(new Set());
-
-  /** Setup status */
   readonly setupStatus = signal<SetupStatus | null>(null);
-
-  /** Available managers for dropdown */
   readonly managers = signal<ManagerOption[]>([]);
-
-  /** Branches without managers (with selection state) */
   readonly branches = signal<SelectableBranch[]>([]);
-
-  /** Search term */
   readonly searchTerm = signal('');
+  readonly currentPage = signal(1);
+  readonly pageSize = signal(50);
+  readonly totalCount = signal(0);
+  readonly bulkManagerId = signal('');
+  readonly showToast = signal(false);
+  readonly toastMessage = signal('');
+  readonly toastType = signal<'success' | 'error' | 'info'>('info');
 
-  /** Debounce timer for search */
+  /** Persistent pending assignments across pages: branchId → PendingAssignment */
+  readonly pendingMap = signal<Map<string, PendingAssignment>>(new Map());
+
   private searchTimer: any = null;
 
-  /** Current page */
-  readonly currentPage = signal(1);
-
-  /** Page size */
-  readonly pageSize = signal(50);
-
-  /** Total count */
-  readonly totalCount = signal(0);
-
-  /** Bulk manager selection */
-  readonly bulkManagerId = signal('');
-
-  /** Success toast */
-  readonly showSuccess = signal(false);
-  readonly successMessage = signal('');
-
-  // ---------------------------------------------------------------------------
   // Computed
-  // ---------------------------------------------------------------------------
+  readonly pendingCount = computed(() => this.pendingMap().size);
+  readonly totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()) || 1);
+  readonly selectedCount = computed(() => this.branches().filter(b => b.selected).length);
 
-  /** Total pages */
-  readonly totalPages = computed(() => 
-    Math.ceil(this.totalCount() / this.pageSize()) || 1
-  );
-
-  /** Number of selected branches */
-  readonly selectedCount = computed(() => 
-    this.branches().filter(b => b.selected).length
-  );
-
-  /** Check if all visible branches are selected */
   readonly isAllSelected = computed(() => {
     const all = this.branches();
     return all.length > 0 && all.every(b => b.selected);
   });
 
-  /** Check if some but not all are selected */
   readonly isPartiallySelected = computed(() => {
-    const selected = this.selectedCount();
-    const total = this.branches().length;
-    return selected > 0 && selected < total;
+    const all = this.branches();
+    const sel = all.filter(b => b.selected).length;
+    return sel > 0 && sel < all.length;
   });
-
-  // ---------------------------------------------------------------------------
-  // Lifecycle
-  // ---------------------------------------------------------------------------
 
   ngOnInit(): void {
     this.loadData();
   }
 
-  // ---------------------------------------------------------------------------
-  // Data Loading
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Loads all required data: setup status, managers, and branches.
-   */
   private loadData(): void {
     this.isLoading.set(true);
-
-    // Load setup status
-    this.setupService.getSetupStatus().subscribe(status => {
-      this.setupStatus.set(status);
-    });
-
-    // Load available managers
-    this.setupService.getAvailableManagers().subscribe(managers => {
-      this.managers.set(managers);
-    });
-
-    // Load branches
+    this.setupService.getSetupStatus().subscribe(s => this.setupStatus.set(s));
+    this.setupService.getAvailableManagers().subscribe(m => this.managers.set(m));
     this.loadBranches();
   }
 
-  /**
-   * Loads branches without managers with current pagination/search.
-   */
   private loadBranches(): void {
-    console.log('[ManagerAssignment] Loading branches...');
     this.setupService.getBranchesWithoutManager(
       this.currentPage(),
       this.pageSize(),
       this.searchTerm() || undefined
     ).subscribe({
-      next: (response) => {
-        console.log('[ManagerAssignment] Branches loaded:', { count: response.items.length, total: response.totalCount });
-        // Preserve recently assigned state when refreshing
-        const recentlyAssignedSet = this.recentlyAssigned();
-        this.branches.set(
-          response.items.map(b => ({ 
-            ...b, 
-            selected: false,
-            // Keep manager name if branch was recently assigned (for display)
-            managerName: recentlyAssignedSet.has(b.id) ? b.managerName : undefined
-          }))
-        );
-        this.totalCount.set(response.totalCount);
+      next: (res) => {
+        const pending = this.pendingMap();
+        const merged = res.items.map(b => ({
+          ...b,
+          selected: false,
+          selectedManagerId: pending.get(b.id)?.managerId
+        }));
+        this.branches.set(merged);
+        this.totalCount.set(res.totalCount);
         this.isLoading.set(false);
       },
-      error: (error) => {
-        console.error('[ManagerAssignment] Failed to load branches:', error);
+      error: () => {
         this.branches.set([]);
+        this.totalCount.set(0);
         this.isLoading.set(false);
+        this.toast('Failed to load branches', 'error');
       }
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // Selection Actions
-  // ---------------------------------------------------------------------------
+  hasPendingAssignment(branchId: string): boolean {
+    return this.pendingMap().has(branchId);
+  }
 
-  /**
-   * Toggles selection for a single branch.
-   */
   toggleBranch(branch: SelectableBranch): void {
-    this.branches.update(branches => 
-      branches.map(b => 
-        b.id === branch.id ? { ...b, selected: !b.selected } : b
-      )
+    this.branches.update(list =>
+      list.map(b => b.id === branch.id ? { ...b, selected: !b.selected } : b)
     );
   }
 
-  /**
-   * Toggles select all / deselect all.
-   */
   toggleSelectAll(): void {
-    const shouldSelect = !this.isAllSelected();
-    this.branches.update(branches => 
-      branches.map(b => ({ ...b, selected: shouldSelect }))
-    );
+    const select = !this.isAllSelected();
+    this.branches.update(list => list.map(b => ({ ...b, selected: select })));
   }
 
-  /**
-   * Clears all selections.
-   */
-  clearSelection(): void {
-    this.branches.update(branches => 
-      branches.map(b => ({ ...b, selected: false }))
-    );
-    this.bulkManagerId.set('');
-  }
-
-  // ---------------------------------------------------------------------------
-  // Manager Assignment Actions
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Sets the selected manager for a branch (before assignment).
-   */
   onManagerSelect(branch: SelectableBranch, managerId: string): void {
-    this.branches.update(branches =>
-      branches.map(b =>
-        b.id === branch.id ? { ...b, selectedManagerId: managerId } : b
-      )
+    this.branches.update(list =>
+      list.map(b => b.id === branch.id ? { ...b, selectedManagerId: managerId || undefined } : b)
     );
-  }
 
-  /**
-   * Assigns manager to a single branch with optimistic UI updates.
-   */
-  assignSingle(branch: SelectableBranch): void {
-    if (!branch.selectedManagerId) {
-      console.warn('[ManagerAssignment] No manager selected for branch:', branch.id);
-      return;
-    }
-    if (this.assigningBranchId() === branch.id) {
-      console.warn('[ManagerAssignment] Already assigning this branch:', branch.id);
-      return;
-    }
-
-    const branchId = branch.id;
-    const managerId = branch.selectedManagerId;
-    const managerName = this.managers().find(m => m.id === managerId)?.name || 'Manager';
-
-    console.log('[ManagerAssignment] Assigning manager:', { branchId, managerId, managerName });
-    
-    // Optimistic UI update - show immediate feedback
-    this.assigningBranchId.set(branchId);
-    
-    // Store manager name in branch for display
-    this.branches.update(branches =>
-      branches.map(b =>
-        b.id === branchId ? { ...b, managerName, selectedManagerId: managerId } : b
-      )
-    );
-    
-    // Optimistically update progress (will be corrected after backend response)
-    this.updateProgressOptimistically(1);
-    
-    this.setupService.assignManager(branchId, managerId).subscribe({
-      next: (result) => {
-        console.log('[ManagerAssignment] Assignment successful:', result);
-        console.log('[ManagerAssignment] Result details:', {
-          successCount: result.successCount,
-          failedCount: result.failedCount,
-          errors: result.errors
+    this.pendingMap.update(map => {
+      const newMap = new Map(map);
+      if (managerId) {
+        const mgr = this.managers().find(m => m.id === managerId);
+        newMap.set(branch.id, {
+          branchId: branch.id,
+          branchName: branch.name,
+          managerId,
+          managerName: mgr?.name || 'Unknown'
         });
-        
-        // Check if assignment actually succeeded
-        if (result.successCount === 0) {
-          console.error('[ManagerAssignment] Assignment returned successCount 0!');
-          const errorMsg = result.errors.length > 0 ? result.errors[0] : 'Assignment failed - no branches were updated';
-          this.successMessage.set(`Error: ${errorMsg}`);
-          this.showSuccess.set(true);
-          setTimeout(() => this.showSuccess.set(false), 5000);
-          
-          // Revert optimistic update
-          this.revertProgressOptimistically(1);
-          
-          // Clear assigning state
-          this.assigningBranchId.set(null);
-          this.isAssigning.set(false);
-          return;
-        }
-        
-        // Mark as recently assigned for visual feedback
-        this.recentlyAssigned.update(set => new Set(set).add(branchId));
-        
-        // Show success toast with manager name
-        this.showSuccessToast(`✓ ${managerName} assigned to ${branch.name}`);
-        
-        // Remove branch locally for immediate feedback
-        this.branches.update(branches => branches.filter(b => b.id !== branchId));
-        this.totalCount.update(t => Math.max(0, t - result.successCount));
-
-        // Clear assigning state
-        this.assigningBranchId.set(null);
-
-        // Refresh status and list
-        setTimeout(() => {
-          this.refreshStatus();
-          this.loadBranches();
-        }, 500);
-      },
-      error: (error) => {
-        console.error('[ManagerAssignment] Assignment failed:', error);
-        console.error('[ManagerAssignment] Error status:', error?.status);
-        console.error('[ManagerAssignment] Error message:', error?.message);
-        console.error('[ManagerAssignment] Error details:', error?.error);
-        
-        // Revert optimistic update
-        this.revertProgressOptimistically(1);
-        
-        // Remove manager name from branch
-        this.branches.update(branches =>
-          branches.map(b =>
-            b.id === branchId ? { ...b, managerName: undefined, selectedManagerId: branch.selectedManagerId } : b
-          )
-        );
-        
-        // Clear assigning state on error
-        console.log('[ManagerAssignment] Clearing assigning state due to error...');
-        this.assigningBranchId.set(null);
-        console.log('[ManagerAssignment] State cleared - assigningBranchId:', this.assigningBranchId());
-        
-        // Show error message
-        const errorMsg = error?.error?.message || error?.message || 'Failed to assign manager';
-        this.successMessage.set(`Error: ${errorMsg}`);
-        this.showSuccess.set(true);
-        setTimeout(() => this.showSuccess.set(false), 5000);
+      } else {
+        newMap.delete(branch.id);
       }
+      return newMap;
     });
   }
 
-  /**
-   * Assigns manager to all selected branches.
-   */
-  assignBulk(): void {
-    const selectedIds = this.branches()
-      .filter(b => b.selected)
-      .map(b => b.id);
-    
-    if (selectedIds.length === 0 || !this.bulkManagerId()) return;
+  clearBranchSelection(branch: SelectableBranch): void {
+    this.onManagerSelect(branch, '');
+  }
 
-    console.log('[ManagerAssignment] Bulk assigning manager:', { branchIds: selectedIds, managerId: this.bulkManagerId() });
+  applyBulkSelection(): void {
+    const selected = this.branches().filter(b => b.selected);
+    if (selected.length === 0 || !this.bulkManagerId()) return;
+
+    const managerId = this.bulkManagerId();
+    const mgr = this.managers().find(m => m.id === managerId);
+    const managerName = mgr?.name || 'Unknown';
+
+    this.branches.update(list =>
+      list.map(b => b.selected ? { ...b, selectedManagerId: managerId } : b)
+    );
+
+    this.pendingMap.update(map => {
+      const newMap = new Map(map);
+      for (const b of selected) {
+        newMap.set(b.id, {
+          branchId: b.id,
+          branchName: b.name,
+          managerId,
+          managerName
+        });
+      }
+      return newMap;
+    });
+
+    this.toast(`Applied to ${selected.length} branch${selected.length > 1 ? 'es' : ''}`, 'info');
+    this.bulkManagerId.set('');
+    this.branches.update(list => list.map(b => ({ ...b, selected: false })));
+  }
+
+  clearAllPending(): void {
+    this.pendingMap.set(new Map());
+    this.branches.update(list => list.map(b => ({ ...b, selectedManagerId: undefined })));
+  }
+
+  saveAllAssignments(): void {
+    const pending = this.pendingMap();
+    if (pending.size === 0) return;
+
+    // Group by managerId for efficient bulk assignment
+    const grouped = new Map<string, string[]>();
+    for (const [branchId, a] of pending) {
+      const list = grouped.get(a.managerId) ?? [];
+      list.push(branchId);
+      grouped.set(a.managerId, list);
+    }
+
     this.isAssigning.set(true);
-    this.setupService.bulkAssignManager(selectedIds, this.bulkManagerId()).subscribe({
-      next: (result) => {
-        console.log('[ManagerAssignment] Bulk assignment successful:', result);
-        this.showSuccessToast(`Manager assigned to ${result.successCount} branch(es)`);
-        this.clearSelection();
-        
-        // Delay to ensure backend transaction has committed and EF Core cache is cleared
-        setTimeout(() => {
-          this.loadBranches(); // Refresh list - assigned branches should disappear
-          this.refreshStatus(); // Refresh status and percentage
-        }, 500);
-        
+
+    const requests = Array.from(grouped.entries()).map(([managerId, branchIds]) =>
+      this.setupService.bulkAssignManager(branchIds, managerId).pipe(
+        map(result => ({ managerId, branchIds, result })),
+        catchError(error => of({ managerId, branchIds, error }))
+      )
+    );
+
+    forkJoin(requests).subscribe({
+      next: (results) => {
+        let success = 0;
+        let failed = 0;
+        const savedIds: string[] = [];
+
+        for (const r of results) {
+          if ('error' in r) {
+            failed += r.branchIds.length;
+          } else {
+            success += r.result.successCount;
+            failed += r.result.failedCount;
+            if (r.result.successCount > 0) {
+              savedIds.push(...r.branchIds.slice(0, r.result.successCount));
+            }
+          }
+        }
+
+        // Clear saved from pending
+        if (savedIds.length > 0) {
+          this.pendingMap.update(map => {
+            const newMap = new Map(map);
+            for (const id of savedIds) newMap.delete(id);
+            return newMap;
+          });
+        }
+
+        if (success > 0) {
+          this.toast(
+            failed > 0
+              ? `Saved ${success}, ${failed} failed`
+              : `${success} assignment${success > 1 ? 's' : ''} saved!`,
+            'success'
+          );
+        } else if (failed > 0) {
+          this.toast('Failed to save assignments', 'error');
+        }
+
+        // Refresh data to remove assigned branches
+        this.refreshStatus();
+        this.loadBranches();
         this.isAssigning.set(false);
       },
-      error: (error) => {
-        console.error('[ManagerAssignment] Bulk assignment failed:', error);
-        console.error('[ManagerAssignment] Full error object:', JSON.stringify(error, null, 2));
+      error: () => {
+        this.toast('Failed to save', 'error');
         this.isAssigning.set(false);
-        // Show error message
-        const errorMsg = error?.error?.message || error?.message || 'Failed to assign manager';
-        this.successMessage.set(`Error: ${errorMsg}`);
-        this.showSuccess.set(true);
-        setTimeout(() => this.showSuccess.set(false), 5000);
       }
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // Search & Pagination
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Handles search term change with debounce.
-   */
   onSearchChange(term: string): void {
     this.searchTerm.set(term);
-    this.currentPage.set(1); // Reset to first page
-    
-    if (this.searchTimer) {
-      clearTimeout(this.searchTimer);
-    }
-    this.searchTimer = setTimeout(() => {
-      this.loadBranches();
-    }, 300);
+    this.currentPage.set(1);
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => this.loadBranches(), 300);
   }
 
-  /**
-   * Clears the search.
-   */
   clearSearch(): void {
     this.searchTerm.set('');
+    this.currentPage.set(1);
     this.loadBranches();
   }
 
-  /**
-   * Goes to next page.
-   */
   nextPage(): void {
     if (this.currentPage() < this.totalPages()) {
       this.currentPage.update(p => p + 1);
@@ -742,9 +1279,6 @@ export class ManagerAssignmentComponent implements OnInit {
     }
   }
 
-  /**
-   * Goes to previous page.
-   */
   previousPage(): void {
     if (this.currentPage() > 1) {
       this.currentPage.update(p => p - 1);
@@ -752,177 +1286,21 @@ export class ManagerAssignmentComponent implements OnInit {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Navigation
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Returns to the dashboard.
-   */
   goBack(): void {
     this.store.setView('dashboard');
   }
 
-  // ---------------------------------------------------------------------------
-  // Toast
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Shows a success toast message.
-   */
-  private showSuccessToast(message: string): void {
-    this.successMessage.set(message);
-    this.showSuccess.set(true);
-    setTimeout(() => this.showSuccess.set(false), 3000);
+  private toast(msg: string, type: 'success' | 'error' | 'info' = 'info'): void {
+    this.toastMessage.set(msg);
+    this.toastType.set(type);
+    this.showToast.set(true);
+    setTimeout(() => this.showToast.set(false), 3500);
   }
 
-  /**
-   * Refreshes the setup status to update the percentage.
-   * Only updates if backend shows progress (doesn't revert optimistic updates).
-   */
   private refreshStatus(): void {
-    console.log('[ManagerAssignment] Refreshing setup status...');
-    const currentOptimistic = this.setupStatus();
     this.setupService.getSetupStatus().subscribe({
-      next: (status) => {
-        console.log('[ManagerAssignment] Setup status refreshed:', status);
-        
-        // Only update if backend shows equal or more progress than optimistic
-        // This prevents reverting optimistic updates
-        if (currentOptimistic) {
-          const backendProgress = status.branchesWithManagers;
-          const optimisticProgress = currentOptimistic.branchesWithManagers;
-          
-          // Use the higher value to preserve optimistic updates
-          if (backendProgress >= optimisticProgress) {
-            this.setupStatus.set(status);
-          } else {
-            console.log('[ManagerAssignment] Backend status stale, keeping optimistic update');
-            // Keep optimistic but update other fields that might have changed
-            this.setupStatus.set({
-              ...currentOptimistic,
-              totalBranches: status.totalBranches // Update total if it changed
-            });
-          }
-        } else {
-          this.setupStatus.set(status);
-        }
-      },
-      error: (error) => {
-        console.error('[ManagerAssignment] Failed to refresh status:', error);
-        // Keep current state on error
-      }
+      next: (s) => this.setupStatus.set(s),
+      error: () => {}
     });
-  }
-
-  /**
-   * Optimistically updates progress bar (before backend confirms).
-   */
-  private updateProgressOptimistically(count: number): void {
-    const current = this.setupStatus();
-    if (!current) return;
-    
-    const newWithManagers = current.branchesWithManagers + count;
-    const newTotal = current.totalBranches;
-    const newPercentage = newTotal === 0 ? 100 : Math.round((newWithManagers / newTotal) * 100);
-    
-    this.setupStatus.set({
-      ...current,
-      branchesWithManagers: newWithManagers,
-      branchesWithoutManagers: newTotal - newWithManagers,
-      completionPercentage: newPercentage,
-      isSetupComplete: newWithManagers === newTotal,
-      requiresAttention: newTotal > 0 && ((newTotal - newWithManagers) / newTotal) > 0.10
-    });
-  }
-
-  /**
-   * Reverts optimistic progress update on error.
-   */
-  private revertProgressOptimistically(count: number): void {
-    const current = this.setupStatus();
-    if (!current) return;
-    
-    const newWithManagers = Math.max(0, current.branchesWithManagers - count);
-    const newTotal = current.totalBranches;
-    const newPercentage = newTotal === 0 ? 100 : Math.round((newWithManagers / newTotal) * 100);
-    
-    this.setupStatus.set({
-      ...current,
-      branchesWithManagers: newWithManagers,
-      branchesWithoutManagers: newTotal - newWithManagers,
-      completionPercentage: newPercentage,
-      isSetupComplete: newWithManagers === newTotal,
-      requiresAttention: newTotal > 0 && ((newTotal - newWithManagers) / newTotal) > 0.10
-    });
-  }
-
-  /**
-   * Refreshes data with retry logic to handle EF Core caching delays.
-   * Keeps success state visible until backend confirms.
-   */
-  private refreshWithRetry(branchId: string, retries: number = 5, attempt: number = 1): void {
-    console.log(`[ManagerAssignment] Refreshing (attempt ${attempt}/${retries})...`);
-    
-    // Refresh status first (with protection against reverting optimistic updates)
-    this.refreshStatus();
-    
-    // Wait before checking
-    setTimeout(() => {
-      const currentStatus = this.setupStatus();
-      const branchStillExists = this.branches().some(b => b.id === branchId);
-      
-      console.log(`[ManagerAssignment] After refresh - Status: ${currentStatus?.branchesWithManagers} managers, Branch exists: ${branchStillExists}`);
-      
-      // Refresh branch list (but preserve success state)
-      this.loadBranches();
-      
-      // Check after branch list loads
-      setTimeout(() => {
-        const stillExists = this.branches().some(b => b.id === branchId);
-        const statusManagers = currentStatus?.branchesWithManagers || 0;
-        
-        if (!stillExists && statusManagers > 0) {
-          // Success! Branch removed and status updated
-          console.log('[ManagerAssignment] ✅ Success confirmed - Branch removed, status updated');
-          // Keep success state visible for 3 seconds before clearing
-          setTimeout(() => {
-            this.recentlyAssigned.update(set => {
-              const newSet = new Set(set);
-              newSet.delete(branchId);
-              return newSet;
-            });
-          }, 3000);
-        } else if (stillExists && statusManagers === 0 && attempt < retries) {
-          // Backend not updated yet, retry
-          console.log(`[ManagerAssignment] ⏳ Retry ${attempt + 1}: Backend not updated yet`);
-          setTimeout(() => {
-            this.refreshWithRetry(branchId, retries, attempt + 1);
-          }, 1500); // Longer delay between retries
-        } else if (statusManagers > 0) {
-          // Status updated but branch still visible (might be on different page)
-          // Keep success state - assignment was successful
-          console.log('[ManagerAssignment] ✅ Status updated, keeping success state');
-          setTimeout(() => {
-            this.recentlyAssigned.update(set => {
-              const newSet = new Set(set);
-              newSet.delete(branchId);
-              return newSet;
-            });
-          }, 5000); // Keep visible longer since assignment succeeded
-        } else {
-          // Max retries or unclear state - keep success state since assignment API succeeded
-          console.log('[ManagerAssignment] ⚠️ Max retries or unclear state, keeping success state');
-          setTimeout(() => {
-            this.recentlyAssigned.update(set => {
-              const newSet = new Set(set);
-              newSet.delete(branchId);
-              return newSet;
-            });
-          }, 5000);
-        }
-      }, 800);
-    }, 1000);
   }
 }
-

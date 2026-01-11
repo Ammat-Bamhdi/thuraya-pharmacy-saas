@@ -1,21 +1,32 @@
 /**
- * @fileoverview Data Service - Centralized data management for all domains
- * @description Provides typed API access for:
+ * @fileoverview Data Service - Production-grade centralized data management
+ * @description Provides typed API access with automatic StoreService sync for:
  * - Branches
  * - Products
  * - Suppliers
  * - Customers
  * - Invoices
  * - Purchase Orders
+ * - Bills
+ * 
+ * All mutations persist to backend AND update local store for reactive UI
  * 
  * @author Thuraya Systems
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { Observable, tap, BehaviorSubject, finalize, forkJoin, catchError, of } from 'rxjs';
-import { ApiService, PaginatedResponse, QueryParams } from './api.service';
+import { Observable, tap, BehaviorSubject, finalize, forkJoin, catchError, of, map, throwError } from 'rxjs';
+import { ApiService, PaginatedResponse, QueryParams, ApiError } from './api.service';
 import { StoreService } from './store.service';
+import { 
+  Supplier, 
+  PurchaseOrder, 
+  PurchaseBill, 
+  POStatus 
+} from '@core/models/procurement.model';
+import { Product } from '@core/models/product.model';
+import { Customer } from '@core/models/sales.model';
 
 // ============================================================================
 // Interfaces
@@ -30,92 +41,6 @@ export interface Branch {
   licenseCount: number;
   managerId?: string;
   managerName?: string;
-}
-
-export interface Product {
-  id: string;
-  branchId: string;
-  name: string;
-  genericName: string;
-  sku: string;
-  price: number;
-  cost: number;
-  margin: number;
-  stock: number;
-  expiryDate?: string;
-  category: string;
-  supplierId?: string;
-  supplierName?: string;
-  minStock: number;
-  location: string;
-  batches?: ProductBatch[];
-}
-
-export interface ProductBatch {
-  id: string;
-  poRef: string;
-  batchNumber: string;
-  quantity: number;
-  cost: number;
-  expiryDate: string;
-  receivedDate: string;
-}
-
-export interface Supplier {
-  id: string;
-  code: string;
-  name: string;
-  contactPerson: string;
-  email: string;
-  phone: string;
-  address: string;
-  city: string;
-  country: string;
-  paymentTerms: string;
-  creditLimit: number;
-  currentBalance: number;
-  rating: number;
-  status: 'Active' | 'Inactive';
-  category: string;
-  lastOrderDate?: string;
-}
-
-export interface Customer {
-  id: string;
-  name: string;
-  companyName?: string;
-  email?: string;
-  phone: string;
-  billingAddress?: string;
-  city?: string;
-  country?: string;
-  type: 'Retail' | 'Wholesale' | 'Hospital' | 'Clinic';
-  paymentTerms: string;
-  creditLimit: number;
-  balance: number;
-  priceGroup?: number;
-  assignedSalesRepName?: string;
-}
-
-export interface Invoice {
-  id: string;
-  customerId?: string;
-  customerName: string;
-  branchId: string;
-  branchName: string;
-  date: string;
-  status: 'Pending' | 'Paid' | 'Overdue' | 'Cancelled';
-  total: number;
-  paidAmount: number;
-  items: InvoiceItem[];
-}
-
-export interface InvoiceItem {
-  id: string;
-  productId: string;
-  productName: string;
-  quantity: number;
-  price: number;
 }
 
 export interface ProductStats {
@@ -156,6 +81,114 @@ export interface TodaySales {
   averageOrderValue: number;
 }
 
+export interface Invoice {
+  id: string;
+  customerId?: string;
+  customerName: string;
+  branchId: string;
+  branchName: string;
+  date: string;
+  status: 'Pending' | 'Paid' | 'Overdue' | 'Cancelled';
+  total: number;
+  paidAmount: number;
+  items: InvoiceItem[];
+}
+
+export interface InvoiceItem {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  price: number;
+}
+
+// Request DTOs matching backend
+export interface CreateSupplierRequest {
+  code: string;
+  name: string;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  paymentTerms?: string;
+  creditLimit?: number;
+  category?: string;
+}
+
+export interface UpdateSupplierRequest {
+  name?: string;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  paymentTerms?: string;
+  creditLimit?: number;
+  rating?: number;
+  status?: 'Active' | 'Inactive';
+  category?: string;
+}
+
+export interface CreateProductRequest {
+  name: string;
+  genericName?: string;
+  sku: string;
+  price: number;
+  cost: number;
+  category: string;
+  supplierId?: string;
+  minStock?: number;
+  location?: string;
+  branchId?: string;
+  initialStock?: number;
+  expiryDate?: string;
+}
+
+export interface UpdateProductRequest {
+  name?: string;
+  genericName?: string;
+  sku?: string;
+  price?: number;
+  cost?: number;
+  category?: string;
+  supplierId?: string;
+  minStock?: number;
+  location?: string;
+  expiryDate?: string;
+}
+
+export interface CreatePurchaseOrderRequest {
+  supplierId: string;
+  branchId: string;
+  expectedDeliveryDate?: string;
+  tax?: number;
+  discount?: number;
+  termsConditions?: string;
+  shippingAddress?: string;
+  assignedToId?: string;
+  items: CreatePurchaseOrderItemRequest[];
+}
+
+export interface CreatePurchaseOrderItemRequest {
+  productId: string;
+  quantity: number;
+  unitCost: number;
+  batchNumber?: string;
+  expiryDate?: string;
+}
+
+export interface ReceivePurchaseOrderRequest {
+  billNumber: string;
+  billDate: string;
+  dueDate: string;
+  receivedDate: string;
+  note?: string;
+  attachmentUrl?: string;
+}
+
 // ============================================================================
 // Data Service
 // ============================================================================
@@ -174,6 +207,9 @@ export class DataService {
   private readonly _loadingCustomers = signal(false);
   private readonly _loadingInvoices = signal(false);
   private readonly _loadingDashboard = signal(false);
+  private readonly _loadingPurchaseOrders = signal(false);
+  private readonly _loadingBills = signal(false);
+  private readonly _saving = signal(false);
 
   readonly loadingBranches = this._loadingBranches.asReadonly();
   readonly loadingProducts = this._loadingProducts.asReadonly();
@@ -181,6 +217,9 @@ export class DataService {
   readonly loadingCustomers = this._loadingCustomers.asReadonly();
   readonly loadingInvoices = this._loadingInvoices.asReadonly();
   readonly loadingDashboard = this._loadingDashboard.asReadonly();
+  readonly loadingPurchaseOrders = this._loadingPurchaseOrders.asReadonly();
+  readonly loadingBills = this._loadingBills.asReadonly();
+  readonly saving = this._saving.asReadonly();
 
   // Combined loading state for global loading indicator
   readonly isLoading = computed(() => 
@@ -189,8 +228,15 @@ export class DataService {
     this._loadingSuppliers() || 
     this._loadingCustomers() || 
     this._loadingInvoices() ||
-    this._loadingDashboard()
+    this._loadingDashboard() ||
+    this._loadingPurchaseOrders() ||
+    this._loadingBills() ||
+    this._saving()
   );
+
+  // Error state
+  private readonly _lastError = signal<string | null>(null);
+  readonly lastError = this._lastError.asReadonly();
 
   // Cache subjects for real-time updates
   private branchesCache$ = new BehaviorSubject<Branch[]>([]);
@@ -205,6 +251,32 @@ export class DataService {
   readonly customers$ = this.customersCache$.asObservable();
 
   // ============================================================================
+  // Error Handling
+  // ============================================================================
+
+  private handleAndThrow(operation: string) {
+    return (error: ApiError): Observable<never> => {
+      const message = `${operation} failed: ${error.message}`;
+      this._lastError.set(message);
+      console.error(message, error);
+      return throwError(() => error);
+    };
+  }
+
+  private handleWithFallback<T>(operation: string, fallback: T) {
+    return (error: ApiError): Observable<T> => {
+      const message = `${operation} failed: ${error.message}`;
+      this._lastError.set(message);
+      console.error(message, error);
+      return of(fallback);
+    };
+  }
+
+  clearError(): void {
+    this._lastError.set(null);
+  }
+
+  // ============================================================================
   // Branches
   // ============================================================================
 
@@ -213,7 +285,7 @@ export class DataService {
     return this.api.get<PaginatedResponse<Branch>>('branches', params).pipe(
       tap(response => {
         this.branchesCache$.next(response.items);
-        // Also update store
+        // Sync with store
         this.store.setBranches(response.items.map(b => ({
           id: b.id,
           name: b.name,
@@ -232,15 +304,19 @@ export class DataService {
   }
 
   createBranch(data: Partial<Branch>): Observable<Branch> {
+    this._saving.set(true);
     return this.api.post<Branch>('branches', data).pipe(
       tap(branch => {
         const current = this.branchesCache$.value;
         this.branchesCache$.next([...current, branch]);
-      })
+        this.store.addBranchFromApi(branch);
+      }),
+      finalize(() => this._saving.set(false))
     );
   }
 
   updateBranch(id: string, data: Partial<Branch>): Observable<Branch> {
+    this._saving.set(true);
     return this.api.put<Branch>(`branches/${id}`, data).pipe(
       tap(updated => {
         const current = this.branchesCache$.value;
@@ -249,21 +325,156 @@ export class DataService {
           current[index] = updated;
           this.branchesCache$.next([...current]);
         }
-      })
+      }),
+      finalize(() => this._saving.set(false))
     );
   }
 
   deleteBranch(id: string): Observable<boolean> {
+    this._saving.set(true);
     return this.api.delete<boolean>(`branches/${id}`).pipe(
       tap(() => {
         const current = this.branchesCache$.value;
         this.branchesCache$.next(current.filter(b => b.id !== id));
-      })
+      }),
+      finalize(() => this._saving.set(false))
     );
   }
 
   // ============================================================================
-  // Products
+  // Suppliers - Full CRUD with Store Sync
+  // ============================================================================
+
+  getSuppliers(params?: QueryParams): Observable<PaginatedResponse<Supplier>> {
+    this._loadingSuppliers.set(true);
+    return this.api.get<PaginatedResponse<Supplier>>('suppliers', params).pipe(
+      tap(response => {
+        this.suppliersCache$.next(response.items);
+        // Sync with store - set all suppliers
+        this.store.suppliers.set(response.items);
+      }),
+      finalize(() => this._loadingSuppliers.set(false))
+    );
+  }
+
+  getSupplier(id: string): Observable<Supplier> {
+    return this.api.get<Supplier>(`suppliers/${id}`);
+  }
+
+  getSupplierStats(): Observable<SupplierStats> {
+    return this.api.get<SupplierStats>('suppliers/stats');
+  }
+
+  /**
+   * Create a new supplier - persists to backend AND updates store
+   */
+  createSupplier(data: CreateSupplierRequest): Observable<Supplier> {
+    this._saving.set(true);
+    
+    // Sanitize data before sending
+    const sanitizedData = this.sanitizeSupplierRequest(data);
+    
+    return this.api.post<Supplier>('suppliers', sanitizedData).pipe(
+      tap(supplier => {
+        // Update cache
+        const current = this.suppliersCache$.value;
+        this.suppliersCache$.next([...current, supplier]);
+        
+        // Sync with store - add new supplier with real ID from backend
+        this.store.suppliers.update(suppliers => [...suppliers, supplier]);
+      }),
+      catchError(this.handleAndThrow('Create supplier')),
+      finalize(() => this._saving.set(false))
+    );
+  }
+  
+  /**
+   * Sanitize supplier request data - ensures proper types for backend
+   */
+  private sanitizeSupplierRequest(data: CreateSupplierRequest): Record<string, unknown> {
+    const result: Record<string, unknown> = {
+      code: data.code,
+      name: data.name
+    };
+    
+    // Only include optional fields if they have valid values
+    if (data.contactPerson && data.contactPerson.trim()) {
+      result['contactPerson'] = data.contactPerson.trim();
+    }
+    if (data.email && data.email.trim()) {
+      result['email'] = data.email.trim();
+    }
+    if (data.phone && data.phone.trim()) {
+      result['phone'] = data.phone.trim();
+    }
+    if (data.address && data.address.trim()) {
+      result['address'] = data.address.trim();
+    }
+    if (data.city && data.city.trim()) {
+      result['city'] = data.city.trim();
+    }
+    if (data.country && data.country.trim()) {
+      result['country'] = data.country.trim();
+    }
+    if (data.paymentTerms && data.paymentTerms.trim()) {
+      result['paymentTerms'] = data.paymentTerms.trim();
+    }
+    if (data.creditLimit !== undefined && data.creditLimit !== null) {
+      result['creditLimit'] = data.creditLimit;
+    }
+    if (data.category && data.category.trim()) {
+      result['category'] = data.category.trim();
+    }
+    
+    return result;
+  }
+
+  /**
+   * Update an existing supplier - persists to backend AND updates store
+   */
+  updateSupplier(id: string, data: UpdateSupplierRequest): Observable<Supplier> {
+    this._saving.set(true);
+    return this.api.put<Supplier>(`suppliers/${id}`, data).pipe(
+      tap(updated => {
+        // Update cache
+        const current = this.suppliersCache$.value;
+        const index = current.findIndex(s => s.id === id);
+        if (index >= 0) {
+          current[index] = updated;
+          this.suppliersCache$.next([...current]);
+        }
+        
+        // Sync with store
+        this.store.suppliers.update(suppliers => 
+          suppliers.map(s => s.id === id ? updated : s)
+        );
+      }),
+      catchError(this.handleAndThrow('Update supplier')),
+      finalize(() => this._saving.set(false))
+    );
+  }
+
+  /**
+   * Delete a supplier - persists to backend AND updates store
+   */
+  deleteSupplier(id: string): Observable<boolean> {
+    this._saving.set(true);
+    return this.api.delete<boolean>(`suppliers/${id}`).pipe(
+      tap(() => {
+        // Update cache
+        const current = this.suppliersCache$.value;
+        this.suppliersCache$.next(current.filter(s => s.id !== id));
+        
+        // Sync with store
+        this.store.suppliers.update(suppliers => suppliers.filter(s => s.id !== id));
+      }),
+      catchError(this.handleWithFallback('Delete supplier', false)),
+      finalize(() => this._saving.set(false))
+    );
+  }
+
+  // ============================================================================
+  // Products - Full CRUD with Store Sync
   // ============================================================================
 
   getProducts(params?: QueryParams): Observable<PaginatedResponse<Product>> {
@@ -271,6 +482,8 @@ export class DataService {
     return this.api.get<PaginatedResponse<Product>>('products', params).pipe(
       tap(response => {
         this.productsCache$.next(response.items);
+        // Sync with store
+        this.store.products.set(response.items);
       }),
       finalize(() => this._loadingProducts.set(false))
     );
@@ -301,88 +514,279 @@ export class DataService {
     return this.api.get<ProductStats>('products/stats', params);
   }
 
-  createProduct(data: Partial<Product> & { initialStock?: number }): Observable<Product> {
-    return this.api.post<Product>('products', data).pipe(
+  /**
+   * Create a new product - persists to backend AND updates store
+   */
+  createProduct(data: CreateProductRequest): Observable<Product> {
+    this._saving.set(true);
+    
+    // Sanitize data before sending - remove undefined/null/empty values for optional fields
+    const sanitizedData = this.sanitizeProductRequest(data);
+    
+    return this.api.post<Product>('products', sanitizedData).pipe(
       tap(product => {
+        // Update cache
         const current = this.productsCache$.value;
         this.productsCache$.next([...current, product]);
-      })
+        
+        // Sync with store - add product with real ID from backend
+        this.store.products.update(products => [product, ...products]);
+      }),
+      catchError(this.handleAndThrow('Create product')),
+      finalize(() => this._saving.set(false))
     );
   }
+  
+  /**
+   * Sanitize product request data - ensures proper types for backend
+   */
+  private sanitizeProductRequest(data: CreateProductRequest): Record<string, unknown> {
+    const result: Record<string, unknown> = {
+      name: data.name,
+      sku: data.sku,
+      price: data.price,
+      cost: data.cost,
+      category: data.category || 'General'
+    };
+    
+    // Only include optional fields if they have valid values
+    if (data.genericName && data.genericName.trim()) {
+      result['genericName'] = data.genericName.trim();
+    }
+    if (data.supplierId && data.supplierId.trim()) {
+      result['supplierId'] = data.supplierId;
+    }
+    if (data.branchId && data.branchId.trim()) {
+      result['branchId'] = data.branchId;
+    }
+    if (data.minStock !== undefined && data.minStock !== null) {
+      result['minStock'] = data.minStock;
+    }
+    if (data.location && data.location.trim()) {
+      result['location'] = data.location.trim();
+    }
+    if (data.initialStock !== undefined && data.initialStock !== null) {
+      result['initialStock'] = data.initialStock;
+    }
+    if (data.expiryDate && data.expiryDate.trim()) {
+      result['expiryDate'] = data.expiryDate;
+    }
+    
+    return result;
+  }
 
-  updateProduct(id: string, data: Partial<Product>): Observable<Product> {
+  /**
+   * Update an existing product - persists to backend AND updates store
+   */
+  updateProduct(id: string, data: UpdateProductRequest): Observable<Product> {
+    this._saving.set(true);
     return this.api.put<Product>(`products/${id}`, data).pipe(
       tap(updated => {
+        // Update cache
         const current = this.productsCache$.value;
         const index = current.findIndex(p => p.id === id);
         if (index >= 0) {
           current[index] = updated;
           this.productsCache$.next([...current]);
         }
-      })
+        
+        // Sync with store
+        this.store.products.update(products => 
+          products.map(p => p.id === id ? updated : p)
+        );
+      }),
+      catchError(this.handleAndThrow('Update product')),
+      finalize(() => this._saving.set(false))
     );
   }
 
+  /**
+   * Delete a product - persists to backend AND updates store
+   */
   deleteProduct(id: string): Observable<boolean> {
+    this._saving.set(true);
     return this.api.delete<boolean>(`products/${id}`).pipe(
       tap(() => {
+        // Update cache
         const current = this.productsCache$.value;
         this.productsCache$.next(current.filter(p => p.id !== id));
-      })
-    );
-  }
-
-  // ============================================================================
-  // Suppliers
-  // ============================================================================
-
-  getSuppliers(params?: QueryParams): Observable<PaginatedResponse<Supplier>> {
-    this._loadingSuppliers.set(true);
-    return this.api.get<PaginatedResponse<Supplier>>('suppliers', params).pipe(
-      tap(response => {
-        this.suppliersCache$.next(response.items);
+        
+        // Sync with store
+        this.store.products.update(products => products.filter(p => p.id !== id));
       }),
-      finalize(() => this._loadingSuppliers.set(false))
+      catchError(this.handleWithFallback('Delete product', false)),
+      finalize(() => this._saving.set(false))
     );
   }
 
-  getSupplier(id: string): Observable<Supplier> {
-    return this.api.get<Supplier>(`suppliers/${id}`);
-  }
+  // ============================================================================
+  // Purchase Orders - Full CRUD with Store Sync
+  // ============================================================================
 
-  getSupplierStats(): Observable<SupplierStats> {
-    return this.api.get<SupplierStats>('suppliers/stats');
-  }
-
-  createSupplier(data: Partial<Supplier>): Observable<Supplier> {
-    return this.api.post<Supplier>('suppliers', data).pipe(
-      tap(supplier => {
-        const current = this.suppliersCache$.value;
-        this.suppliersCache$.next([...current, supplier]);
-      })
+  getPurchaseOrders(params?: QueryParams): Observable<PurchaseOrder[]> {
+    this._loadingPurchaseOrders.set(true);
+    return this.api.get<PurchaseOrder[]>('purchase-orders', params).pipe(
+      tap(orders => {
+        // Sync with store
+        this.store.purchaseOrders.set(orders);
+      }),
+      finalize(() => this._loadingPurchaseOrders.set(false))
     );
   }
 
-  updateSupplier(id: string, data: Partial<Supplier>): Observable<Supplier> {
-    return this.api.put<Supplier>(`suppliers/${id}`, data).pipe(
+  getPurchaseOrder(id: string): Observable<PurchaseOrder> {
+    return this.api.get<PurchaseOrder>(`purchase-orders/${id}`);
+  }
+
+  /**
+   * Create a new purchase order - persists to backend AND updates store
+   */
+  createPurchaseOrder(data: CreatePurchaseOrderRequest): Observable<PurchaseOrder> {
+    this._saving.set(true);
+    return this.api.post<PurchaseOrder>('purchase-orders', data).pipe(
+      tap(order => {
+        // Sync with store - add with real ID from backend
+        this.store.purchaseOrders.update(orders => [order, ...orders]);
+      }),
+      catchError(this.handleAndThrow('Create purchase order')),
+      finalize(() => this._saving.set(false))
+    );
+  }
+
+  /**
+   * Update an existing purchase order
+   */
+  updatePurchaseOrder(id: string, data: Partial<PurchaseOrder>): Observable<PurchaseOrder> {
+    this._saving.set(true);
+    return this.api.put<PurchaseOrder>(`purchase-orders/${id}`, data).pipe(
       tap(updated => {
-        const current = this.suppliersCache$.value;
-        const index = current.findIndex(s => s.id === id);
-        if (index >= 0) {
-          current[index] = updated;
-          this.suppliersCache$.next([...current]);
-        }
-      })
+        // Sync with store
+        this.store.purchaseOrders.update(orders => 
+          orders.map(o => o.id === id ? updated : o)
+        );
+      }),
+      catchError(this.handleAndThrow('Update purchase order')),
+      finalize(() => this._saving.set(false))
     );
   }
 
-  deleteSupplier(id: string): Observable<boolean> {
-    return this.api.delete<boolean>(`suppliers/${id}`).pipe(
+  /**
+   * Delete a purchase order
+   */
+  deletePurchaseOrder(id: string): Observable<boolean> {
+    this._saving.set(true);
+    return this.api.delete<boolean>(`purchase-orders/${id}`).pipe(
       tap(() => {
-        const current = this.suppliersCache$.value;
-        this.suppliersCache$.next(current.filter(s => s.id !== id));
-      })
+        // Sync with store
+        this.store.purchaseOrders.update(orders => orders.filter(o => o.id !== id));
+      }),
+      catchError(this.handleWithFallback('Delete purchase order', false)),
+      finalize(() => this._saving.set(false))
     );
+  }
+
+  /**
+   * Approve a purchase order (change status to Sent)
+   */
+  approvePurchaseOrder(id: string): Observable<PurchaseOrder> {
+    this._saving.set(true);
+    return this.api.post<PurchaseOrder>(`purchase-orders/${id}/approve`, {}).pipe(
+      tap(() => {
+        this.store.purchaseOrders.update(orders => 
+          orders.map(o => o.id === id ? { ...o, status: 'Sent' as POStatus } : o)
+        );
+      }),
+      catchError(this.handleAndThrow('Approve purchase order')),
+      finalize(() => this._saving.set(false))
+    );
+  }
+
+  /**
+   * Receive a purchase order - creates bill, updates stock
+   * This is the key endpoint that triggers inventory updates
+   */
+  receivePurchaseOrder(id: string): Observable<PurchaseOrder> {
+    this._saving.set(true);
+    return this.api.post<PurchaseOrder>(`purchase-orders/${id}/receive`, {}).pipe(
+      tap(() => {
+        // Update PO status in store
+        this.store.purchaseOrders.update(orders => 
+          orders.map(o => o.id === id ? { ...o, status: 'Closed' as POStatus } : o)
+        );
+        
+        // Refresh products to get updated stock levels
+        this.getProducts({ pageSize: 1000 }).subscribe();
+      }),
+      catchError(this.handleAndThrow('Receive purchase order')),
+      finalize(() => this._saving.set(false))
+    );
+  }
+
+  // ============================================================================
+  // Bills - Requires backend implementation
+  // For now, sync with existing store methods for compatibility
+  // ============================================================================
+
+  getBills(params?: QueryParams): Observable<PurchaseBill[]> {
+    this._loadingBills.set(true);
+    // Backend endpoint: /api/purchase-bills or similar
+    return this.api.get<PurchaseBill[]>('purchase-bills', params).pipe(
+      tap(bills => {
+        this.store.bills.set(bills);
+      }),
+      catchError(() => {
+        // Fallback to store data if endpoint not available
+        return of(this.store.bills());
+      }),
+      finalize(() => this._loadingBills.set(false))
+    );
+  }
+
+  /**
+   * Create bill from PO - for now delegates to store for backward compatibility
+   * TODO: Wire to backend /api/purchase-bills endpoint when available
+   */
+  createBill(poId: string, data: {
+    billNumber: string;
+    billDate: string;
+    receivedDate: string;
+    dueDate: string;
+    assignedTo?: string;
+    attachmentName?: string;
+    attachmentUrl?: string;
+  }): Observable<PurchaseBill | null> {
+    this._saving.set(true);
+    
+    // Use store method for now - this updates local state
+    // In production, this should call the backend API
+    this.store.createBill(poId, data);
+    
+    // Get the created bill from store
+    const bill = this.store.bills().find(b => b.poId === poId);
+    
+    this._saving.set(false);
+    return of(bill || null);
+  }
+
+  /**
+   * Record payment on a bill
+   */
+  addBillPayment(billId: string, payment: {
+    date: string;
+    amount: number;
+    method: 'Cash' | 'Bank Transfer' | 'Check' | 'Credit';
+    reference?: string;
+    attachmentName?: string;
+    fileUrl?: string;
+  }): Observable<PurchaseBill | null> {
+    this._saving.set(true);
+    
+    // Use store method for now
+    this.store.addBillPayment(billId, payment);
+    
+    const bill = this.store.bills().find(b => b.id === billId);
+    this._saving.set(false);
+    return of(bill || null);
   }
 
   // ============================================================================
@@ -394,6 +798,8 @@ export class DataService {
     return this.api.get<PaginatedResponse<Customer>>('customers', params).pipe(
       tap(response => {
         this.customersCache$.next(response.items);
+        // Sync with store
+        this.store.customers.set(response.items);
       }),
       finalize(() => this._loadingCustomers.set(false))
     );
@@ -412,15 +818,20 @@ export class DataService {
   }
 
   createCustomer(data: Partial<Customer>): Observable<Customer> {
+    this._saving.set(true);
     return this.api.post<Customer>('customers', data).pipe(
       tap(customer => {
         const current = this.customersCache$.value;
         this.customersCache$.next([...current, customer]);
-      })
+        this.store.customers.update(customers => [...customers, customer]);
+      }),
+      catchError(this.handleAndThrow('Create customer')),
+      finalize(() => this._saving.set(false))
     );
   }
 
   updateCustomer(id: string, data: Partial<Customer>): Observable<Customer> {
+    this._saving.set(true);
     return this.api.put<Customer>(`customers/${id}`, data).pipe(
       tap(updated => {
         const current = this.customersCache$.value;
@@ -429,16 +840,25 @@ export class DataService {
           current[index] = updated;
           this.customersCache$.next([...current]);
         }
-      })
+        this.store.customers.update(customers => 
+          customers.map(c => c.id === id ? updated : c)
+        );
+      }),
+      catchError(this.handleAndThrow('Update customer')),
+      finalize(() => this._saving.set(false))
     );
   }
 
   deleteCustomer(id: string): Observable<boolean> {
+    this._saving.set(true);
     return this.api.delete<boolean>(`customers/${id}`).pipe(
       tap(() => {
         const current = this.customersCache$.value;
         this.customersCache$.next(current.filter(c => c.id !== id));
-      })
+        this.store.customers.update(customers => customers.filter(c => c.id !== id));
+      }),
+      catchError(this.handleWithFallback('Delete customer', false)),
+      finalize(() => this._saving.set(false))
     );
   }
 
@@ -471,11 +891,32 @@ export class DataService {
     customerId?: string;
     items: { productId: string; quantity: number; price: number }[];
   }): Observable<Invoice> {
-    return this.api.post<Invoice>('invoices', data);
+    this._saving.set(true);
+    return this.api.post<Invoice>('invoices', data).pipe(
+      tap(() => {
+        // Update product stock in store after sale
+        const items = data.items;
+        this.store.products.update(products => 
+          products.map(p => {
+            const soldItem = items.find(i => i.productId === p.id);
+            if (soldItem) {
+              return { ...p, stock: Math.max(0, p.stock - soldItem.quantity) };
+            }
+            return p;
+          })
+        );
+      }),
+      catchError(this.handleAndThrow('Create invoice')),
+      finalize(() => this._saving.set(false))
+    );
   }
 
   updateInvoiceStatus(id: string, status: string, paidAmount?: number): Observable<Invoice> {
-    return this.api.put<Invoice>(`invoices/${id}/status`, { status, paidAmount });
+    this._saving.set(true);
+    return this.api.put<Invoice>(`invoices/${id}/status`, { status, paidAmount }).pipe(
+      catchError(this.handleAndThrow('Update invoice status')),
+      finalize(() => this._saving.set(false))
+    );
   }
 
   // ============================================================================
@@ -490,7 +931,6 @@ export class DataService {
   }> {
     this._loadingDashboard.set(true);
     
-    // Use forkJoin for parallel requests - much more efficient than sequential
     return forkJoin({
       productStats: this.getProductStats(branchId).pipe(
         catchError(() => of({
@@ -520,38 +960,32 @@ export class DataService {
   }
 
   // ============================================================================
-  // Initialization
+  // Initialization - Load all essential data
   // ============================================================================
 
   /**
-   * Load initial data for the application
+   * Load initial data for the application after login
+   * Fetches all essential data from backend and syncs to store
    */
   loadInitialData(): Observable<boolean> {
-    console.log('[DataService] Loading initial data...');
-    return new Observable(observer => {
-      // Load branches first as other data depends on them
-      this.getBranches({ pageSize: 100 }).subscribe({
-        next: () => {
-          const branches = this.store.branches();
-          console.log('[DataService] Initial data loaded successfully:', {
-            branchCount: branches.length,
-            branches: branches.map(b => ({ id: b.id, name: b.name }))
-          });
-          observer.next(true);
-          observer.complete();
-        },
-        error: (error) => {
-          console.error('[DataService] Failed to load initial data:', error);
-          console.error('[DataService] Error details:', {
-            status: error.status,
-            statusText: error.statusText,
-            message: error.message
-          });
-          observer.next(false);
-          observer.complete();
-        }
-      });
-    });
+    return forkJoin({
+      branches: this.getBranches({ pageSize: 100 }).pipe(catchError(() => of({ items: [] }))),
+      suppliers: this.getSuppliers({ pageSize: 500 }).pipe(catchError(() => of({ items: [] }))),
+      products: this.getProducts({ pageSize: 1000 }).pipe(catchError(() => of({ items: [] }))),
+      customers: this.getCustomers({ pageSize: 500 }).pipe(catchError(() => of({ items: [] }))),
+      purchaseOrders: this.getPurchaseOrders({ pageSize: 500 }).pipe(catchError(() => of([]))),
+    }).pipe(
+      map(() => true),
+      catchError(() => of(false))
+    );
+  }
+
+  /**
+   * Refresh all data from backend
+   */
+  refreshAll(): Observable<boolean> {
+    this.clearCache();
+    return this.loadInitialData();
   }
 
   /**
@@ -565,4 +999,3 @@ export class DataService {
     this.customersCache$.next([]);
   }
 }
-

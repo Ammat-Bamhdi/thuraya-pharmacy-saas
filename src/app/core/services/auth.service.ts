@@ -471,22 +471,9 @@ export class AuthService {
   completeOnboarding(): void {
     localStorage.removeItem(FIRST_LOGIN_KEY);
     
-    // Debug: Log current state
-    const tenant = this.store.tenant();
-    const branches = this.store.branches();
-    const user = this.store.currentUser();
-    console.log('[Auth] completeOnboarding - State check:', {
-      hasTenant: !!tenant,
-      tenantName: tenant?.name,
-      branchCount: branches.length,
-      userRole: user?.role,
-      userBranchId: user?.branchId
-    });
-    
     // After successful onboarding, always navigate to dashboard
     // The loadDataAndNavigate will fetch fresh data from backend
     // This ensures branches created during onboarding are properly loaded
-    console.log('[Auth] Onboarding complete, loading fresh data and navigating to dashboard...');
     this.loadDataAndNavigate('dashboard');
   }
 
@@ -509,7 +496,6 @@ export class AuthService {
           this.store.setView('dashboard');
         } else {
           // User completed registration but never created branches
-          console.log('[Auth] User has no branches, redirecting to onboarding');
           this.store.setView('onboarding');
         }
       },

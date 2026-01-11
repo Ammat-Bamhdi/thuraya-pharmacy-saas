@@ -104,7 +104,6 @@ export class FinanceComponent {
    */
   downloadStatement(): void {
     // TODO: Implement P&L statement generation
-    console.log('Downloading P&L statement...');
   }
 
   /**
@@ -114,7 +113,6 @@ export class FinanceComponent {
    */
   addExpense(): void {
     // TODO: Implement expense creation modal
-    console.log('Opening expense modal...');
   }
 }
 
