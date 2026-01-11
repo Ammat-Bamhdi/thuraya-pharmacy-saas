@@ -230,6 +230,23 @@ export class StoreService {
   setBranches(branches: Branch[]): void {
     this.branches.set(branches);
   }
+
+  // Set users from API (replaces all)
+  setUsers(users: User[]): void {
+    this.users.set(users);
+  }
+
+  // Add a single user from API
+  addUserFromApi(user: User): void {
+    this.users.update(u => {
+      // Avoid duplicates
+      if (u.some(existing => existing.id === user.id)) {
+        return u;
+      }
+      return [...u, user];
+    });
+  }
+
   inviteUser(email: string, role: Role, branchId?: string, sectionId?: string) {
     const newUser: User = { id: 'u_' + Math.random().toString(36).substr(2, 9), name: email.split('@')[0], email, role, branchId, sectionId, status: 'invited', avatar: `https://picsum.photos/seed/${Math.random()}/32/32` };
     this.users.update(u => [...u, newUser]);

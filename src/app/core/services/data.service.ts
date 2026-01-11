@@ -18,7 +18,7 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { Observable, tap, BehaviorSubject, finalize, forkJoin, catchError, of, map, throwError } from 'rxjs';
 import { ApiService, PaginatedResponse, QueryParams, ApiError } from './api.service';
-import { StoreService } from './store.service';
+import { StoreService, User as StoreUser, Role as StoreRole } from './store.service';
 import { 
   Supplier, 
   PurchaseOrder, 
@@ -41,6 +41,17 @@ export interface Branch {
   licenseCount: number;
   managerId?: string;
   managerName?: string;
+}
+
+export interface UserApiDto {
+  id: string;
+  name: string;
+  email: string;
+  role: number;
+  branchId?: string;
+  branchName?: string;
+  status: number;
+  avatar?: string;
 }
 
 export interface ProductStats {
@@ -202,6 +213,7 @@ export class DataService {
 
   // Loading states with proper encapsulation
   private readonly _loadingBranches = signal(false);
+  private readonly _loadingUsers = signal(false);
   private readonly _loadingProducts = signal(false);
   private readonly _loadingSuppliers = signal(false);
   private readonly _loadingCustomers = signal(false);
@@ -212,6 +224,7 @@ export class DataService {
   private readonly _saving = signal(false);
 
   readonly loadingBranches = this._loadingBranches.asReadonly();
+  readonly loadingUsers = this._loadingUsers.asReadonly();
   readonly loadingProducts = this._loadingProducts.asReadonly();
   readonly loadingSuppliers = this._loadingSuppliers.asReadonly();
   readonly loadingCustomers = this._loadingCustomers.asReadonly();
@@ -224,6 +237,7 @@ export class DataService {
   // Combined loading state for global loading indicator
   readonly isLoading = computed(() => 
     this._loadingBranches() || 
+    this._loadingUsers() ||
     this._loadingProducts() || 
     this._loadingSuppliers() || 
     this._loadingCustomers() || 
@@ -339,6 +353,57 @@ export class DataService {
       }),
       finalize(() => this._saving.set(false))
     );
+  }
+
+  // ============================================================================
+  // Users - Load team members from API
+  // ============================================================================
+
+  /**
+   * Get all users for the current tenant
+   * Syncs with store for reactive UI updates
+   */
+  getUsers(): Observable<UserApiDto[]> {
+    this._loadingUsers.set(true);
+    return this.api.get<UserApiDto[]>('users', undefined, { skipCache: true }).pipe(
+      map(users => users ?? []), // Handle null response
+      tap(users => {
+        // Map API response to store User format
+        const mappedUsers = users.map(u => this.mapUserFromApi(u));
+        this.store.setUsers(mappedUsers);
+      }),
+      catchError(this.handleWithFallback<UserApiDto[]>('Load users', [])),
+      finalize(() => this._loadingUsers.set(false))
+    );
+  }
+
+  /**
+   * Map API user DTO to frontend User model
+   */
+  private mapUserFromApi(apiUser: UserApiDto): StoreUser {
+    // Map role number to string
+    const roleMap: Record<number, StoreRole> = {
+      0: 'super_admin',
+      1: 'branch_admin',
+      2: 'section_admin'
+    };
+
+    // Map status number to string (matches UserStatus type)
+    const statusMap: Record<number, 'active' | 'invited' | 'suspended'> = {
+      0: 'active',
+      1: 'invited',
+      2: 'suspended'
+    };
+
+    return {
+      id: apiUser.id,
+      name: apiUser.name,
+      email: apiUser.email,
+      role: roleMap[apiUser.role] ?? 'section_admin',
+      branchId: apiUser.branchId,
+      status: statusMap[apiUser.status] ?? 'active',
+      avatar: apiUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(apiUser.name)}&background=random`
+    };
   }
 
   // ============================================================================
@@ -970,6 +1035,7 @@ export class DataService {
   loadInitialData(): Observable<boolean> {
     return forkJoin({
       branches: this.getBranches({ pageSize: 100 }).pipe(catchError(() => of({ items: [] }))),
+      users: this.getUsers().pipe(catchError(() => of([]))),
       suppliers: this.getSuppliers({ pageSize: 500 }).pipe(catchError(() => of({ items: [] }))),
       products: this.getProducts({ pageSize: 1000 }).pipe(catchError(() => of({ items: [] }))),
       customers: this.getCustomers({ pageSize: 500 }).pipe(catchError(() => of({ items: [] }))),
