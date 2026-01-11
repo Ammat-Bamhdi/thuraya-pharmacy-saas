@@ -29,3 +29,9 @@ public record UpdateUserRequest(
     UserStatus? Status
 );
 
+public record InviteUserRequest(
+    string Email,
+    string Name,
+    string Role,
+    Guid? BranchId
+);
