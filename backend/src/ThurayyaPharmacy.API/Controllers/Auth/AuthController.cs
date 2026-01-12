@@ -116,8 +116,12 @@ public class AuthController : BaseApiController
     }
 
     /// <summary>
-    /// Authenticate using Google Authorization Code
+    /// Authenticate using Google Authorization Code (tenant-first flow)
     /// </summary>
+    /// <remarks>
+    /// For existing org login: pass tenantSlug and isNewOrg=false
+    /// For new org creation: pass isNewOrg=true (tenantSlug is ignored)
+    /// </remarks>
     [HttpPost("google-code")]
     public async Task<ActionResult<ApiResponse<GoogleAuthResponse>>> GoogleAuthWithCode(
         [FromBody] GoogleCodeRequest request,
@@ -125,12 +129,20 @@ public class AuthController : BaseApiController
     {
         try
         {
-            var result = await _authService.GoogleAuthWithCodeAsync(request.Code, ct);
+            var result = await _authService.GoogleAuthWithCodeAsync(
+                request.Code, 
+                request.TenantSlug, 
+                request.IsNewOrg, 
+                ct);
             return Success(result);
         }
         catch (UnauthorizedAccessException ex)
         {
             return Unauthorized(new ApiResponse<GoogleAuthResponse>(false, null, ex.Message));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequestResponse<GoogleAuthResponse>(ex.Message);
         }
     }
 

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ThurayyaPharmacy.Application.DTOs;
 using ThurayyaPharmacy.Application.Interfaces;
@@ -54,9 +55,12 @@ public class AuthService : IAuthService
             using var transaction = await _db.Database.BeginTransactionAsync(ct);
             try
             {
+                var slug = await GenerateUniqueSlugAsync(request.TenantName, ct);
+                
                 var tenant = new Tenant
                 {
                     Name = request.TenantName,
+                    Slug = slug,
                     Country = request.Country,
                     Currency = request.Currency,
                     CreatedAt = DateTime.UtcNow
@@ -144,7 +148,7 @@ public class AuthService : IAuthService
         return await ProcessGoogleAuthAsync(userInfo, request.TenantName, request.Country, request.Currency, ct);
     }
 
-    public async Task<GoogleAuthResponse> GoogleAuthWithCodeAsync(string code, CancellationToken ct)
+    public async Task<GoogleAuthResponse> GoogleAuthWithCodeAsync(string code, string? tenantSlug, bool isNewOrg, CancellationToken ct)
     {
         var tokenResponse = await _googleAuthService.ExchangeCodeForTokensAsync(code, ct);
         if (tokenResponse == null || string.IsNullOrEmpty(tokenResponse.IdToken))
@@ -153,8 +157,8 @@ public class AuthService : IAuthService
         var userInfo = await _googleAuthService.VerifyTokenAsync(tokenResponse.IdToken);
         if (userInfo == null) throw new UnauthorizedAccessException("Invalid Google token from code");
 
-        // Use standard default registration details if not provided (or allow onboarding later)
-        return await ProcessGoogleAuthAsync(userInfo, null, null, null, ct);
+        // Tenant-first authentication flow
+        return await ProcessGoogleAuthWithTenantAsync(userInfo, tenantSlug, isNewOrg, ct);
     }
 
     public async Task<MeResponse> GetMeAsync(Guid userId, CancellationToken ct)
@@ -226,6 +230,82 @@ public class AuthService : IAuthService
         return await HandleNewGoogleUserAsync(userInfo, tenantName, country, currency, ct);
     }
 
+    /// <summary>
+    /// Tenant-first Google authentication flow.
+    /// This method handles the new tenant-first auth where user must specify which org they're logging into.
+    /// </summary>
+    private async Task<GoogleAuthResponse> ProcessGoogleAuthWithTenantAsync(GoogleUserInfo userInfo, string? tenantSlug, bool isNewOrg, CancellationToken ct)
+    {
+        // Find existing user by email (globally unique)
+        var existingUser = await _db.Users
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Email == userInfo.Email && !u.IsDeleted, ct);
+
+        // CASE 1: User is creating a NEW organization
+        if (isNewOrg)
+        {
+            // If user already exists, they can't create a new org - email is globally unique
+            if (existingUser != null)
+            {
+                var existingTenant = await _db.Tenants.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(t => t.Id == existingUser.TenantId && !t.IsDeleted, ct);
+                
+                throw new ArgumentException(
+                    $"This email is already registered with organization '{existingTenant?.Name ?? "Unknown"}'. " +
+                    "Please sign in to that organization instead.");
+            }
+
+            // Create new org and user
+            return await HandleNewGoogleUserAsync(userInfo, null, null, null, ct);
+        }
+
+        // CASE 2: User is logging into an EXISTING organization
+        if (string.IsNullOrEmpty(tenantSlug))
+        {
+            throw new ArgumentException("Organization slug is required for existing organization login");
+        }
+
+        // Find the target tenant
+        var tenant = await _db.Tenants.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Slug == tenantSlug && !t.IsDeleted, ct);
+
+        if (tenant == null)
+        {
+            throw new ArgumentException("Organization not found");
+        }
+
+        // CASE 2a: User exists - verify they belong to this org
+        if (existingUser != null)
+        {
+            if (existingUser.TenantId != tenant.Id)
+            {
+                // User belongs to a different org
+                var userTenant = await _db.Tenants.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(t => t.Id == existingUser.TenantId && !t.IsDeleted, ct);
+                
+                throw new UnauthorizedAccessException(
+                    $"This email is registered with a different organization ('{userTenant?.Name ?? "Unknown"}'). " +
+                    $"Please sign in to that organization or use a different email.");
+            }
+
+            // User belongs to this org - activate if invited, then log them in
+            if (existingUser.Status == UserStatus.Invited)
+            {
+                existingUser.Status = UserStatus.Active;
+                existingUser.GoogleId = userInfo.Subject;
+                existingUser.EmailVerified = true;
+                existingUser.Avatar = existingUser.Avatar ?? userInfo.Picture;
+                _logger.LogInformation("Activated invited user {Email} for tenant {TenantSlug}", userInfo.Email, tenantSlug);
+            }
+
+            return await HandleExistingGoogleUserAsync(existingUser, userInfo, ct);
+        }
+
+        // CASE 2b: User does NOT exist - they haven't been invited
+        throw new UnauthorizedAccessException(
+            $"You are not a member of this organization. Please ask an administrator to invite you.");
+    }
+
     private async Task<GoogleAuthResponse> HandleExistingGoogleUserAsync(User user, GoogleUserInfo userInfo, CancellationToken ct)
     {
         user.GoogleId = userInfo.Subject;
@@ -258,9 +338,12 @@ public class AuthService : IAuthService
             using var transaction = await _db.Database.BeginTransactionAsync(ct);
             try
             {
+                var slug = await GenerateUniqueSlugAsync(actualTenantName, ct);
+                
                 var tenant = new Tenant
                 {
                     Name = actualTenantName,
+                    Slug = slug,
                     Country = actualCountry,
                     Currency = actualCurrency,
                     CreatedAt = DateTime.UtcNow
@@ -296,5 +379,43 @@ public class AuthService : IAuthService
                 throw;
             }
         });
+    }
+
+    /// <summary>
+    /// Generate a unique URL-friendly slug from the organization name.
+    /// </summary>
+    private async Task<string> GenerateUniqueSlugAsync(string name, CancellationToken ct)
+    {
+        // Convert to lowercase, replace spaces with hyphens, remove special chars
+        var slug = name.ToLowerInvariant()
+            .Replace(" ", "-")
+            .Replace("'", "")
+            .Replace("'", "");
+        
+        // Remove any remaining non-alphanumeric characters (except hyphens)
+        slug = Regex.Replace(slug, @"[^a-z0-9\-]", "");
+        
+        // Remove consecutive hyphens
+        slug = Regex.Replace(slug, @"-+", "-");
+        
+        // Trim hyphens from start and end
+        slug = slug.Trim('-');
+        
+        // Ensure slug is not empty
+        if (string.IsNullOrEmpty(slug))
+        {
+            slug = "org";
+        }
+        
+        // Ensure uniqueness by appending number if needed
+        var baseSlug = slug;
+        var counter = 1;
+        
+        while (await _db.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Slug == slug && !t.IsDeleted, ct))
+        {
+            slug = $"{baseSlug}-{counter++}";
+        }
+        
+        return slug;
     }
 }

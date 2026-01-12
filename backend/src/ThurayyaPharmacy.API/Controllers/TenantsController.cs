@@ -21,6 +21,41 @@ public class TenantsController : BaseApiController
     }
 
     /// <summary>
+    /// Get tenant by slug (public endpoint for org selection)
+    /// Used by frontend to validate org slug before login
+    /// </summary>
+    [HttpGet("by-slug/{slug}")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<TenantPublicDto>>> GetBySlug(string slug)
+    {
+        var tenant = await _db.Tenants
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Slug == slug && !t.IsDeleted);
+
+        if (tenant == null)
+        {
+            return NotFound(new ApiResponse<TenantPublicDto>(false, null, "Organization not found"));
+        }
+
+        var dto = new TenantPublicDto(tenant.Id, tenant.Name, tenant.Slug);
+        return Ok(new ApiResponse<TenantPublicDto>(true, dto));
+    }
+
+    /// <summary>
+    /// Check if a slug is available (public endpoint for registration)
+    /// </summary>
+    [HttpGet("check-slug/{slug}")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<bool>>> CheckSlugAvailable(string slug)
+    {
+        var exists = await _db.Tenants
+            .IgnoreQueryFilters()
+            .AnyAsync(t => t.Slug == slug && !t.IsDeleted);
+
+        return Ok(new ApiResponse<bool>(true, !exists, exists ? "Slug already taken" : "Slug available"));
+    }
+
+    /// <summary>
     /// Get the current tenant's details
     /// </summary>
     [HttpGet("current")]
@@ -34,7 +69,7 @@ public class TenantsController : BaseApiController
             return NotFound(new ApiResponse<TenantDto>(false, null, "Tenant not found"));
         }
 
-        var dto = new TenantDto(tenant.Id, tenant.Name, tenant.Country, tenant.Currency, tenant.Language.ToString());
+        var dto = new TenantDto(tenant.Id, tenant.Name, tenant.Slug, tenant.Country, tenant.Currency, tenant.Language.ToString());
         return Ok(new ApiResponse<TenantDto>(true, dto));
     }
 
@@ -75,7 +110,7 @@ public class TenantsController : BaseApiController
 
         await _db.SaveChangesAsync();
 
-        var dto = new TenantDto(tenant.Id, tenant.Name, tenant.Country, tenant.Currency, tenant.Language.ToString());
+        var dto = new TenantDto(tenant.Id, tenant.Name, tenant.Slug, tenant.Country, tenant.Currency, tenant.Language.ToString());
         return Ok(new ApiResponse<TenantDto>(true, dto));
     }
 }

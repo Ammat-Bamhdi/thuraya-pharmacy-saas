@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ThurayyaPharmacy.Application.DTOs;
+using ThurayyaPharmacy.Application.Interfaces;
 using ThurayyaPharmacy.Domain.Entities;
 using ThurayyaPharmacy.Domain.Enums;
 using ThurayyaPharmacy.Infrastructure.Data;
@@ -15,11 +16,16 @@ namespace ThurayyaPharmacy.API.Controllers;
 public class UsersController : BaseApiController
 {
     private readonly ApplicationDbContext _db;
+    private readonly IEmailService _emailService;
     private readonly ILogger<UsersController> _logger;
 
-    public UsersController(ApplicationDbContext db, ILogger<UsersController> logger)
+    public UsersController(
+        ApplicationDbContext db,
+        IEmailService emailService,
+        ILogger<UsersController> logger)
     {
         _db = db;
+        _emailService = emailService;
         _logger = logger;
     }
 
@@ -106,41 +112,53 @@ public class UsersController : BaseApiController
             var tenantId = GetTenantId();
             var currentUserId = GetUserId();
 
-            // Check if email already exists in this tenant
-            var existingUser = await _db.Users
-                .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower() && u.TenantId == tenantId);
+            var normalizedEmail = request.Email.ToLower().Trim();
+            
+            // Check if email exists GLOBALLY (emails are unique across all tenants)
+            var existingGlobalUser = await _db.Users
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail && !u.IsDeleted);
 
-            if (existingUser != null)
+            if (existingGlobalUser != null)
             {
-                if (existingUser.IsDeleted)
+                if (existingGlobalUser.TenantId != tenantId)
+                {
+                    // User exists in a different tenant - can't invite
+                    return BadRequestResponse<UserDto>(
+                        "This email is already registered with a different organization. " +
+                        "Each email can only belong to one organization.");
+                }
+                
+                // User exists in same tenant
+                if (existingGlobalUser.IsDeleted)
                 {
                     // Reactivate deleted user
-                    existingUser.IsDeleted = false;
-                    existingUser.Name = request.Name;
-                    existingUser.Role = ParseRole(request.Role);
-                    existingUser.BranchId = request.BranchId;
-                    existingUser.Status = UserStatus.Invited;
-                    existingUser.ModifiedAt = DateTime.UtcNow;
-                    existingUser.ModifiedBy = currentUserId.ToString();
+                    existingGlobalUser.IsDeleted = false;
+                    existingGlobalUser.Name = request.Name;
+                    existingGlobalUser.Role = ParseRole(request.Role);
+                    existingGlobalUser.BranchId = request.BranchId;
+                    existingGlobalUser.Status = UserStatus.Invited;
+                    existingGlobalUser.ModifiedAt = DateTime.UtcNow;
+                    existingGlobalUser.ModifiedBy = currentUserId.ToString();
 
                     await _db.SaveChangesAsync();
 
                     var reactivatedDto = new UserDto(
-                        existingUser.Id,
-                        existingUser.Name,
-                        existingUser.Email,
-                        existingUser.Role,
-                        existingUser.BranchId,
+                        existingGlobalUser.Id,
+                        existingGlobalUser.Name,
+                        existingGlobalUser.Email,
+                        existingGlobalUser.Role,
+                        existingGlobalUser.BranchId,
                         null,
-                        existingUser.Status,
-                        existingUser.Avatar
+                        existingGlobalUser.Status,
+                        existingGlobalUser.Avatar
                     );
 
                     _logger.LogInformation("Reactivated user {Email} for tenant {TenantId}", request.Email, tenantId);
                     return Success(reactivatedDto, "User reactivated successfully");
                 }
 
-                return BadRequestResponse<UserDto>("A user with this email already exists");
+                return BadRequestResponse<UserDto>("A user with this email already exists in your organization");
             }
 
             // Validate branch belongs to tenant if provided
@@ -170,6 +188,20 @@ public class UsersController : BaseApiController
 
             _db.Users.Add(user);
             await _db.SaveChangesAsync();
+
+            // Send invitation email
+            var tenant = await _db.Tenants.FindAsync(tenantId);
+            var inviter = await _db.Users.FindAsync(currentUserId);
+            
+            if (tenant != null && inviter != null)
+            {
+                await _emailService.SendInvitationEmailAsync(
+                    user.Email,
+                    user.Name,
+                    tenant.Name,
+                    tenant.Slug,
+                    inviter.Name);
+            }
 
             var dto = new UserDto(
                 user.Id,

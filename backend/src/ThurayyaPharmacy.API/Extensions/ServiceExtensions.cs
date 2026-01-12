@@ -1,3 +1,4 @@
+using Resend;
 using ThurayyaPharmacy.Application.Interfaces;
 using ThurayyaPharmacy.Infrastructure.Data;
 using ThurayyaPharmacy.Infrastructure.Services;
@@ -31,6 +32,7 @@ public static class ServiceExtensions
         services.AddScoped<IPasswordService, PasswordService>();
         services.AddScoped<IValidationService, ValidationService>();
         services.AddScoped<IGoogleAuthService, GoogleAuthService>();
+        services.AddScoped<IEmailService, EmailService>();
 
         return services;
     }
@@ -57,6 +59,27 @@ public static class ServiceExtensions
     {
         services.AddHealthChecks()
             .AddDbContextCheck<ApplicationDbContext>("database");
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds Resend email service configuration.
+    /// </summary>
+    public static IServiceCollection AddResendEmailService(this IServiceCollection services, IConfiguration configuration)
+    {
+        var apiKey = configuration["Resend:ApiKey"];
+        
+        if (!string.IsNullOrEmpty(apiKey))
+        {
+            services.AddOptions();
+            services.AddHttpClient<ResendClient>();
+            services.Configure<ResendClientOptions>(o =>
+            {
+                o.ApiToken = apiKey;
+            });
+            services.AddTransient<IResend, ResendClient>();
+        }
 
         return services;
     }

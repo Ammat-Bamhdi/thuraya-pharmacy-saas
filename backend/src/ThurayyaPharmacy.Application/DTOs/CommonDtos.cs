@@ -65,9 +65,19 @@ public record ManagerOptionDto(
 public record TenantDto(
     Guid Id,
     string Name,
+    string Slug,
     string Country,
     string Currency,
     string Language
+);
+
+/// <summary>
+/// Public tenant info (no sensitive data) - used for org selection
+/// </summary>
+public record TenantPublicDto(
+    Guid Id,
+    string Name,
+    string Slug
 );
 
 public record BranchDto(

@@ -8,7 +8,7 @@ public interface IAuthService
     Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct);
     Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request, CancellationToken ct);
     Task<GoogleAuthResponse> GoogleAuthAsync(GoogleAuthRequest request, CancellationToken ct);
-    Task<GoogleAuthResponse> GoogleAuthWithCodeAsync(string code, CancellationToken ct);
+    Task<GoogleAuthResponse> GoogleAuthWithCodeAsync(string code, string? tenantSlug, bool isNewOrg, CancellationToken ct);
     Task<MeResponse> GetMeAsync(Guid userId, CancellationToken ct);
     Task LogoutAsync(Guid userId, CancellationToken ct);
 }

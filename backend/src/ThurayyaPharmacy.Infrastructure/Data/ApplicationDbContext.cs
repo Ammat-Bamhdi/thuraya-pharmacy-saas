@@ -104,6 +104,8 @@ public class ApplicationDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Slug).IsRequired().HasMaxLength(100);
+            entity.HasIndex(e => e.Slug).IsUnique();
             entity.Property(e => e.Country).HasMaxLength(100);
             entity.Property(e => e.Currency).HasMaxLength(10);
         });
@@ -137,11 +139,12 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Email).IsRequired().HasMaxLength(200);
-            entity.HasIndex(e => e.Email).IsUnique();
+            entity.HasIndex(e => e.Email).IsUnique(); // Global email uniqueness
             
             // Performance indexes
             entity.HasIndex(e => e.TenantId);
             entity.HasIndex(e => e.RefreshToken);
+            entity.HasIndex(e => e.InvitationToken);
             entity.HasIndex(e => new { e.TenantId, e.BranchId });
             
             entity.HasOne(e => e.Tenant)

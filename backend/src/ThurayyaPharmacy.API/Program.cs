@@ -71,6 +71,9 @@ builder.Services.AddAppHealthChecks();
 // Application Services
 builder.Services.AddApplicationServices();
 
+// Email Service (Resend)
+builder.Services.AddResendEmailService(builder.Configuration);
+
 // HTTP Clients
 builder.Services.AddExternalHttpClients();
 

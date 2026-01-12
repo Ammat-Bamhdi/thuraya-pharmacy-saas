@@ -71,7 +71,14 @@ public record GoogleAuthResponse(
 /// <summary>
 /// Request for Google authorization code (popup flow)
 /// </summary>
-public record GoogleCodeRequest(string Code);
+/// <param name="Code">The authorization code from Google</param>
+/// <param name="TenantSlug">Required for existing org login - validates user belongs to this org</param>
+/// <param name="IsNewOrg">True if user is creating a new organization (skips tenant validation)</param>
+public record GoogleCodeRequest(
+    string Code,
+    string? TenantSlug = null,
+    bool IsNewOrg = false
+);
 
 /// <summary>
 /// Full user info with tenant for /auth/me endpoint

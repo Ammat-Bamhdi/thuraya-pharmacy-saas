@@ -23,6 +23,11 @@ public class User : TenantEntity
     public string? GoogleId { get; set; }
     public bool EmailVerified { get; set; } = false;
     
+    // Invitation
+    public string? InvitationToken { get; set; }
+    public DateTime? InvitationTokenExpiry { get; set; }
+    public Guid? InvitedBy { get; set; }
+    
     // Security & tracking
     public int? FailedLoginAttempts { get; set; } = 0;
     public DateTime? LockoutEndTime { get; set; }

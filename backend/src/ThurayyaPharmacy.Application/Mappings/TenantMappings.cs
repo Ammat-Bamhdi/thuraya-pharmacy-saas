@@ -18,6 +18,7 @@ public static class TenantMappings
         return new TenantDto(
             tenant.Id,
             tenant.Name,
+            tenant.Slug,
             tenant.Country,
             tenant.Currency,
             tenant.Language.ToString()
