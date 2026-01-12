@@ -255,12 +255,19 @@ export class AuthService {
 
   /**
    * Authenticate with Google authorization code (popup flow)
+   * @param code The authorization code from Google
+   * @param tenantSlug Optional tenant slug for existing org login
    */
-  googleAuthWithCode(code: string): Observable<GoogleAuthResponse> {
+  googleAuthWithCode(code: string, tenantSlug?: string): Observable<GoogleAuthResponse> {
     this._isLoading.set(true);
     this._error.set(null);
 
-    return this.http.post<ApiResponse<GoogleAuthResponse>>(`${this.apiUrl}/auth/google-code`, { code })
+    const payload: { code: string; tenantSlug?: string } = { code };
+    if (tenantSlug) {
+      payload.tenantSlug = tenantSlug;
+    }
+
+    return this.http.post<ApiResponse<GoogleAuthResponse>>(`${this.apiUrl}/auth/google-code`, payload)
       .pipe(
         map(response => {
           if (!response.success || !response.data) {
@@ -685,12 +692,11 @@ export class AuthService {
     this.store.setTenant({
       id: tenant.id,
       name: tenant.name,
+      slug: tenant.slug,
       country: tenant.country,
       currency: tenant.currency,
       language: normalizedLanguage
     });
-    
-    
   }
 
   /**

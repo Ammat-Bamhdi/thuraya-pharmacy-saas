@@ -18,9 +18,15 @@ export interface RegisterRequest {
 
 export interface GoogleAuthRequest {
   credential: string;        // Google ID token (JWT)
+  tenantSlug?: string;       // For existing org login (tenant-first flow)
   tenantName?: string;       // Required for new user registration
   country?: string;          // Required for new user registration
   currency?: string;         // Required for new user registration
+}
+
+export interface GoogleCodeRequest {
+  code: string;
+  tenantSlug?: string;       // For existing org login (tenant-first flow)
 }
 
 export interface AuthUser {
@@ -66,9 +72,16 @@ export interface TokenPayload {
 export interface AuthTenant {
   id: string;
   name: string;
+  slug: string;
   country: string;
   currency: string;
   language: string;
+}
+
+export interface TenantPublicInfo {
+  id: string;
+  name: string;
+  slug: string;
 }
 
 export interface MeResponse {

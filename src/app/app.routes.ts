@@ -1,8 +1,10 @@
 /**
  * @fileoverview Application routes with lazy loading and guards
  * @description Implements code-splitting for optimal bundle size
+ * Supports tenant-first authentication flow with path-based routing
+ * 
  * @author Thuraya Systems
- * @version 1.1.0
+ * @version 2.0.0
  */
 
 import { Routes } from '@angular/router';
@@ -12,18 +14,34 @@ import { authGuard, guestGuard, adminGuard, onboardingGuard } from '@core/guards
  * Application routes configuration
  * Uses lazy loading (loadComponent) for code splitting
  * Protected routes use authGuard for authentication
+ * 
+ * Auth Flow:
+ * 1. / -> Org selection (enter org slug)
+ * 2. /:slug/login -> Login to specific org
+ * 3. /signup -> Create new org (Google OAuth creates tenant)
+ * 4. /auth -> Legacy auth (redirects to /)
  */
 export const routes: Routes = [
+  // Org Selection (home for unauthenticated users)
   {
     path: '',
-    redirectTo: 'dashboard',
-    pathMatch: 'full'
+    loadComponent: () => import('@features/auth/org-selection.component').then(m => m.OrgSelectionComponent),
+    canActivate: [guestGuard],
+    title: 'Sign in - Thuraya Pharmacy'
   },
+  // New org signup
   {
-    path: 'auth',
+    path: 'signup',
     loadComponent: () => import('@features/auth/auth.component').then(m => m.AuthComponent),
     canActivate: [guestGuard],
-    title: 'Login - Thuraya Pharmacy'
+    data: { mode: 'signup' },
+    title: 'Create Organization - Thuraya Pharmacy'
+  },
+  // Legacy auth route - redirect to org selection
+  {
+    path: 'auth',
+    redirectTo: '',
+    pathMatch: 'full'
   },
   {
     path: 'onboarding',
@@ -99,7 +117,14 @@ export const routes: Routes = [
     canActivate: [authGuard, adminGuard],
     title: 'Branch Network - Thuraya Pharmacy'
   },
-  // Fallback
+  // Tenant-scoped login route (must be before wildcard)
+  {
+    path: ':slug/login',
+    loadComponent: () => import('@features/auth/login.component').then(m => m.LoginComponent),
+    canActivate: [guestGuard],
+    title: 'Sign in - Thuraya Pharmacy'
+  },
+  // Fallback - authenticated users go to dashboard, unauthenticated to org selection
   {
     path: '**',
     redirectTo: 'dashboard'

@@ -15,6 +15,7 @@ export interface Branch {
 export interface Tenant {
   id: string;
   name: string;
+  slug?: string;
   country: string;
   currency: string;
   language: 'en' | 'ar';
