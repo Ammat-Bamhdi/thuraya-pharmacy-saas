@@ -124,3 +124,7 @@ public class UpdateTenantRequest
     public string? Language { get; set; }
 }
 
+/// <summary>
+/// Public tenant info (no sensitive data)
+/// </summary>
+public record TenantPublicDto(Guid Id, string Name, string Slug);

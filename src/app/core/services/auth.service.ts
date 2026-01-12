@@ -257,12 +257,16 @@ export class AuthService {
    * Authenticate with Google authorization code (popup flow)
    * @param code The authorization code from Google
    * @param tenantSlug Optional tenant slug for existing org login
+   * @param isNewOrg True if user is creating a new organization
    */
-  googleAuthWithCode(code: string, tenantSlug?: string): Observable<GoogleAuthResponse> {
+  googleAuthWithCode(code: string, tenantSlug?: string, isNewOrg: boolean = false): Observable<GoogleAuthResponse> {
     this._isLoading.set(true);
     this._error.set(null);
 
-    const payload: { code: string; tenantSlug?: string } = { code };
+    const payload: { code: string; tenantSlug?: string; isNewOrg: boolean } = { 
+      code, 
+      isNewOrg 
+    };
     if (tenantSlug) {
       payload.tenantSlug = tenantSlug;
     }

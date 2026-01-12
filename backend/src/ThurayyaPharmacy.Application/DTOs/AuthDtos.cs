@@ -8,7 +8,13 @@ public record LoginRequest(
     string Email,
     
     [Required(ErrorMessage = "Password is required")]
-    string Password
+    string Password,
+    
+    /// <summary>
+    /// Optional tenant slug for tenant-first auth flow.
+    /// When provided, validates user belongs to this organization.
+    /// </summary>
+    string? TenantSlug = null
 );
 
 public record RegisterRequest(
@@ -51,6 +57,8 @@ public record RefreshTokenRequest(string RefreshToken);
 /// </summary>
 public record GoogleAuthRequest(
     string Credential,           // Google ID token (JWT from Google Sign-In)
+    string? TenantSlug = null,   // For existing org login (tenant-first flow)
+    bool IsNewOrg = false,       // True if creating new org (signup flow)
     string? TenantName = null,   // Required for new user registration
     string? Country = null,      // Required for new user registration
     string? Currency = null      // Required for new user registration

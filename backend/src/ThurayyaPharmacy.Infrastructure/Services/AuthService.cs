@@ -106,6 +106,23 @@ public class AuthService : IAuthService
         if (user == null)
             throw new UnauthorizedAccessException("Invalid email or password");
 
+        // Tenant-first validation: if tenantSlug is provided, verify user belongs to that org
+        if (!string.IsNullOrEmpty(request.TenantSlug))
+        {
+            var tenant = await _db.Tenants.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(t => t.Slug == request.TenantSlug && !t.IsDeleted, ct);
+            
+            if (tenant == null)
+                throw new UnauthorizedAccessException("Organization not found");
+            
+            if (user.TenantId != tenant.Id)
+            {
+                // Don't reveal that the user exists in a different org - just say invalid credentials
+                _logger.LogWarning("Login attempt for user {Email} to wrong tenant {TenantSlug}", normalizedEmail, request.TenantSlug);
+                throw new UnauthorizedAccessException("Invalid email or password");
+            }
+        }
+
         if (user.LockoutEndTime > DateTime.UtcNow)
             throw new UnauthorizedAccessException($"Account is locked. Try again after {user.LockoutEndTime}");
 
@@ -145,6 +162,13 @@ public class AuthService : IAuthService
         var userInfo = await _googleAuthService.VerifyTokenAsync(request.Credential);
         if (userInfo == null) throw new UnauthorizedAccessException("Invalid Google token");
 
+        // Use tenant-first flow if tenantSlug or isNewOrg is specified
+        if (!string.IsNullOrEmpty(request.TenantSlug) || request.IsNewOrg)
+        {
+            return await ProcessGoogleAuthWithTenantAsync(userInfo, request.TenantSlug, request.IsNewOrg, ct);
+        }
+
+        // Legacy flow (deprecated - for backwards compatibility only)
         return await ProcessGoogleAuthAsync(userInfo, request.TenantName, request.Country, request.Currency, ct);
     }
 

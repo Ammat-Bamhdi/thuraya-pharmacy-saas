@@ -1389,7 +1389,8 @@ export class AuthComponent implements OnInit, OnDestroy {
   }
 
   private authenticateWithGoogleCode(code: string): void {
-    this.auth.googleAuthWithCode(code).subscribe({
+    // This component is used for signup (/signup route) - always creating new org
+    this.auth.googleAuthWithCode(code, undefined, true).subscribe({
       next: (response) => {
         this.ngZone.run(() => {
           this.googleLoading.set(false);
@@ -1415,7 +1416,8 @@ export class AuthComponent implements OnInit, OnDestroy {
   }
 
   private authenticateWithGoogle(credential: string): void {
-    this.auth.googleAuth({ credential }).subscribe({
+    // This component is used for signup - always creating new org
+    this.auth.googleAuth({ credential, isNewOrg: true }).subscribe({
       next: (response) => {
         this.googleLoading.set(false);
         if (response.isNewUser) {

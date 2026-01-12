@@ -14,21 +14,20 @@ import {
   ChangeDetectionStrategy,
   computed,
   OnInit,
-  effect
+  OnDestroy,
+  DestroyRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { ApiResponse } from '@core/models/auth.model';
+import { ApiResponse, TenantPublicInfo } from '@core/models/auth.model';
 import { debounceTime, distinctUntilChanged, Subject, switchMap, of, catchError, tap } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-interface TenantPublicInfo {
-  id: string;
-  name: string;
-  slug: string;
-}
+// LocalStorage key for remembering last used org
+const LAST_ORG_KEY = 'thurayya_last_org';
 
 @Component({
   selector: 'app-org-selection',
@@ -559,10 +558,11 @@ interface TenantPublicInfo {
     }
   `]
 })
-export class OrgSelectionComponent implements OnInit {
+export class OrgSelectionComponent implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly apiUrl = environment.apiUrl;
 
   // State
@@ -609,28 +609,20 @@ export class OrgSelectionComponent implements OnInit {
     return null;
   });
 
-  constructor() {
-    // Set up debounced slug validation
-    effect(() => {
-      const s = this.slug();
-      if (this.isValidSlug()) {
-        this.slugCheck$.next(s);
-      } else {
-        this.validatedOrg.set(null);
-      }
-    }, { allowSignalWrites: true });
-  }
-
   ngOnInit(): void {
     // Check if slug is in URL already (e.g., /acme-corp)
     const pathSlug = this.route.snapshot.paramMap.get('slug');
     if (pathSlug) {
       this.slug.set(pathSlug);
+    } else {
+      // Try to load last used org from localStorage
+      this.loadLastOrg();
     }
 
-    // Set up the debounced validation
+    // Set up the debounced validation with proper cleanup
     this.slugCheck$.pipe(
-      debounceTime(400),
+      takeUntilDestroyed(this.destroyRef),
+      debounceTime(350), // Slightly faster for better UX
       distinctUntilChanged(),
       tap(() => {
         this.isChecking.set(true);
@@ -641,12 +633,38 @@ export class OrgSelectionComponent implements OnInit {
     ).subscribe();
   }
 
+  ngOnDestroy(): void {
+    // Subject cleanup
+    this.slugCheck$.complete();
+  }
+
+  /**
+   * Load last used organization from localStorage for better UX
+   */
+  private loadLastOrg(): void {
+    try {
+      const lastOrg = localStorage.getItem(LAST_ORG_KEY);
+      if (lastOrg && lastOrg.length >= 3) {
+        this.slug.set(lastOrg);
+        // Trigger validation
+        this.slugCheck$.next(lastOrg);
+      }
+    } catch {
+      // localStorage not available - ignore
+    }
+  }
+
   onSlugChange(value: string): void {
     // Normalize: lowercase, replace spaces with hyphens
     const normalized = value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     this.slug.set(normalized);
     this.error.set(null);
     this.validatedOrg.set(null);
+    
+    // Trigger validation if slug is valid
+    if (this.isValidSlug()) {
+      this.slugCheck$.next(normalized);
+    }
   }
 
   private validateSlug(slug: string) {

@@ -5,6 +5,7 @@
 export interface LoginRequest {
   email: string;
   password: string;
+  tenantSlug?: string;       // For tenant-first auth flow
 }
 
 export interface RegisterRequest {
@@ -19,6 +20,7 @@ export interface RegisterRequest {
 export interface GoogleAuthRequest {
   credential: string;        // Google ID token (JWT)
   tenantSlug?: string;       // For existing org login (tenant-first flow)
+  isNewOrg?: boolean;        // True if creating new org (signup flow)
   tenantName?: string;       // Required for new user registration
   country?: string;          // Required for new user registration
   currency?: string;         // Required for new user registration
@@ -27,6 +29,16 @@ export interface GoogleAuthRequest {
 export interface GoogleCodeRequest {
   code: string;
   tenantSlug?: string;       // For existing org login (tenant-first flow)
+  isNewOrg?: boolean;        // True if creating new org (signup flow)
+}
+
+/**
+ * Login request - includes tenantSlug for tenant-first auth
+ */
+export interface TenantLoginRequest {
+  email: string;
+  password: string;
+  tenantSlug: string;        // Required: which org to log into
 }
 
 export interface AuthUser {

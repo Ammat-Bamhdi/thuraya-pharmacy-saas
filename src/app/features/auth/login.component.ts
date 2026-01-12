@@ -14,7 +14,8 @@ import {
   computed,
   OnInit,
   OnDestroy,
-  NgZone
+  NgZone,
+  DestroyRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -22,17 +23,15 @@ import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '@core/services/auth.service';
 import { environment } from '../../../environments/environment';
-import { ApiResponse } from '@core/models/auth.model';
+import { ApiResponse, TenantPublicInfo } from '@core/models/auth.model';
 import { catchError, of, tap } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 // Google Sign-In types
 declare const google: any;
 
-interface TenantPublicInfo {
-  id: string;
-  name: string;
-  slug: string;
-}
+// LocalStorage key for remembering last used org
+const LAST_ORG_KEY = 'thurayya_last_org';
 
 @Component({
   selector: 'app-login',
@@ -149,6 +148,17 @@ interface TenantPublicInfo {
                     <line x1="6" y1="6" x2="18" y2="18"/>
                   </svg>
                 </button>
+              </div>
+            }
+
+            <!-- Success Message -->
+            @if (successMessage()) {
+              <div class="success-banner" role="status" aria-live="polite">
+                <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M9 12l2 2 4-4"/>
+                </svg>
+                <span>{{ successMessage() }}</span>
               </div>
             }
 
@@ -575,6 +585,22 @@ interface TenantPublicInfo {
       animation: slideIn 0.2s ease-out;
     }
 
+    /* Success Banner */
+    .success-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.625rem;
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius);
+      margin-bottom: 1.25rem;
+      font-size: var(--font-size-sm);
+      line-height: 1.5;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      color: var(--color-success);
+      animation: slideIn 0.2s ease-out;
+    }
+
     @keyframes slideIn {
       from { opacity: 0; transform: translateY(-8px); }
       to { opacity: 1; transform: translateY(0); }
@@ -843,6 +869,7 @@ export class LoginComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly ngZone = inject(NgZone);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly apiUrl = environment.apiUrl;
 
   // Org context
@@ -854,6 +881,7 @@ export class LoginComponent implements OnInit, OnDestroy {
   // UI State
   readonly showPassword = signal(false);
   readonly googleLoading = signal(false);
+  readonly successMessage = signal<string | null>(null);
 
   // Form fields
   readonly email = signal('');
@@ -868,12 +896,16 @@ export class LoginComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    // Get slug from route
-    this.route.paramMap.subscribe(params => {
+    // Get slug from route with proper cleanup
+    this.route.paramMap.pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(params => {
       const slug = params.get('slug');
       if (slug) {
         this.slug.set(slug);
         this.loadOrgInfo(slug);
+        // Remember this org for next time
+        this.saveLastOrg(slug);
       } else {
         this.orgError.set(true);
         this.isLoadingOrg.set(false);
@@ -884,7 +916,7 @@ export class LoginComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    // Cleanup if needed
+    // DestroyRef handles cleanup automatically
   }
 
   private loadOrgInfo(slug: string): void {
@@ -892,6 +924,7 @@ export class LoginComponent implements OnInit, OnDestroy {
     this.orgError.set(false);
 
     this.http.get<ApiResponse<TenantPublicInfo>>(`${this.apiUrl}/tenants/by-slug/${slug}`).pipe(
+      takeUntilDestroyed(this.destroyRef),
       tap(response => {
         this.isLoadingOrg.set(false);
         if (response.success && response.data) {
@@ -908,6 +941,14 @@ export class LoginComponent implements OnInit, OnDestroy {
     ).subscribe();
   }
 
+  private saveLastOrg(slug: string): void {
+    try {
+      localStorage.setItem(LAST_ORG_KEY, slug);
+    } catch {
+      // localStorage not available - ignore
+    }
+  }
+
   isValidEmail(): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(this.email());
@@ -916,17 +957,20 @@ export class LoginComponent implements OnInit, OnDestroy {
   handleSubmit(): void {
     if (!this.isFormValid()) return;
     
+    // Pass tenantSlug for tenant-first validation
     this.auth.login({
       email: this.email().trim().toLowerCase(),
-      password: this.password()
+      password: this.password(),
+      tenantSlug: this.slug()
     }).subscribe({
       next: () => this.auth.navigateAfterAuth()
     });
   }
 
   showForgotPassword(): void {
-    // TODO: Implement forgot password flow
-    alert('Password reset feature coming soon. Contact support for assistance.');
+    // Show inline message instead of browser alert
+    this.successMessage.set('Password reset feature coming soon. Please contact your administrator for assistance.');
+    setTimeout(() => this.successMessage.set(null), 6000);
   }
 
   goBack(): void {
